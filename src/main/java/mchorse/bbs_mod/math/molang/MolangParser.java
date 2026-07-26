@@ -18,6 +18,7 @@ import mchorse.bbs_mod.math.molang.functions.SinDegrees;
 
 import java.util.ArrayList;
 import java.util.List;
+import mchorse.bbs_mod.BBSMod;
 
 /**
  * MoLang parser
@@ -170,8 +171,8 @@ public class MolangParser extends MathBuilder
         }
         catch (Exception e)
         {
-            System.err.println("Failed to parse MoLang: " + data);
-            e.printStackTrace();
+            BBSMod.LOGGER.warn("Failed to parse MoLang: " + data);
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return defaultExpression;
@@ -329,7 +330,7 @@ public class MolangParser extends MathBuilder
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
 
             throw new MolangException("Couldn't parse an expression!");
         }

@@ -8,6 +8,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 
 import java.io.File;
 import java.io.IOException;
+import mchorse.bbs_mod.BBSModClient;
 
 public class PNGImporter implements IImporter
 {
@@ -36,7 +37,7 @@ public class PNGImporter implements IImporter
             }
             catch (IOException e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
     }

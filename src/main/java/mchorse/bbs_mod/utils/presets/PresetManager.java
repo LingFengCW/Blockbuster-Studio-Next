@@ -52,7 +52,7 @@ public class PresetManager
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;

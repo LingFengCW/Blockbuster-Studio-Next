@@ -189,7 +189,7 @@ public class UIAudioEditor extends UIElement
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 

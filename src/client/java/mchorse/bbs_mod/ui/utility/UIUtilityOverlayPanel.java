@@ -132,7 +132,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 }
                 catch (Exception e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
 
                 BBSResources.setupWatchdog();
@@ -167,7 +167,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 }
                 catch (Exception e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
             }, "CDNUploadThread");
 
@@ -254,14 +254,14 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
         String separator = StringUtils.repeat("-", longest);
 
-        System.out.println(separator);
+        BBSModClient.LOGGER.info(separator);
 
         for (String s : splits)
         {
-            System.out.println(s);
+            BBSModClient.LOGGER.info(s);
         }
 
-        System.out.println(separator);
+        BBSModClient.LOGGER.info(separator);
     }
 
     @Override

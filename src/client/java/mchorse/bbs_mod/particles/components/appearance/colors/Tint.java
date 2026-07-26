@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import mchorse.bbs_mod.BBSModClient;
 
 public abstract class Tint
 {
@@ -48,7 +49,7 @@ public abstract class Tint
                 }
                 catch (Exception e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
             }
         }

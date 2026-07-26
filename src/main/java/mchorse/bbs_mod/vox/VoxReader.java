@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import mchorse.bbs_mod.BBSMod;
 
 /**
  * MagicaVoxel *.vox reader
@@ -43,7 +44,7 @@ public class VoxReader extends BinaryReader
         if (version != 150)
         {
             System.err.println("Version of given \"" + link + "\" VOX model is " + version + " (150 was expected). If model works, ignore this warning.");
-            System.err.println("Otherwise, it's most likely due to different version of MagicaVoxel. Try using MagicaVoxel 0.99.6.3!");
+            BBSMod.LOGGER.warn("Otherwise, it's most likely due to different version of MagicaVoxel. Try using MagicaVoxel 0.99.6.3!");
         }
 
         VoxChunk main = this.readChunk(stream);

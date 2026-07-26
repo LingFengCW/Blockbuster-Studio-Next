@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import mchorse.bbs_mod.BBSModClient;
 
 public class SoundManager implements IWatchDogListener
 {
@@ -64,7 +65,7 @@ public class SoundManager implements IWatchDogListener
 
             this.buffers.put(link, buffer);
 
-            System.out.println("Sound \"" + link + "\" was loaded!");
+            BBSModClient.LOGGER.info("Sound \"" + link + "\" was loaded!");
 
             return buffer;
         }
@@ -72,7 +73,7 @@ public class SoundManager implements IWatchDogListener
         {
             this.buffers.put(link, null);
 
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -133,7 +134,7 @@ public class SoundManager implements IWatchDogListener
             }
             catch (IOException e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
     }

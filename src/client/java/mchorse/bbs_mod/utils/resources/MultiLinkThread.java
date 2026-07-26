@@ -111,7 +111,7 @@ public class MultiLinkThread implements Runnable
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 

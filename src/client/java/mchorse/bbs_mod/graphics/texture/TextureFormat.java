@@ -2,6 +2,7 @@ package mchorse.bbs_mod.graphics.texture;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
+import mchorse.bbs_mod.BBSModClient;
 
 public enum TextureFormat
 {
@@ -23,7 +24,7 @@ public enum TextureFormat
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return RGBA_U8;

@@ -40,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import mchorse.bbs_mod.BBSModClient;
 
 public class CubicModelBakery implements IModelLoader
 {
@@ -72,7 +73,7 @@ public class CubicModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            System.err.println("Failed to load BBS file: " + modelBBS);
+            BBSModClient.LOGGER.warn("Failed to load BBS file: " + modelBBS);
         }
 
         /* Construct the model from compiled data */
@@ -222,7 +223,7 @@ public class CubicModelBakery implements IModelLoader
                 }
                 catch (Exception e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
             }
             else
@@ -263,7 +264,7 @@ public class CubicModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         output.delete();
@@ -366,7 +367,7 @@ public class CubicModelBakery implements IModelLoader
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 
@@ -403,7 +404,7 @@ public class CubicModelBakery implements IModelLoader
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 
@@ -482,7 +483,7 @@ public class CubicModelBakery implements IModelLoader
                 }
                 catch (Exception e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
             }
         }

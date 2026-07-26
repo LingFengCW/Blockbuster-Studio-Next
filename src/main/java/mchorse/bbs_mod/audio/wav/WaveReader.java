@@ -10,6 +10,7 @@ import java.io.EOFException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import mchorse.bbs_mod.BBSMod;
 
 /**
  * @link http://soundfile.sapp.org/doc/WaveFormat/
@@ -102,7 +103,7 @@ public class WaveReader extends BinaryReader
                         }
                         catch (Exception e)
                         {
-                            e.printStackTrace();
+                            BBSMod.LOGGER.error("Exception", e);
                         }
                     }
                     /* https://www.recordingblogs.com/wiki/cue-chunk-of-a-wave-file */
@@ -137,7 +138,7 @@ public class WaveReader extends BinaryReader
                 }
                 catch (EOFException e)
                 {
-                    e.printStackTrace();
+                    BBSMod.LOGGER.error("Exception", e);
 
                     break;
                 }
@@ -157,7 +158,7 @@ public class WaveReader extends BinaryReader
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -165,7 +166,7 @@ public class WaveReader extends BinaryReader
 
     private void log(String s)
     {
-        // System.out.println(s);
+        // BBSMod.LOGGER.info(s);
     }
 
     public BinaryChunk readChunk(InputStream stream) throws Exception

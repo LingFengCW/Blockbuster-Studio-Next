@@ -8,6 +8,7 @@ import mchorse.bbs_mod.utils.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
+import mchorse.bbs_mod.BBSMod;
 
 /**
  * Data to JSON-like string utility
@@ -142,7 +143,7 @@ public class DataToString
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -173,7 +174,7 @@ public class DataToString
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return false;

@@ -118,7 +118,7 @@ public class AudioRenderer
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 
@@ -152,7 +152,7 @@ public class AudioRenderer
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 
@@ -171,7 +171,7 @@ public class AudioRenderer
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return false;

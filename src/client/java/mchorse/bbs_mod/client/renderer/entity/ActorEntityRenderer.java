@@ -26,7 +26,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, EntityRende
     {
         super(ctx);
 
-        armorRenderer = new ArmorRenderer(Minecraft.getInstance().getModelManager(), false);
+        armorRenderer = new ArmorRenderer(ctx.getModelSet(), false);
 
         this.shadowRadius = 0.5F;
     }

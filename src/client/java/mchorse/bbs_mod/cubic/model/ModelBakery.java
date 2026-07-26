@@ -2,6 +2,7 @@ package mchorse.bbs_mod.cubic.model;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import mchorse.bbs_mod.BBSModClient;
 
 public class ModelBakery implements Runnable
 {
@@ -38,7 +39,7 @@ public class ModelBakery implements Runnable
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 

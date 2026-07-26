@@ -447,7 +447,7 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         this.updateListSelections();

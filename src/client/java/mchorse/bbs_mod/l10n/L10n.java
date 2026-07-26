@@ -157,14 +157,14 @@ public class L10n
         {
             try (InputStream asset = provider.getAsset(link))
             {
-                System.out.println("Loading language file \"" + link + "\".");
+                BBSModClient.LOGGER.info("Loading language file \"" + link + "\".");
 
                 this.load(link, asset);
             }
             catch (Exception e)
             {
-                System.err.println("Failed to load " + link + " language file!");
-                e.printStackTrace();
+                BBSModClient.LOGGER.warn("Failed to load " + link + " language file!");
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 
@@ -188,7 +188,7 @@ public class L10n
                 }
                 catch (Exception e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
             }
         }

@@ -107,7 +107,7 @@ public class FFMpegUtils
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return false;
@@ -127,7 +127,7 @@ public class FFMpegUtils
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return Optional.empty();

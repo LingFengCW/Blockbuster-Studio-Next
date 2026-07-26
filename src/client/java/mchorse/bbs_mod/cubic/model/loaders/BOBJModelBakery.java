@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import mchorse.bbs_mod.BBSModClient;
 
 public class BOBJModelBakery implements IModelLoader
 {
@@ -44,7 +45,7 @@ public class BOBJModelBakery implements IModelLoader
 
             if (bobjData.armatures.isEmpty())
             {
-                System.err.println("Model \"" + model + "\" doesn't have an armature!");
+                BBSModClient.LOGGER.warn("Model \"" + model + "\" doesn't have an armature!");
 
                 return null;
             }
@@ -92,11 +93,11 @@ public class BOBJModelBakery implements IModelLoader
                 return instance;
             }
 
-            System.err.println("Model \"" + model + "\" doesn't have a mesh connected to one of the armatures!");
+            BBSModClient.LOGGER.warn("Model \"" + model + "\" doesn't have a mesh connected to one of the armatures!");
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -128,8 +129,8 @@ public class BOBJModelBakery implements IModelLoader
             }
             catch (Exception e)
             {
-                System.err.println("Failed to load Emoticons " + link + "!");
-                e.printStackTrace();
+                BBSModClient.LOGGER.warn("Failed to load Emoticons " + link + "!");
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
     }

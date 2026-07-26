@@ -580,7 +580,7 @@ public class ServerNetwork
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
     }
 
@@ -603,7 +603,7 @@ public class ServerNetwork
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
     }
 

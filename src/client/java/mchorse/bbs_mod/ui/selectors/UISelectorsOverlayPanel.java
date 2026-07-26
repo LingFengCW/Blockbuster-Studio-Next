@@ -98,7 +98,7 @@ public class UISelectorsOverlayPanel extends UIOverlayPanel
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         });
 

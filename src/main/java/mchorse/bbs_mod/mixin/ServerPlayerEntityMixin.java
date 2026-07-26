@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,8 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ServerPlayer.class)
 public class ServerPlayerEntityMixin
 {
-    @Inject(method = "dropItem", at = @At("RETURN"))
-    public void onDropItem(CallbackInfoReturnable<ItemEntity> info)
+    @Inject(method = "drop(Lnet/minecraft/world/item/ItemStack;ZZ)Lnet/minecraft/world/entity/item/ItemEntity;", at = @At("RETURN"))
+    public void onDrop(ItemStack stack, boolean throwRandomly, boolean retainOwnership, CallbackInfoReturnable<ItemEntity> info)
     {
         ItemEntity entity = info.getReturnValue();
 

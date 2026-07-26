@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import mchorse.bbs_mod.BBSModClient;
 
 public class ModelManager implements IWatchDogListener
 {
@@ -123,11 +124,11 @@ public class ModelManager implements IWatchDogListener
 
         if (model == null)
         {
-            System.err.println("Model \"" + id + "\" wasn't loaded properly, or was loaded with no top level groups!");
+            BBSModClient.LOGGER.warn("Model \"" + id + "\" wasn't loaded properly, or was loaded with no top level groups!");
         }
         else
         {
-            System.out.println("Model \"" + id + "\" was loaded!");
+            BBSModClient.LOGGER.info("Model \"" + id + "\" was loaded!");
 
             model.setup();
         }

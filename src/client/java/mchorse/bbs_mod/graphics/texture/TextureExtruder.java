@@ -124,7 +124,7 @@ public class TextureExtruder
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         if (pixels == null)

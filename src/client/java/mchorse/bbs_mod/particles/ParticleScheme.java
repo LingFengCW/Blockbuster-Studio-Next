@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import mchorse.bbs_mod.BBSModClient;
 
 public class ParticleScheme extends ValueGroup {
     public static final Link DEFAULT_TEXTURE = Link.assets("textures/default_atlas.png");
@@ -59,7 +60,7 @@ public class ParticleScheme extends ValueGroup {
         try {
             return PARSER.fromData(json);
         } catch (Exception e) {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -237,7 +238,7 @@ public class ParticleScheme extends ValueGroup {
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 

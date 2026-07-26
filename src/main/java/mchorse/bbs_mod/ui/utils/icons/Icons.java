@@ -4,6 +4,7 @@ import mchorse.bbs_mod.resources.Link;
 
 import java.util.HashMap;
 import java.util.Map;
+import mchorse.bbs_mod.BBSMod;
 
 public class Icons
 {
@@ -243,7 +244,7 @@ public class Icons
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSMod.LOGGER.error("Exception", e);
             }
         }
         else

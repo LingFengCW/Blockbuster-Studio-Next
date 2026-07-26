@@ -14,6 +14,7 @@ import mchorse.bbs_mod.utils.Axis;
 import mchorse.bbs_mod.utils.colors.Colors;
 import org.joml.Vector3d;
 import org.lwjgl.glfw.GLFW;
+import mchorse.bbs_mod.BBSModClient;
 
 /**
  * Transformation editor GUI
@@ -267,7 +268,7 @@ public abstract class UITransform extends UIElement
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 
@@ -292,7 +293,7 @@ public abstract class UITransform extends UIElement
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 
@@ -308,7 +309,7 @@ public abstract class UITransform extends UIElement
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 
@@ -324,7 +325,7 @@ public abstract class UITransform extends UIElement
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 

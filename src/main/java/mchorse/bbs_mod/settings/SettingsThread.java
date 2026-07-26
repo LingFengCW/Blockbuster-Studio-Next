@@ -4,6 +4,7 @@ import mchorse.bbs_mod.utils.Timer;
 
 import java.util.HashSet;
 import java.util.Set;
+import mchorse.bbs_mod.BBSMod;
 
 /**
  * Config thread
@@ -48,7 +49,7 @@ public class SettingsThread implements Runnable
             }
             catch (InterruptedException e)
             {
-                e.printStackTrace();
+                BBSMod.LOGGER.error("Exception", e);
             }
         }
 

@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.l10n.keys;
 
+import mchorse.bbs_mod.BBSMod;
+
 public class FormatKey implements IKey
 {
     public IKey lang;
@@ -23,8 +25,8 @@ public class FormatKey implements IKey
         catch (Exception e)
         {
             String key = this.lang instanceof LangKey ? ((LangKey) this.lang).key : this.lang.get();
-            System.out.println("Failed to format string: " + key);
-            e.printStackTrace();
+            BBSMod.LOGGER.info("Failed to format string: " + key);
+            BBSMod.LOGGER.error("Exception", e);
 
             return key;
         }

@@ -14,6 +14,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
 import java.io.File;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UIDebugPanel extends UIDashboardPanel
 {
@@ -46,7 +47,7 @@ public class UIDebugPanel extends UIDashboardPanel
             /* File file = BBSMod.getAssetsPath("textures/skin.png");
             Vector2i vector2i = PNGEncoder.readSize(file);
 
-            System.out.println(vector2i);
+            BBSModClient.LOGGER.info(vector2i);
 
             // ---
 
@@ -59,7 +60,7 @@ public class UIDebugPanel extends UIDashboardPanel
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
 
             // ---
@@ -71,11 +72,11 @@ public class UIDebugPanel extends UIDashboardPanel
             {
                 Wave read = waveReader.read(stream);
 
-                System.out.println(read);
+                BBSModClient.LOGGER.info(read);
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
 
             // ---
@@ -93,11 +94,11 @@ public class UIDebugPanel extends UIDashboardPanel
                 DataStorage.writeToStream(new FileOutputStream(file), type);
                 MapType read = (MapType) DataStorage.readFromStream(new FileInputStream(file));
 
-                System.out.println(read);
+                BBSModClient.LOGGER.info(read);
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             } */
 
             try
@@ -122,7 +123,7 @@ public class UIDebugPanel extends UIDashboardPanel
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         });
 

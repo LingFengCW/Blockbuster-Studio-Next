@@ -11,6 +11,7 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 
 import java.io.File;
 import java.io.IOException;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UITextureManagerPanel extends UIDashboardPanel
 {
@@ -54,7 +55,7 @@ public class UITextureManagerPanel extends UIDashboardPanel
                 }
                 catch (IOException e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
 
                 newPixels.delete();

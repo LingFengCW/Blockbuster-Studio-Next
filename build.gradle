@@ -54,6 +54,9 @@ dependencies {
 
 	implementation "org.anarres:jcpp:${project.jcpp_version}"
 	implementation "io.github.douira:glsl-transformer:${project.glsl_transformer_version}"
+
+	// Embedded JavaScript engine for user script plugins (pure Java, bundled via JiJ).
+	include implementation("org.mozilla:rhino:${project.rhino_version}")
 }
 
 processResources {

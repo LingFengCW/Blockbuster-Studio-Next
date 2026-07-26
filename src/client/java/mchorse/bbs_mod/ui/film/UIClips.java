@@ -53,6 +53,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UIClips extends UIElement
 {
@@ -443,7 +444,7 @@ public class UIClips extends UIElement
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
 
             this.getContext().notifyError(UIKeys.CAMERA_TIMELINE_INCOMPATIBLE_PASTE);
         }

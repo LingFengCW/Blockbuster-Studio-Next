@@ -6,6 +6,7 @@ import mchorse.bbs_mod.utils.manager.storage.JSONLikeStorage;
 
 import java.io.File;
 import java.util.function.Supplier;
+import mchorse.bbs_mod.BBSModClient;
 
 public class ParticleManager extends BaseManager<ParticleScheme>
 {
@@ -25,13 +26,13 @@ public class ParticleManager extends BaseManager<ParticleScheme>
         {
             try
             {
-                System.out.println("Parsing \"" + id + "\" particle effect.");
+                BBSModClient.LOGGER.info("Parsing \"" + id + "\" particle effect.");
 
                 ParticleScheme.PARSER.fromData(scheme, data);
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
         else

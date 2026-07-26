@@ -18,6 +18,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import java.util.Objects;
+import mchorse.bbs_mod.BBSModClient;
 
 public class EntitySelector implements IMapSerializable
 {
@@ -97,7 +98,7 @@ public class EntitySelector implements IMapSerializable
             }
             catch (CommandSyntaxException e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
     }

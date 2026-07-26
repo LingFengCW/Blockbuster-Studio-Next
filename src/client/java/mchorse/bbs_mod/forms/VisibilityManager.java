@@ -9,6 +9,7 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import mchorse.bbs_mod.BBSModClient;
 
 public class VisibilityManager
 {
@@ -63,7 +64,7 @@ public class VisibilityManager
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 
