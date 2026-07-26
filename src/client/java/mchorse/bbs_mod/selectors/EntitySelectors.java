@@ -11,6 +11,7 @@ import net.minecraft.world.entity.LivingEntity;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import mchorse.bbs_mod.BBSModClient;
 
 public class EntitySelectors implements IMapSerializable
 {
@@ -64,7 +65,7 @@ public class EntitySelectors implements IMapSerializable
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 
@@ -76,7 +77,7 @@ public class EntitySelectors implements IMapSerializable
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 

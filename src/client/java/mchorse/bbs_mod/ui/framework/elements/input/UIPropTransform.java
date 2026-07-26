@@ -23,6 +23,7 @@ import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.function.Supplier;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UIPropTransform extends UITransform
 {
@@ -296,7 +297,7 @@ public class UIPropTransform extends UITransform
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
         else

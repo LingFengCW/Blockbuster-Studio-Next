@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import mchorse.bbs_mod.BBSModClient;
 
 /**
  * List component for Minecraft vanilla sound effects with preview and download support
@@ -206,7 +207,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
     /**
@@ -231,7 +232,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -298,7 +299,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -472,7 +473,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 
@@ -529,7 +530,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -583,7 +584,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -618,7 +619,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 
@@ -675,7 +676,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -764,7 +765,7 @@ public class UIVanillaSoundList extends UIStringList
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;

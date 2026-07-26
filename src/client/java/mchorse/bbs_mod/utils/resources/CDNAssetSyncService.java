@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import mchorse.bbs_mod.BBSModClient;
 
 /**
  * API for working with custom CDN service. Once I'll upload the script,
@@ -162,7 +163,7 @@ public class CDNAssetSyncService
 
             if (needsDownload)
             {
-                System.out.println("[CDN] Downloading: " + remoteFile.path);
+                BBSModClient.LOGGER.info("[CDN] Downloading: " + remoteFile.path);
 
                 this.downloadFile(remoteFile.path, localPath);
                 this.issueStatus(CDNStatus.DOWNLOADED, UIKeys.CDN_STATUS_DOWNLOADED.format(remoteFile.path));
@@ -252,7 +253,7 @@ public class CDNAssetSyncService
 
                 if (needsUpload)
                 {
-                    System.out.println("[CDN] Uploading: " + relativePath);
+                    BBSModClient.LOGGER.info("[CDN] Uploading: " + relativePath);
 
                     try
                     {
@@ -277,7 +278,7 @@ public class CDNAssetSyncService
 
             if (!Files.exists(localPath))
             {
-                System.out.println("[CDN] Deleting remote: " + remoteFile.path);
+                BBSModClient.LOGGER.info("[CDN] Deleting remote: " + remoteFile.path);
 
                 try
                 {

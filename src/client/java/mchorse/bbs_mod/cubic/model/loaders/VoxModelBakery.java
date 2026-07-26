@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collection;
+import mchorse.bbs_mod.BBSModClient;
 
 public class VoxModelBakery implements IModelLoader
 {
@@ -59,7 +60,7 @@ public class VoxModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -103,7 +104,7 @@ public class VoxModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         pixels.delete();

@@ -43,3 +43,13 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+*.log
+_dirs_clean.txt
+_java_clean.txt
+_java_diff.txt
+_res_clean.txt
+cfr.jar
+pem.txt
+pemdir/
+pemdir2/
+examples/

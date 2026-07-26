@@ -51,6 +51,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
+import mchorse.bbs_mod.BBSMod;
 
 public class BBSCommands
 {
@@ -432,7 +433,7 @@ public class BBSCommands
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return -1;

@@ -19,6 +19,7 @@ import mchorse.bbs_mod.utils.factory.IFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UIClipsPanel extends UIElement implements IUIClipsDelegate
 {
@@ -166,7 +167,7 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         this.clips.w(1F, this.target == null ? -160 : 0);

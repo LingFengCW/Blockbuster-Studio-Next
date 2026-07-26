@@ -14,6 +14,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 import java.util.Map;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UIParticleSchemeCurvesSection extends UIParticleSchemeSection
 {
@@ -57,7 +58,7 @@ public class UIParticleSchemeCurvesSection extends UIParticleSchemeSection
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         curve.variable = parser.variables.get(name);

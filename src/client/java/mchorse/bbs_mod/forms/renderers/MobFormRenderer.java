@@ -135,7 +135,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                             }
                             catch (Exception e)
                             {
-                                e.printStackTrace();
+                                BBSModClient.LOGGER.error("Exception", e);
                             }
                         }
                     }

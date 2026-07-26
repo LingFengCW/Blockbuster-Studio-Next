@@ -33,6 +33,7 @@ import mchorse.bbs_mod.resources.Link;
 
 import java.util.HashMap;
 import java.util.Map;
+import mchorse.bbs_mod.BBSModClient;
 
 public class ParticleParser
 {
@@ -229,7 +230,7 @@ public class ParticleParser
                 }
                 else
                 {
-                    System.out.println("Failed to parse given component " + key + " in " + scheme.identifier + "!");
+                    BBSModClient.LOGGER.info("Failed to parse given component " + key + " in " + scheme.identifier + "!");
                 }
             }
         }

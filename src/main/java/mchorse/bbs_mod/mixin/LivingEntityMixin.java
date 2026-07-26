@@ -11,15 +11,18 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(LivingEntity.class)
+@Mixin(Entity.class)
 public class LivingEntityMixin
 {
-    @Inject(method = "applyDamage", at = @At("HEAD"))
-    public void onApplyDamage(DamageSource source, float amount, CallbackInfo info)
+    @Inject(method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)V", at = @At("HEAD"))
+    public void onHurt(DamageSource source, float amount, CallbackInfo info)
     {
+        if (!(((Object) this) instanceof LivingEntity)) return;
+        if (!source.isDirect()) return;
+
         Entity attacker = source.getEntity();
 
-        if (!!source.isDirect() && attacker != null && attacker.getClass() == ServerPlayer.class)
+        if (attacker != null && attacker.getClass() == ServerPlayer.class)
         {
             BBSMod.getActions().addAction((ServerPlayer) attacker, () ->
             {

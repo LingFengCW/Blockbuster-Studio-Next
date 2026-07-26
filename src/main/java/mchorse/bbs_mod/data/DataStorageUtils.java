@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import mchorse.bbs_mod.BBSMod;
 
 public class DataStorageUtils
 {
@@ -58,7 +59,7 @@ public class DataStorageUtils
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return EMPTY;
@@ -79,7 +80,7 @@ public class DataStorageUtils
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -97,7 +98,7 @@ public class DataStorageUtils
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
     }
 
@@ -111,7 +112,7 @@ public class DataStorageUtils
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;

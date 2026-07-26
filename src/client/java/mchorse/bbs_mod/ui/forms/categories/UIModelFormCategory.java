@@ -18,6 +18,7 @@ import mchorse.bbs_mod.utils.IOUtils;
 
 import java.io.File;
 import java.io.IOException;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UIModelFormCategory extends UIFormCategory
 {
@@ -57,7 +58,7 @@ public class UIModelFormCategory extends UIFormCategory
                     }
                     catch (IOException e)
                     {
-                        e.printStackTrace();
+                        BBSModClient.LOGGER.error("Exception", e);
                     }
                 }
             });

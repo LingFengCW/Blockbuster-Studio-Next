@@ -6,6 +6,7 @@ import mchorse.bbs_mod.resources.AssetProvider;
 import mchorse.bbs_mod.resources.Link;
 
 import java.io.InputStream;
+import mchorse.bbs_mod.BBSMod;
 
 public class AudioReader
 {
@@ -18,7 +19,7 @@ public class AudioReader
             return null;
         }
 
-        /* System.out.println("Reading: " + link); */
+        /* BBSMod.LOGGER.info("Reading: " + link); */
 
         try (InputStream asset = provider.getAsset(link))
         {

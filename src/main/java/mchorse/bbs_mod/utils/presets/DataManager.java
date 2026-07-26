@@ -38,7 +38,7 @@ public abstract class DataManager
         {}
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         data.put(group, newData);
@@ -50,7 +50,7 @@ public abstract class DataManager
     {
         if (group.isEmpty())
         {
-            System.err.println("Can't save empty pose group!");
+            BBSMod.LOGGER.warn("Can't save empty pose group!");
 
             return;
         }

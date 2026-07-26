@@ -32,7 +32,7 @@ public class TextureProcessor
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSMod.LOGGER.error("Exception", e);
             }
         }
 

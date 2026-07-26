@@ -10,6 +10,7 @@ import mchorse.bbs_mod.utils.IOUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import mchorse.bbs_mod.BBSMod;
 
 public class CubicLoader
 {
@@ -21,7 +22,7 @@ public class CubicLoader
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -59,8 +60,8 @@ public class CubicLoader
         }
         catch (Exception e)
         {
-            System.err.println("An error happened when parsing BBS model file: " + path);
-            e.printStackTrace();
+            BBSMod.LOGGER.warn("An error happened when parsing BBS model file: " + path);
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return info;

@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import mchorse.bbs_mod.BBSMod;
 
 public class WatchDog implements Runnable
 {
@@ -57,7 +58,7 @@ public class WatchDog implements Runnable
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
     }
 
@@ -105,9 +106,9 @@ public class WatchDog implements Runnable
         }
         catch (IOException e)
         {
-            System.err.println("Failed to start a watch dog thread!");
+            BBSMod.LOGGER.warn("Failed to start a watch dog thread!");
 
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         while (!this.stopThread)
@@ -169,7 +170,7 @@ public class WatchDog implements Runnable
                 }
                 catch (Exception x)
                 {
-                    x.printStackTrace();
+                    BBSMod.LOGGER.error("Exception", x);
                 }
             }
 

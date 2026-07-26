@@ -9,6 +9,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 import java.util.function.Consumer;
+import mchorse.bbs_mod.BBSModClient;
 
 public class OpenALRecorder implements Runnable
 {
@@ -131,7 +132,7 @@ public class OpenALRecorder implements Runnable
             }
             catch (InterruptedException e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 

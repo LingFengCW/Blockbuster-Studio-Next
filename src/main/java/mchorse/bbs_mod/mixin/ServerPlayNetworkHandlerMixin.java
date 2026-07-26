@@ -1,10 +1,9 @@
 package mchorse.bbs_mod.mixin;
 
-import com.mojang.brigadier.ParseResults;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.types.blocks.InteractBlockActionClip;
 import mchorse.bbs_mod.actions.types.chat.CommandActionClip;
-import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.protocol.game.ServerboundChatCommandPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerPlayerGameMode;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -18,7 +17,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ServerGamePacketListenerImpl.class)
 public class ServerPlayNetworkHandlerMixin
@@ -26,32 +25,34 @@ public class ServerPlayNetworkHandlerMixin
     @Shadow
     public ServerPlayer player;
 
-    @Inject(method = "parse", at = @At("HEAD"))
-    public void onParse(String command, CallbackInfoReturnable<ParseResults<CommandSourceStack>> info)
+    @Inject(method = "handleChatCommand", at = @At("HEAD"))
+    public void onHandleChatCommand(ServerboundChatCommandPacket packet, CallbackInfo info)
     {
         BBSMod.getActions().addAction(this.player, () ->
         {
             CommandActionClip clip = new CommandActionClip();
 
-            clip.command.set(command);
+            clip.command.set(packet.command());
 
             return clip;
         });
     }
 
-    @Redirect(method = "onPlayerInteractBlock", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerPlayerInteractionManager;interactBlock(Lnet/minecraft/server/network/ServerPlayerEntity;Lnet/minecraft/world/World;Lnet/minecraft/item/ItemStack;Lnet/minecraft/util/Hand;Lnet/minecraft/util/hit/BlockHitResult;)Lnet/minecraft/util/ActionResult;"))
-    private InteractionResult redirectOnBlockInteract(ServerPlayerGameMode manager, ServerPlayer player, Level world, ItemStack stack, InteractionHand hand, BlockHitResult hitResult)
-    {
-        BBSMod.getActions().addAction(this.player, () ->
-        {
-            InteractBlockActionClip clip = new InteractBlockActionClip();
-
-            clip.hit.setHitResult(hitResult);
-            clip.hand.set(hand == InteractionHand.MAIN_HAND);
-
-            return clip;
-        });
-
-        return manager.useItemOn(player, world, stack, hand, hitResult);
-    }
+    // [MC 26.2 REMOVED] onPlayerInteractBlock was removed from ServerGamePacketListenerImpl
+    // Block interaction handling needs to be re-implemented using the new handleUseItem/handleInteract methods
+    // @Redirect(method = "onPlayerInteractBlock", ...
+    // private InteractionResult redirectOnBlockInteract(ServerPlayerGameMode manager, ServerPlayer player, Level world, ItemStack stack, InteractionHand hand, BlockHitResult hitResult)
+    // {
+    //     BBSMod.getActions().addAction(this.player, () ->
+    //     {
+    //         InteractBlockActionClip clip = new InteractBlockActionClip();
+    //
+    //         clip.hit.setHitResult(hitResult);
+    //         clip.hand.set(hand == InteractionHand.MAIN_HAND);
+    //
+    //         return clip;
+    //     });
+    //
+    //     return manager.useItemOn(player, world, stack, hand, hitResult);
+    // }
 }

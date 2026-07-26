@@ -23,6 +23,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.util.List;
+import mchorse.bbs_mod.BBSMod;
 
 public class UIFilmRecorder extends UIElement
 {
@@ -142,7 +143,10 @@ public class UIFilmRecorder extends UIElement
             {
                 this.getRecorder().stopRecording();
             }
-            catch (Exception e) {}
+            catch (Exception e)
+            {
+                BBSMod.LOGGER.warn("Failed to stop recorder", e);
+            }
 
             if (this.isRunning())
             {

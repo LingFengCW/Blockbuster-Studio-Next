@@ -13,6 +13,7 @@ import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.function.Supplier;
+import mchorse.bbs_mod.BBSMod;
 
 /**
  * Base JSON manager which loads and saves different data
@@ -52,7 +53,7 @@ public abstract class BaseManager <T extends ValueGroup> extends FolderManager<T
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -92,7 +93,7 @@ public abstract class BaseManager <T extends ValueGroup> extends FolderManager<T
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         try
@@ -103,7 +104,7 @@ public abstract class BaseManager <T extends ValueGroup> extends FolderManager<T
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return false;

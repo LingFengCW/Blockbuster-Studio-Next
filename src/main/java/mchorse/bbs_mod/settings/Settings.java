@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import mchorse.bbs_mod.BBSMod;
 
 public class Settings extends BaseValue
 {
@@ -86,7 +87,7 @@ public class Settings extends BaseValue
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return false;

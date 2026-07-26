@@ -4,10 +4,17 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 public class EventBus
 {
     private final Map<Class<?>, CopyOnWriteArrayList<Subscription>> subscribers = new HashMap<>();
+
+    /**
+     * Programmatic (non-reflection) event handlers. Used by script plugins and
+     * any code that wants to subscribe with a lambda instead of an annotated method.
+     */
+    private final Map<Class<?>, CopyOnWriteArrayList<Consumer<Object>>> handlers = new HashMap<>();
 
     /**
      * Registers the given subscriber to receive events.
@@ -36,25 +43,55 @@ public class EventBus
     }
 
     /**
+     * Subscribes a handler to a given event type programmatically. This lets code
+     * (including script plugins) listen for events without an annotated method.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> void subscribe(Class<T> type, Consumer<T> handler)
+    {
+        if (type == null || handler == null)
+        {
+            return;
+        }
+
+        this.handlers
+            .computeIfAbsent(type, (clazz) -> new CopyOnWriteArrayList<>())
+            .add((Consumer<Object>) handler);
+    }
+
+    /**
      * Posts the given event to the event bus.
      */
     public void post(Object event)
     {
         CopyOnWriteArrayList<Subscription> eventSubscribers = this.subscribers.get(event.getClass());
 
-        if (eventSubscribers == null || eventSubscribers.isEmpty())
+        if (eventSubscribers != null && !eventSubscribers.isEmpty())
         {
-            return;
+            for (Subscription subscription : eventSubscribers)
+            {
+                try
+                {
+                    subscription.method.invoke(subscription.target, event);
+                }
+                catch (Exception ignored)
+                {}
+            }
         }
 
-        for (Subscription subscription : eventSubscribers)
+        CopyOnWriteArrayList<Consumer<Object>> eventHandlers = this.handlers.get(event.getClass());
+
+        if (eventHandlers != null && !eventHandlers.isEmpty())
         {
-            try
+            for (Consumer<Object> handler : eventHandlers)
             {
-                subscription.method.invoke(subscription.target, event);
+                try
+                {
+                    handler.accept(event);
+                }
+                catch (Exception ignored)
+                {}
             }
-            catch (Exception ignored)
-            {}
         }
     }
 }

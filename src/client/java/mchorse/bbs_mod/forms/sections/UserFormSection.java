@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UserFormSection extends FormSection
 {
@@ -67,7 +68,7 @@ public class UserFormSection extends FormSection
             catch (Exception e)
             {
                 System.err.println("Failed to load user form category: " + file.getAbsolutePath());
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
     }
@@ -116,7 +117,7 @@ public class UserFormSection extends FormSection
         catch (Exception e)
         {
             System.err.println("Failed to save user category: " + file.getAbsolutePath());
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 

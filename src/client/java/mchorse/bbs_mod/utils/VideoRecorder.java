@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import mchorse.bbs_mod.BBSModClient;
 
 public class VideoRecorder
 {
@@ -116,7 +117,7 @@ public class VideoRecorder
             args.add(encoder);
             args.addAll(Arrays.asList(params.split(" ")));
 
-            System.out.println("Recording video with following arguments: " + args);
+            BBSModClient.LOGGER.info("Recording video with following arguments: " + args);
 
             this.pbos = new int[2];
             this.pboIndex = 0;
@@ -165,7 +166,7 @@ public class VideoRecorder
                 }
                 catch (Exception e)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
             }
 
@@ -176,7 +177,7 @@ public class VideoRecorder
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         this.serverTicks = this.lastServerTicks = 0;
@@ -221,7 +222,7 @@ public class VideoRecorder
         }
         catch (IOException ex)
         {
-            ex.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", ex);
         }
 
         try
@@ -236,7 +237,7 @@ public class VideoRecorder
         }
         catch (InterruptedException ex)
         {
-            ex.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", ex);
         }
 
         this.recording = false;
@@ -282,7 +283,7 @@ public class VideoRecorder
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         this.counter += 1;

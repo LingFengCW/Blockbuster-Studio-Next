@@ -35,8 +35,8 @@ public class ItemStackMixin
         }
     }
 
-    @Inject(method = "useOnBlock", at = @At("HEAD"))
-    public void onUseOnBlock(UseOnContext context, CallbackInfoReturnable<InteractionResult> info)
+    @Inject(method = "useOn", at = @At("HEAD"))
+    public void onUseOn(UseOnContext context, CallbackInfoReturnable<InteractionResult> info)
     {
         if (context.getPlayer() instanceof ServerPlayer player)
         {

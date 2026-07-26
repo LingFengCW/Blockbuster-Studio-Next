@@ -12,6 +12,7 @@ import net.minecraft.resources.Identifier;
 
 import java.io.IOException;
 import java.util.Optional;
+import mchorse.bbs_mod.BBSModClient;
 
 public class BBSShaders
 {
@@ -51,7 +52,7 @@ public class BBSShaders
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
     }
 

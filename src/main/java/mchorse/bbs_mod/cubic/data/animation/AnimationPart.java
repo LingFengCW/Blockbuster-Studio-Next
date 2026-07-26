@@ -13,6 +13,7 @@ import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
 import java.util.List;
+import mchorse.bbs_mod.BBSMod;
 
 public class AnimationPart implements IMapSerializable
 {
@@ -92,7 +93,7 @@ public class AnimationPart implements IMapSerializable
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return defaultValue;

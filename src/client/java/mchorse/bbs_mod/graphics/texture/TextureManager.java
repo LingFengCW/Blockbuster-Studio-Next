@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import mchorse.bbs_mod.BBSModClient;
 
 public class TextureManager implements IWatchDogListener
 {
@@ -75,7 +76,7 @@ public class TextureManager implements IWatchDogListener
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
 
@@ -205,7 +206,7 @@ public class TextureManager implements IWatchDogListener
 
                             texture = animatedTexture.getTexture(this.tick);
 
-                            System.out.println("Animated texture \"" + link + "\" was loaded!");
+                            BBSModClient.LOGGER.info("Animated texture \"" + link + "\" was loaded!");
 
                             this.animatedTextures.put(link, animatedTexture);
 
@@ -217,7 +218,7 @@ public class TextureManager implements IWatchDogListener
 
                     texture = Texture.textureFromPixels(pixels, filter);
 
-                    System.out.println("Texture \"" + link + "\" was loaded!");
+                    BBSModClient.LOGGER.info("Texture \"" + link + "\" was loaded!");
 
                     this.textures.put(link, texture);
                 }
@@ -232,7 +233,7 @@ public class TextureManager implements IWatchDogListener
             {
                 if (!silent)
                 {
-                    e.printStackTrace();
+                    BBSModClient.LOGGER.error("Exception", e);
                 }
 
                 texture = this.getError();

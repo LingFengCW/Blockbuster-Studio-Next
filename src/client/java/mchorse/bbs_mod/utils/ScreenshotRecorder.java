@@ -18,6 +18,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import mchorse.bbs_mod.BBSModClient;
 
 /**
  * Screenshot recorder
@@ -159,7 +160,7 @@ public class ScreenshotRecorder
             }
             catch (IOException e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
     }

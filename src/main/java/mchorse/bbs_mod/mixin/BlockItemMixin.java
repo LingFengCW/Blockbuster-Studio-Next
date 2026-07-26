@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.types.blocks.PlaceBlockActionClip;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.state.BlockState;
@@ -15,8 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(BlockItem.class)
 public class BlockItemMixin
 {
-    @Inject(method = "place(Lnet/minecraft/item/ItemPlacementContext;Lnet/minecraft/block/BlockState;)Z", at = @At("HEAD"))
-    public void onPlace(BlockPlaceContext context, BlockState state, CallbackInfoReturnable<Boolean> info)
+    @Inject(method = "place(Lnet/minecraft/world/item/context/BlockPlaceContext;)Lnet/minecraft/world/InteractionResult;", at = @At("HEAD"))
+    public void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> info)
     {
         if (context.getPlayer() instanceof ServerPlayer player)
         {
@@ -28,7 +29,6 @@ public class BlockItemMixin
                 clip.x.set(pos.getX());
                 clip.y.set(pos.getY());
                 clip.z.set(pos.getZ());
-                clip.state.set(state);
 
                 return clip;
             });

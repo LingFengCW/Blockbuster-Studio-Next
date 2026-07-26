@@ -16,6 +16,7 @@ import mchorse.bbs_mod.utils.IOUtils;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
+import mchorse.bbs_mod.BBSModClient;
 
 public class GeoCubicModelBakery implements IModelLoader
 {
@@ -53,7 +54,7 @@ public class GeoCubicModelBakery implements IModelLoader
                 }
                 catch (Exception e)
                 {
-                    System.err.println("Failed to load Bedrock entity .animation.json for model: " + model + " in " + link);
+                    BBSModClient.LOGGER.warn("Failed to load Bedrock entity .animation.json for model: " + model + " in " + link);
                 }
             }
 
@@ -71,9 +72,9 @@ public class GeoCubicModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            System.err.println("Failed to load Bedrock entity .geo.json for model: " + model);
+            BBSModClient.LOGGER.warn("Failed to load Bedrock entity .geo.json for model: " + model);
 
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return null;

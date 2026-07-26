@@ -9,6 +9,7 @@ import net.minecraft.sounds.SoundEvents;
 
 import java.io.File;
 import java.io.IOException;
+import mchorse.bbs_mod.BBSModClient;
 
 public class UIUtils
 {
@@ -55,7 +56,7 @@ public class UIUtils
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
         }
 
         return false;
@@ -83,7 +84,7 @@ public class UIUtils
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSModClient.LOGGER.error("Exception", e);
 
             return false;
         }

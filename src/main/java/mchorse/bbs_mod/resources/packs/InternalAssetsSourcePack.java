@@ -107,7 +107,7 @@ public class InternalAssetsSourcePack implements ISourcePack
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
 
             this.stupidWorkaround(links, link, recursive);
         }
@@ -223,7 +223,7 @@ public class InternalAssetsSourcePack implements ISourcePack
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         this.handleLinksFromZipFile(link, links, recursive);

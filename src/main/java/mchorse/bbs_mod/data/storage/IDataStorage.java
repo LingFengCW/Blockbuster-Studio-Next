@@ -3,6 +3,7 @@ package mchorse.bbs_mod.data.storage;
 import mchorse.bbs_mod.data.types.BaseType;
 
 import java.io.IOException;
+import mchorse.bbs_mod.BBSMod;
 
 public interface IDataStorage
 {
@@ -16,7 +17,7 @@ public interface IDataStorage
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return null;
@@ -34,7 +35,7 @@ public interface IDataStorage
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            BBSMod.LOGGER.error("Exception", e);
         }
 
         return false;

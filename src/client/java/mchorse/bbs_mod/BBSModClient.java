@@ -17,6 +17,7 @@ import mchorse.bbs_mod.camera.clips.misc.CurveClientClip;
 import mchorse.bbs_mod.camera.clips.misc.TrackerClientClip;
 import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.GameIconPlugin;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.GunProjectileEntityRenderer;
@@ -28,6 +29,9 @@ import mchorse.bbs_mod.events.register.RegisterL10nEvent;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.replays.Replay;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import mchorse.bbs_mod.forms.FormCategories;
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -75,6 +79,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -82,6 +88,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -95,6 +103,8 @@ import java.util.List;
 
 public class BBSModClient implements ClientModInitializer
 {
+    public static final Logger LOGGER = LoggerFactory.getLogger("BBSClient");
+    private static boolean bbsResourcesInitialized = false;
     private static TextureManager textures;
     private static FramebufferManager framebuffers;
     private static SoundManager sounds;
@@ -344,7 +354,11 @@ public class BBSModClient implements ClientModInitializer
         selectors.read();
         films = new Films();
 
-        BBSResources.init();
+        /* BBSResources.init() is deferred to ClientLifecycleEvents.CLIENT_STARTED (see the
+           registration near the end of onInitializeClient). Constructing registry ItemStacks
+           such as new ItemStack(Items.STICK) during the client entry point throws
+           "Components not bound yet" because the built-in registries are not frozen until
+           after onInitializeClient runs. */
 
         URLRepository repository = new URLRepository(new File(parentFile, "url_cache"));
 
@@ -528,6 +542,44 @@ public class BBSModClient implements ClientModInitializer
             Window window = Minecraft.getInstance().getWindow();
 
             originalFramebufferScale = window.getWidth() / (float)window.getWidth();
+
+            /* Replace the game window icon after launch (no-op until bbs_mod/icon.png is supplied). */
+            GameIconPlugin.apply();
+        });
+
+        /* Defer BBSResources.init() via a ResourceManagerHelper reload listener. In MC 26.2 the
+           built-in item registry's data components are not bound while a resource reload
+           (LoadingOverlay) is active, so constructing registry ItemStacks there throws
+           "Components not bound yet" and aborts the whole reload ("资源重载失败"). The listener
+           itself still runs DURING the reload, so we further defer the actual init to the next
+           client tick via Minecraft.execute() — which only runs AFTER the LoadingOverlay finishes
+           and components are bound. Guarded so it runs exactly once. */
+        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener()
+        {
+            @Override
+            public Identifier getFabricId()
+            {
+                return Identifier.fromNamespaceAndPath("bbs", "init");
+            }
+
+            @Override
+            public void onResourceManagerReload(ResourceManager manager)
+            {
+                /* MC 26.2: while a resource reload (LoadingOverlay) is active, the item
+                   registry's Holder components are NOT yet bound, so constructing registry
+                   ItemStacks (e.g. Items.STICK in ExtraFormSection) throws
+                   "Components not bound yet" and aborts the whole reload ("资源重载失败").
+                   Defer BBSResources.init() to the next client tick via Minecraft.execute(),
+                   which only runs AFTER the LoadingOverlay finishes and components are bound. */
+                Minecraft.getInstance().execute(() ->
+                {
+                    if (!bbsResourcesInitialized)
+                    {
+                        bbsResourcesInitialized = true;
+                        BBSResources.init();
+                    }
+                });
+            }
         });
 
         URLTextureErrorCallback.EVENT.register((url, error) ->

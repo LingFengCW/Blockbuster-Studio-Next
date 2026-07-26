@@ -11,6 +11,7 @@ import org.joml.Vector2i;
 
 import java.io.File;
 import java.io.FileInputStream;
+import mchorse.bbs_mod.BBSModClient;
 
 public class OldSkinImporter implements IImporter
 {
@@ -99,7 +100,7 @@ public class OldSkinImporter implements IImporter
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                BBSModClient.LOGGER.error("Exception", e);
             }
         }
     }
