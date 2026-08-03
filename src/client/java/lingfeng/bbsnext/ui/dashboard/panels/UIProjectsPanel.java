@@ -8,22 +8,23 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.scenes.UISceneMenu;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Workspace picker: the first thing the dashboard shows. Lists every
- * project as a work; clicking one activates it and jumps straight into
- * the film editor panel (asset bin + clips). The dashboard itself stays a
- * light browser - projects, supporters, graph - while the editor is a
- * separate panel opened from here.
+ * project as a large preview card (gradient cover + name, PR style);
+ * clicking one activates it and jumps straight into the film editor.
  */
 public class UIProjectsPanel extends UIDashboardPanel
 {
@@ -31,11 +32,6 @@ public class UIProjectsPanel extends UIDashboardPanel
     {
         super(dashboard);
 
-        /* Plain label + project buttons laid out directly on the panel.
-         * Earlier attempts with UIScrollView + ColumnResizer made the
-         * buttons invisible: the resizer's stretch left the area blank
-         * or off-screen, even with a correct panel area. Direct
-         * relative() layout is the only thing that actually draws them. */
         UILabel label = UI.label(UIKeys.PROJECTS_LIBRARY, 18, Colors.LIGHTER_GRAY);
 
         label.relative(this).x(0).y(0).w(1, 0).h(20);
@@ -43,15 +39,11 @@ public class UIProjectsPanel extends UIDashboardPanel
         this.add(label);
 
         this.refresh();
-
-        mchorse.bbs_mod.BBSMod.LOGGER.info("UIProjectsPanel ready: area={} visible={} children={}", this.area, this.isVisible(), this.getChildren().size());
     }
 
     @Override
     public void appear()
     {
-        mchorse.bbs_mod.BBSMod.LOGGER.info("UIProjectsPanel appear: area={} visible={}", this.area, this.isVisible());
-
         this.refresh();
     }
 
@@ -59,8 +51,6 @@ public class UIProjectsPanel extends UIDashboardPanel
     public void resize()
     {
         super.resize();
-
-        mchorse.bbs_mod.BBSMod.LOGGER.info("UIProjectsPanel resize: area={} parentArea={}", this.area, this.parent == null ? "null" : this.parent.area);
     }
 
     private void refresh()
@@ -73,13 +63,12 @@ public class UIProjectsPanel extends UIDashboardPanel
         }
 
         int y = 22;
-        int rowHeight = 24;
 
-        UIButton create = new UIButton(UIKeys.PROJECTS_NEW, (b) -> this.createProject());
+        UIButton create = this.card(UIKeys.PROJECTS_NEW, 0x22cc88, (b) -> this.createProject());
 
-        create.relative(this).x(0).y(y).w(1, 0).h(rowHeight);
+        create.relative(this).x(0).y(y).w(1, 0).h(48);
         this.add(create);
-        y += rowHeight + 2;
+        y += 48 + 6;
 
         List<BBSProject> projects = ProjectManager.get().getProjects();
 
@@ -93,12 +82,58 @@ public class UIProjectsPanel extends UIDashboardPanel
 
         for (BBSProject project : projects)
         {
-            UIButton row = new UIButton(IKey.raw(project.name), (b) -> this.openProject(project));
+            UIButton row = this.card(IKey.raw(project.name), project.name.hashCode(), (b) -> this.openProject(project));
 
-            row.relative(this).x(0).y(y).w(1, 0).h(rowHeight);
+            row.relative(this).x(0).y(y).w(1, 0).h(64);
             this.add(row);
-            y += rowHeight + 2;
+            y += 64 + 6;
         }
+    }
+
+    /**
+     * Large preview-style card: gradient cover derived from the project
+     * name, name overlaid at the bottom, hover highlight border.
+     */
+    private UIButton card(IKey name, int seed, Consumer<UIButton> onClick)
+    {
+        return new UIButton(name, onClick)
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                int x = this.area.x;
+                int y = this.area.y;
+                int ex = this.area.ex();
+                int ey = this.area.ey();
+
+                int base = Colors.RGB & (0x445566 + (seed & 0x0FFFFFFF));
+
+                if (base < 0x202020)
+                {
+                    base = 0x445566;
+                }
+
+                /* Gradient cover (dark bottom so the label stays readable). */
+                context.batcher.gradientVBox(x, y, ex, ey, base, Colors.A75);
+
+                /* Hover / active border. */
+                int border = this.hover ? 0x88ffffff : 0x33000000;
+
+                context.batcher.box(x, y, ex, y + 1, border);
+                context.batcher.box(x, ey - 1, ex, ey, border);
+                context.batcher.box(x, y, x + 1, ey, border);
+                context.batcher.box(ex - 1, y, ex, ey, border);
+
+                /* Project name overlaid at the bottom-left. */
+                FontRenderer font = context.batcher.getFont();
+                String label = font.limitToWidth(this.label.get(), this.area.w - 12);
+
+                context.batcher.text(label, x + 8, ey - font.getHeight() - 8,
+                    this.hover ? Colors.WHITE : Colors.LIGHTER_GRAY, true);
+
+                this.renderLockedArea(context);
+            }
+        };
     }
 
     /** New-work dialog: name + optional background world, then straight

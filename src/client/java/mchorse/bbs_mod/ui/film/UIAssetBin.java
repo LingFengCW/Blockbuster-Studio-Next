@@ -5,6 +5,7 @@ import mchorse.bbs_mod.projects.Backpack;
 import mchorse.bbs_mod.projects.Scene;
 import mchorse.bbs_mod.projects.SceneManager;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -81,6 +82,27 @@ public class UIAssetBin extends UIElement
         });
 
         this.refresh();
+    }
+
+    @Override
+    public void render(UIContext context)
+    {
+        int x = this.area.x;
+        int y = this.area.y;
+        int ex = this.area.ex();
+        int ey = this.area.ey();
+
+        if (ex > x && ey > y)
+        {
+            /* Panel background - make the asset bin read as a distinct
+             * dark panel against the dashboard background. */
+            context.batcher.box(x, y, ex, ey, Colors.A90);
+
+            /* Right separator border against the viewport / timeline. */
+            context.batcher.box(ex - 1, y, ex, ey, Colors.ACTIVE);
+        }
+
+        super.render(context);
     }
 
     /** Reload both lists from the managers. */
