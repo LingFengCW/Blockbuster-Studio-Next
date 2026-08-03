@@ -1,0 +1,11 @@
+{
+    "required": true,
+    "package": "mchorse.bbs_mod.mixin.client",
+    "compatibilityLevel": "JAVA_21",
+    "client": [
+        "WindowDecorMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}

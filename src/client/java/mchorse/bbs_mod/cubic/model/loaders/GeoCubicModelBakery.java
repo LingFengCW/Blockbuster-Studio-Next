@@ -74,7 +74,7 @@ public class GeoCubicModelBakery implements IModelLoader
         {
             BBSModClient.LOGGER.warn("Failed to load Bedrock entity .geo.json for model: " + model);
 
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("Geo模型(.geo.json)加载失败", e);
         }
 
         return null;

@@ -67,6 +67,7 @@ public class FormRenderingContext
     public FormRenderingContext inUI()
     {
         this.ui = true;
+        this.modelRenderer = true;
 
         return this;
     }

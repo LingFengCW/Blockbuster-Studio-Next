@@ -216,15 +216,9 @@ public class UITexturePicker extends UIElement implements IImportPathProvider
             if (link != null)
             {
                 Texture texture = BBSModClient.getTextures().getTexture(link);
-                int filter = b.getValue() ? GL11.GL_LINEAR : GL11.GL_NEAREST;
-
-                if (texture.isReallyMipmap())
-                {
-                    filter = b.getValue() ? GL30.GL_LINEAR_MIPMAP_NEAREST : GL30.GL_NEAREST_MIPMAP_NEAREST;
-                }
+                int filter = 0;
 
                 texture.bind();
-                texture.setFilter(filter);
             }
         });
 
@@ -244,7 +238,6 @@ public class UITexturePicker extends UIElement implements IImportPathProvider
                     texture.generateMipmap();
                 }
 
-                texture.setParameter(GL30.GL_TEXTURE_MAX_LEVEL, b.getValue() ? 4 : 0);
             }
         });
         this.options = UI.column(5, 10, this.linear, this.mipmap);

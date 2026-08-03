@@ -15,6 +15,9 @@
         "LimbAnimatorAccessor",
         "LevelPropertiesAccessor"
     ],
+    "client": [
+        "client.WindowMixin"
+    ],
     "injectors": {
         "defaultRequire": 1
     }

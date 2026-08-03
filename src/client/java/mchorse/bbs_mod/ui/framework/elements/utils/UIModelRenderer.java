@@ -24,6 +24,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 
 /**
  * Model renderer GUI element
@@ -55,6 +56,12 @@ public abstract class UIModelRenderer extends UIElement
 
     private long tick;
     private Matrix4f transform = new Matrix4f();
+
+    /**
+     * MC 26.2: pose stack with camera transformations applied, valid only
+     * during the picture-in-picture draw callback (renderInPip).
+     */
+    protected PoseStack pipStack;
 
     public UIModelRenderer()
     {
@@ -198,40 +205,103 @@ public abstract class UIModelRenderer extends UIElement
     }
 
     /**
-     * Draw currently edited model
+     * Submit currently edited model as a picture-in-picture render state.
+     *
+     * MC 26.2: GUI extraction phase must not open render passes. Instead,
+     * the actual 3D rendering is deferred into UIModelPipRenderer, which the
+     * engine invokes legally during the draw phase (GuiRenderer#prepare).
      */
     private void renderModel(UIContext context)
     {
         this.setupPosition();
-        this.setupViewport(context);
+        this.camera.updatePerspectiveProjection(this.area.w, this.area.h);
 
-        PoseStack stack = new PoseStack();
+        /* processInputs must run before updateView: it modifies camera.rotation
+         * (from mouse drag) and camera.distance (from scroll). If we called
+         * updateView first, the PiP callback would capture a stale view matrix
+         * that doesn't reflect the user's interaction. */
+        this.processInputs(context);
+        this.camera.updateView();
 
-        /* Cache the global stuff */
-        PoseStackUtils.cacheMatrices();
+        net.minecraft.client.gui.GuiGraphicsExtractor extractor = context.batcher.getContext();
 
+        if (extractor != null)
+        {
+            mchorse.bbs_mod.client.PipGeometry.debug("addPipState", "Adding PiP state: area=" + this.area.w + "x" + this.area.h + " x=" + this.area.x + " y=" + this.area.y);
+
+            extractor.guiRenderState.addPicturesInPictureState(new UIModelPipRenderState(
+                (poseStack, collector) -> this.renderInPip(context, poseStack, collector),
+                this.area.x, this.area.y, this.area.ex(), this.area.ey(),
+                null
+            ));
+        }
+
+        this.processInputs(context);
+    }
+
+    /**
+     * Executed by the engine during the draw phase, rendering into the
+     * picture-in-picture texture.
+     */
+    private void renderInPip(UIContext context, PoseStack stack, net.minecraft.client.renderer.SubmitNodeCollector collector)
+    {
         /* Rendering begins... */
         stack.pushPose();
+
+        /* The engine prepared this PiP texture with an orthographic
+         * projection and pre-multiplied the pose stack with:
+         * translate(width / 2, height, 0); scale(16 * guiScale, 16 * guiScale, -16 * guiScale).
+         * So: origin = bottom-center of the preview, 1 unit = 16 GUI px,
+         * +y points down, z flipped.
+         *
+         * True perspective is impossible in PiP: vertices are transformed
+         * on the CPU via addVertex(Matrix4f, ...) which never performs a
+         * perspective divide (w is dropped). Baking a perspective matrix
+         * into the pose therefore produces garbage geometry. Instead the
+         * BBS perspective camera is emulated orthographically: the zoom
+         * factor matches the visible height a perspective camera would
+         * capture at the orbit distance (2 * d * tan(fov / 2)). Camera
+         * rotation, panning and zooming all keep working. */
+        float unitsHeight = this.area.h / 16F;
+        float dist = Math.max((float) this.distance.getValue(), 0.1F);
+        float zoom = unitsHeight / (2F * dist * (float) Math.tan(this.camera.fov / 2D));
+
+        mchorse.bbs_mod.client.PipGeometry.debug("renderInPip", "renderInPip: area=" + this.area.w + "x" + this.area.h
+            + " dist=" + dist + " zoom=" + zoom + " fov=" + this.camera.fov);
+
+        /* Move origin from bottom-center to the viewport center */
+        stack.translate(0F, -unitsHeight / 2F, 0F);
+        /* World units -> PiP units, flip Y back up (engine's -z flip plus
+         * this -y flip keeps the overall winding positive) */
+        stack.scale(zoom, -zoom, zoom);
+
         PoseStackUtils.multiply(stack, this.camera.view);
-        stack.translate(-this.camera.position.x, -this.camera.position.y, -this.camera.position.z);
+        /* Shift the world vertically so the model (standing at y=0..1.8)
+         * is centered within the viewport. The camera looks at y=1 (eye
+         * level); the default -camera.position.y would put the eyes at
+         * the viewport top, clipping the head. */
+        stack.translate(-this.camera.position.x, -this.camera.position.y - 0.5F, -this.camera.position.z);
         PoseStackUtils.multiply(stack, this.transform);
-        stack.translate(0, 0, 0);
 
         if (this.grid)
         {
-            this.renderGrid(context);
+            this.renderGrid(stack, collector);
         }
 
-        this.renderUserModel(context);
+        mchorse.bbs_mod.client.PipGeometry.setCollector(collector);
+        this.pipStack = stack;
+
+        try
+        {
+            this.renderUserModel(context);
+        }
+        finally
+        {
+            mchorse.bbs_mod.client.PipGeometry.setCollector(null);
+            this.pipStack = null;
+        }
 
         stack.popPose();
-
-        /* Return back to orthographic projection */
-        Minecraft mc = Minecraft.getInstance();
-
-        PoseStackUtils.restoreMatrices();
-
-        this.processInputs(context);
     }
 
     protected void processInputs(UIContext context)
@@ -298,8 +368,6 @@ public abstract class UIModelRenderer extends UIElement
 
     protected void setupViewport(UIContext context)
     {
-        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-
         Minecraft mc = Minecraft.getInstance();
 
         float rx = (float) Math.round(mc.getWindow().getWidth() / (double) context.menu.width);
@@ -311,7 +379,6 @@ public abstract class UIModelRenderer extends UIElement
         int vw = (int) (this.area.w * rx);
         int vh = (int) (this.area.h * ry);
 
-        GL11.glViewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
         this.camera.updatePerspectiveProjection(vw, vh);
         this.camera.updateView();
     }
@@ -322,43 +389,68 @@ public abstract class UIModelRenderer extends UIElement
     protected abstract void renderUserModel(UIContext context);
 
     /**
-     * Render block of grass under the model (which signify where
-     * located the ground below the model)
+     * Get a pose stack for model rendering. During the PiP draw callback,
+     * this returns a copy of the camera-transformed stack so that submitted
+     * geometry ends up in the correct view space (MC 26.2 has no global
+     * view matrix uniform for custom geometry anymore).
      */
-    protected void renderGrid(UIContext context)
+    protected PoseStack createModelStack()
     {
-        Matrix4f matrix4f = new Matrix4f();
-        BufferBuilder builder = new BufferBuilder(new ByteBufferBuilder(8192), PrimitiveTopology.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        PoseStack stack = new PoseStack();
 
-        for (int x = 0; x <= 10; x ++)
+        if (this.pipStack != null)
         {
-            if (x == 0)
-            {
-                builder.addVertex(matrix4f, x - 5, 0, -5).setColor(0F, 0F, 1F, 1F);
-                builder.addVertex(matrix4f, x - 5, 0, 5).setColor(0F, 0F, 1F, 1F);
-            }
-            else
-            {
-                builder.addVertex(matrix4f, x - 5, 0, -5).setColor(0.25F, 0.25F, 0.25F, 1F);
-                builder.addVertex(matrix4f, x - 5, 0, 5).setColor(0.25F, 0.25F, 0.25F, 1F);
-            }
+            stack.last().pose().set(this.pipStack.last().pose());
+            stack.last().normal().set(this.pipStack.last().normal());
         }
 
-        for (int x = 0; x <= 10; x ++)
-        {
-            if (x == 0)
-            {
-                builder.addVertex(matrix4f, -5, 0, x - 5).setColor(1F, 0F, 0F, 1F);
-                builder.addVertex(matrix4f, 5, 0, x - 5).setColor(1F, 0F, 0F, 1F);
-            }
-            else
-            {
-                builder.addVertex(matrix4f, -5, 0, x - 5).setColor(0.25F, 0.25F, 0.25F, 1F);
-                builder.addVertex(matrix4f, 5, 0, x - 5).setColor(0.25F, 0.25F, 0.25F, 1F);
-            }
-        }
+        return stack;
+    }
 
-        mchorse.bbs_mod.graphics.Draw.drawBuffer(builder);
+    /**
+     * Render grid lines under the model (which signify where
+     * located the ground below the model)
+     *
+     * MC 26.2: submitted legally through the PiP submit node collector
+     * instead of opening a render pass manually.
+     */
+    protected void renderGrid(PoseStack stack, net.minecraft.client.renderer.SubmitNodeCollector collector)
+    {
+        /* MC 26.2: RenderTypes.lines() uses POSITION_COLOR_NORMAL_LINE_WIDTH,
+         * which requires a line-width element not exposed via VertexConsumer.
+         * Draw thin quads with entityTranslucent instead. */
+        collector.submitCustomGeometry(stack, net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(net.minecraft.client.renderer.texture.MissingTextureAtlasSprite.getLocation()), (pose, consumer) ->
+        {
+            Matrix4f matrix4f = pose.pose();
+
+            for (int x = 0; x <= 10; x ++)
+            {
+                float r = x == 0 ? 0F : 0.25F;
+                float g = x == 0 ? 0F : 0.25F;
+                float b = x == 0 ? 1F : 0.25F;
+                float cx = x - 5;
+
+                /* Thin quad: 0.02 units wide, from z=-5 to z=5 */
+                consumer.addVertex(matrix4f, cx - 0.01F, 0, -5).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+                consumer.addVertex(matrix4f, cx + 0.01F, 0, -5).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+                consumer.addVertex(matrix4f, cx + 0.01F, 0, 5).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+                consumer.addVertex(matrix4f, cx - 0.01F, 0, 5).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+            }
+
+            for (int x = 0; x <= 10; x ++)
+            {
+                float r = x == 0 ? 1F : 0.25F;
+                float g = x == 0 ? 0F : 0.25F;
+                float b = x == 0 ? 0F : 0.25F;
+                float cz = x - 5;
+
+                /* Thin quad: 0.02 units wide, from x=-5 to x=5 */
+                consumer.addVertex(matrix4f, -5, 0, cz - 0.01F).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+                consumer.addVertex(matrix4f, -5, 0, cz + 0.01F).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+                consumer.addVertex(matrix4f, 5, 0, cz + 0.01F).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+                consumer.addVertex(matrix4f, -5, 0, cz - 0.01F).setColor(r, g, b, 1F).setUv(0, 0).setUv1(0, 0).setUv2(0, 240).setNormal(0F, 1F, 0F);
+            }
+        });
     }
 }
 

@@ -90,6 +90,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public UIDraggable draggableMain;
     public UIFilmRecorder recorder;
     public UIFilmPreview preview;
+    public UIAssetBin assetBin;
 
     public UIIcon duplicateFilm;
 
@@ -241,6 +242,20 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.main.add(this.cameraEditor, this.replayEditor, this.actionEditor, this.editArea, this.preview, this.draggableMain);
         this.add(this.controller, new UIRenderable(this::renderDividers));
         this.overlay.namesList.setFileIcon(Icons.FILM);
+
+        /* PR-style asset bin pinned to the left 25% of the editor. */
+        this.assetBin = new UIAssetBin(this);
+        this.assetBin.relative(this.editor).x(0).y(0).w(0.25F).h(1F);
+        this.editor.add(this.assetBin);
+
+        /* Right click on the editor's empty space: create scene/character
+         * or play with the replay guard. */
+        this.context(m ->
+        {
+            m.action(Icons.SCENE, UIKeys.ASSETS_NEW_SCENE, this::newScene);
+            m.action(Icons.PLAYER, UIKeys.ASSETS_NEW_CHARACTER, this::newCharacter);
+            m.action(Icons.PLAY, UIKeys.CAMERA_EDITOR_KEYS_EDITOR_PLAY_FILM, this::playWithGuard);
+        });
 
         /* Register keybinds */
         IKey modes = UIKeys.CAMERA_EDITOR_KEYS_MODES_TITLE;
@@ -400,16 +415,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (layout.isHorizontal())
         {
-            this.main.relative(this.editor).y(1F - layout.getMainSizeH()).w(1F).hTo(this.editor.area, 1F);
-            this.editArea.relative(this.editor).x(1F - layout.getEditorSizeH()).wTo(this.editor.area, 1F).hTo(this.main.area, 0F);
-            this.preview.relative(this.editor).w(1F - layout.getEditorSizeH()).hTo(this.main.area, 0F);
+            this.main.relative(this.editor).x(0.25F).y(1F - layout.getMainSizeH()).wTo(this.editor.area, 0.75F).hTo(this.editor.area, 1F);
+            this.editArea.relative(this.editor).x(0.25F + (1F - layout.getEditorSizeH()) * 0.75F).wTo(this.editor.area, 1F - 0.25F - (1F - layout.getEditorSizeH()) * 0.75F).hTo(this.main.area, 0F);
+            this.preview.relative(this.editor).x(0.25F).wTo(this.editor.area, (1F - layout.getEditorSizeH()) * 0.75F).hTo(this.main.area, 0F);
             this.draggableMain.hoverOnly().relative(this.editArea).x(-6).y(0).w(12).h(1F);
         }
         else
         {
-            this.main.relative(this.editor).w(layout.getMainSizeV()).h(1F);
-            this.editArea.relative(this.main).x(1F).y(layout.getEditorSizeV()).wTo(this.editor.area, 1F).hTo(this.editor.area, 1F);
-            this.preview.relative(this.main).x(1F).wTo(this.editor.area, 1F).hTo(this.editArea.area, 0F);
+            this.main.relative(this.editor).x(0.25F).y(0).wTo(this.editor.area, layout.getMainSizeV() * 0.75F).h(1F);
+            this.editArea.relative(this.main).x(1F).y(layout.getEditorSizeV()).wTo(this.editor.area, 1F - 0.25F - layout.getMainSizeV() * 0.75F).hTo(this.editor.area, 1F);
+            this.preview.relative(this.main).x(1F).wTo(this.editor.area, 1F - 0.25F - layout.getMainSizeV() * 0.75F).hTo(this.editArea.area, 0F);
             this.draggableMain.hoverOnly().relative(this.main).x(1F).w(12).h(1F);
         }
 
@@ -1122,6 +1137,34 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return this.runner.isRunning();
     }
 
+    /**
+     * Playback guard: every replay marked as an actor must have at least
+     * one configured action clip, otherwise playback is refused with a
+     * warning toast.
+     */
+    public boolean checkReplaysReady()
+    {
+        mchorse.bbs_mod.film.Film film = this.getData();
+
+        if (film == null)
+        {
+            return true;
+        }
+
+        for (mchorse.bbs_mod.film.replays.Replay replay : film.replays.getList())
+        {
+            if (replay.actor.get() && replay.actions.getClips(mchorse.bbs_mod.actions.types.ActionClip.class).isEmpty())
+            {
+                this.getContext().notifyError(UIKeys.REPLAYS_NEED_ACTIONS.format(replay.label.get()));
+                this.replayEditor.setReplay(replay);
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public void togglePlayback()
     {
         this.setFlight(false);
@@ -1219,6 +1262,143 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     protected boolean canSave(UIContext context)
     {
         return !this.recorder.isRecording();
+    }
+
+    /**
+     * Create a brand new scene (with background world picker) and open it
+     * in the editor. Shared by the asset bin and the editor context menu.
+     */
+    public void newScene()
+    {
+        mchorse.bbs_mod.projects.SceneManager scenes = mchorse.bbs_mod.projects.SceneManager.get();
+
+        if (scenes == null)
+        {
+            return;
+        }
+
+        UIOverlay.addOverlay(this.getContext(), new mchorse.bbs_mod.ui.projects.UINewSceneOverlayPanel((name, background) ->
+        {
+            String sceneName = name == null ? "" : name.trim();
+
+            if (sceneName.isEmpty())
+            {
+                sceneName = UIKeys.SCENES_DEFAULT_NAME.format(scenes.getScenes().size() + 1).get();
+            }
+
+            mchorse.bbs_mod.projects.Scene scene = scenes.create(sceneName, background);
+            this.assetBin.refresh();
+            this.openScene(scene);
+        }));
+    }
+
+    /**
+     * Create a new character (replay) in the currently open scene, with
+     * the type/options dialog. Shared by the asset bin and the editor
+     * context menu.
+     */
+    public void newCharacter()
+    {
+        mchorse.bbs_mod.film.Film film = this.getData();
+
+        if (film == null)
+        {
+            this.getContext().notifyError(UIKeys.ASSETS_NEED_SCENE);
+
+            return;
+        }
+
+        UIOverlay.addOverlay(this.getContext(), new mchorse.bbs_mod.ui.projects.UINewEntityOverlayPanel((result) ->
+        {
+            mchorse.bbs_mod.film.replays.Replay replay = film.replays.addReplay();
+
+            replay.form.set(result.type.factory.get());
+
+            if (result.name != null && !result.name.isEmpty())
+            {
+                replay.label.set(result.name);
+            }
+
+            replay.actor.set(result.actor);
+            replay.shadow.set(result.shadow);
+            replay.looping.set(result.looping ? 1 : 0);
+
+            this.replayEditor.setReplay(replay);
+            this.showPanel(1);
+            this.fillData();
+        }));
+    }
+
+    private void playWithGuard()
+    {
+        if (this.checkReplaysReady())
+        {
+            this.togglePlayback();
+        }
+    }
+
+    /**
+     * Open a scene in the editor: make it current, load its film payload
+     * and switch to the camera editor so the user can start cutting.
+     */
+    public void openScene(mchorse.bbs_mod.projects.Scene scene)
+    {
+        mchorse.bbs_mod.projects.SceneManager scenes = mchorse.bbs_mod.projects.SceneManager.get();
+
+        if (scenes == null || scene == null)
+        {
+            return;
+        }
+
+        scenes.setCurrent(scene);
+
+        mchorse.bbs_mod.film.Film film = scenes.loadFilm(scene);
+
+        film.setId(scene.id);
+        this.fill(film);
+        this.showPanel(0);
+    }
+
+    /**
+     * Linked-reference editing of a sequence: load the film of the first
+     * scene the sequence references into this editor. Edits made here
+     * propagate to every parent sequence that references it.
+     */
+    public void openSequence(mchorse.bbs_mod.projects.Sequence sequence)
+    {
+        if (sequence == null)
+        {
+            return;
+        }
+
+        mchorse.bbs_mod.projects.SceneManager scenes = mchorse.bbs_mod.projects.SceneManager.get();
+
+        if (scenes == null)
+        {
+            return;
+        }
+
+        for (mchorse.bbs_mod.projects.Sequence.SequenceRef ref : sequence.refs)
+        {
+            if (mchorse.bbs_mod.projects.Sequence.SequenceRef.SCENE.equals(ref.type))
+            {
+                mchorse.bbs_mod.projects.Scene scene = scenes.getById(ref.id);
+
+                if (scene != null)
+                {
+                    scenes.setCurrent(scene);
+
+                    mchorse.bbs_mod.film.Film film = scenes.loadFilm(scene);
+
+                    film.setId(scene.id);
+                    this.fill(film);
+                }
+
+                return;
+            }
+        }
+
+        this.getContext().notifyError(IKey.raw("Sequence has no scene reference yet"));
     }
 }
 

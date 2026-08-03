@@ -68,7 +68,6 @@ public class TextureManager implements IWatchDogListener
                 pixels.rewindBuffer();
 
                 Texture texture = new Texture();
-                texture.setFilter(GL11.GL_NEAREST);
                 texture.uploadTexture(pixels);
                 texture.unbind();
 
@@ -90,6 +89,10 @@ public class TextureManager implements IWatchDogListener
 
     public void bindTexture(Link texture, int unit)
     {
+        /* [MC 26.2] remember the last bound link, so PiP geometry submission
+         * can pick the correct vanilla-bridged texture */
+        mchorse.bbs_mod.client.PipGeometry.setLastTexture(texture);
+
         this.bindTexture(this.getTexture(texture), unit);
     }
 
@@ -122,6 +125,8 @@ public class TextureManager implements IWatchDogListener
 
     public void delete(Link link)
     {
+        mchorse.bbs_mod.client.PipGeometry.unbridge(link);
+
         Texture texture = this.textures.remove(link);
 
         if (texture != null)
@@ -139,7 +144,7 @@ public class TextureManager implements IWatchDogListener
 
     public Texture createTexture(Link link)
     {
-        return this.createTexture(link, GL11.GL_NEAREST);
+        return this.createTexture(link);
     }
 
     public Texture createTexture(Link link, int filter)
@@ -159,6 +164,11 @@ public class TextureManager implements IWatchDogListener
 
     public Pixels getPixels(Link link) throws Exception
     {
+        if (link == null)
+        {
+            return null;
+        }
+
         Pixels pixels;
 
         if (link instanceof MultiLink)
@@ -178,7 +188,7 @@ public class TextureManager implements IWatchDogListener
 
     public Texture getTexture(Link link)
     {
-        return this.getTexture(link, GL11.GL_NEAREST);
+        return this.getTexture(link, 0);
     }
 
     public Texture getTexture(Link link, int filter)
@@ -188,6 +198,11 @@ public class TextureManager implements IWatchDogListener
 
     public Texture getTexture(Link link, int filter, boolean silent)
     {
+        if (link == null)
+        {
+            return this.getError();
+        }
+
         Texture texture = this.get(link);
 
         if (texture == null)

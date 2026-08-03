@@ -33,50 +33,27 @@ public class ShaderProgram
 
     public void bind()
     {
-        if (glProgramId > 0)
-        {
-            GL20.glUseProgram(glProgramId);
-        }
     }
 
     public void unbind()
     {
-        GL20.glUseProgram(0);
     }
 
     public int getUniformLocation(String name)
     {
-        if (glProgramId > 0)
-        {
-            return GL20.glGetUniformLocation(glProgramId, name);
-        }
         return -1;
     }
 
     public void setUniform(int location, Matrix4f matrix)
     {
-        if (location >= 0 && glProgramId > 0)
-        {
-            float[] floats = new float[16];
-            matrix.get(floats);
-            GL20.glUniformMatrix4fv(location, false, floats);
-        }
     }
 
     public void setUniform(int location, float v0, float v1, float v2, float v3)
     {
-        if (location >= 0 && glProgramId > 0)
-        {
-            GL20.glUniform4f(location, v0, v1, v2, v3);
-        }
     }
 
     public void setUniform(int location, int v0, int v1, int v2, int v3)
     {
-        if (location >= 0 && glProgramId > 0)
-        {
-            GL20.glUniform4i(location, v0, v1, v2, v3);
-        }
     }
 
     public int getGlProgramId()

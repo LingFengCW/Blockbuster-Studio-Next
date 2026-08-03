@@ -9,7 +9,6 @@ import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
-import org.lwjgl.opengl.GL11;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
@@ -267,8 +266,6 @@ public class Films
 
     public void render(LevelRenderContext context)
     {
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-
         for (BaseFilmController controller : this.controllers)
         {
             controller.render(context);
@@ -278,8 +275,6 @@ public class Films
         {
             this.recorder.render(context);
         }
-
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)

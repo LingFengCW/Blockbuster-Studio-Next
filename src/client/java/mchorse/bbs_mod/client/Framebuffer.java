@@ -38,7 +38,7 @@ public class Framebuffer
     {
         if (setViewport)
         {
-            GL11.glViewport(0, 0, this.textureWidth, this.textureHeight);
+            // skipped in Vulkan
         }
     }
 

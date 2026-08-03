@@ -49,7 +49,18 @@ public abstract class FormRenderer <T extends Form>
 
     public final void renderUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        this.renderInUI(context, x1, y1, x2, y2);
+        /* MC 26.2: GUI extraction phase must not open render passes. The
+         * batcher context is non-null during extraction; 3D rendering here
+         * triggers EMF IllegalStateException (thrown ~1.3M times/30s at 3FPS).
+         *
+         * The 3D thumbnail preview is deferred to the picture-in-picture draw
+         * phase. When the batcher context is active (extraction), we skip only
+         * the 3D renderInUI and always draw the 2D text labels through the
+         * extractor's legal text pipeline. */
+        if (context.batcher.getContext() == null)
+        {
+            this.renderInUI(context, x1, y1, x2, y2);
+        }
 
         FontRenderer font = context.batcher.getFont();
         String name = this.form.name.get();
@@ -90,6 +101,9 @@ public abstract class FormRenderer <T extends Form>
             return;
         }
 
+        /* Advance the keyframe animation playhead once per rendered frame. */
+        mchorse.bbs_mod.animation.AnimationPlayer.update(net.minecraft.client.Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
+
         this.form.applyStates(context.transition);
 
         int light = context.light;
@@ -112,7 +126,17 @@ public abstract class FormRenderer <T extends Form>
         u = (int) Lerps.lerp(u, 240, lf);
         context.light = u | v << 16;
 
-        this.render3D(context);
+        /* A failure in one renderer must never take down the whole entity
+         * render (which would make a morphed player invisible or crash the
+         * frame). */
+        try
+        {
+            this.render3D(context);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
 
         if (isPicking)
         {

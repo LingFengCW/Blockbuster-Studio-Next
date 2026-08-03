@@ -18,6 +18,7 @@ import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.FormThumbnailRenderer;
 import mchorse.bbs_mod.ui.forms.UIFormList;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -252,6 +253,19 @@ public class UIFormCategory extends UIElement
         int x = 0;
         int i = 0;
         int perRow = this.area.w / CELL_WIDTH;
+        net.minecraft.client.gui.GuiGraphicsExtractor extractor = context.batcher.getContext();
+
+        /* The list scrolls vertically. The PiP preview coordinates are
+         * window-fixed (they don't move with the scroll pose), so the
+         * thumbnails must be offset by the scroll amount or they stay
+         * behind while the rest of the cells scroll away. */
+        int scrollY = this.list == null ? 0 : (int) this.list.forms.scroll.getScroll();
+
+        /* No global per-frame budget: a budget shared across categories
+         * starves the mob categories below the player-model ones (the first
+         * N visible cells always won it), so vanilla mobs never rendered.
+         * The strict viewport filter already limits PiPs to the ~18 cells
+         * actually visible. */
 
         if (!forms.isEmpty() && this.category.visible.get())
         {
@@ -268,7 +282,11 @@ public class UIFormCategory extends UIElement
                 int cy = this.area.y + h;
                 boolean isSelected = this.selected == form;
 
-                context.batcher.clip(cx, cy, CELL_WIDTH, CELL_HEIGHT, context.getViewport().w, context.getViewport().h);
+                /* MC 26.2: no per-cell clip here. The outer UIScrollView already
+                 * scissors the whole list area; a nested enableScissor per cell
+                 * uses unscrolled coordinates while the pose translates the
+                 * rendered content by -scroll, so every cell but the first is
+                 * either clipped away or its highlight is offset. */
 
                 if (isSelected)
                 {
@@ -276,9 +294,36 @@ public class UIFormCategory extends UIElement
                     context.batcher.outline(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
                 }
 
-                FormUtilsClient.renderUI(form, context, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);
+                /* 3D thumbnail: submit a picture-in-picture render state
+                 * only for cells strictly inside the viewport. */
+                if (extractor != null && this.list != null
+                    && cy - scrollY + CELL_HEIGHT >= this.list.forms.area.y
+                    && cy - scrollY <= this.list.forms.area.ey())
+                {
+                    final int fx = cx;
+                    final int fy = cy - scrollY;
+                    final int fMouseX = context.mouseX;
 
-                context.batcher.unclip(context);
+                    /* A failure here must never break the rest of render():
+                     * the height sync below (this.last != h) updates the
+                     * scroll view's content size. If it never runs, the
+                     * scrollbar's hasScrollbar() check fails and the whole
+                     * list becomes unscrollable. */
+                    try
+                    {
+                        extractor.guiRenderState.addPicturesInPictureState(new mchorse.bbs_mod.ui.framework.elements.utils.UIModelPipRenderState(
+                            (poseStack, collector) -> FormThumbnailRenderer.render(form, poseStack, collector, fx, fy, fx + CELL_WIDTH, fy + CELL_HEIGHT, fMouseX),
+                            cx, cy - scrollY, cx + CELL_WIDTH, cy - scrollY + CELL_HEIGHT,
+                            null
+                        ));
+                    }
+                    catch (Exception e)
+                    {
+                        mchorse.bbs_mod.client.PipGeometry.debug("pipError", "UIFormCategory PiP add failed: " + e.getMessage());
+                    }
+                }
+
+                FormUtilsClient.renderUI(form, context, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);
 
                 x += CELL_WIDTH;
                 i += 1;

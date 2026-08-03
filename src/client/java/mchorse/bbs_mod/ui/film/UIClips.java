@@ -1731,9 +1731,4 @@ public class UIClips extends UIElement
 
     private record Anchor(int clipIndex, boolean isLeft, int graphX)
     {}
-
-    private interface ClipTransformStrategy
-    {
-        public void apply(List<Clip> others, List<Clip> grabbedClips, List<Vector3i> grabbedData, int dx, int dy);
-    }
 }

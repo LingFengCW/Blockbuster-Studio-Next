@@ -5,11 +5,13 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.brigadier.StringReader;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.PipGeometry;
 import mchorse.bbs_mod.forms.CustomVertexConsumer;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -22,6 +24,12 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 
 // [MC 26.2 REMOVED] import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
@@ -160,9 +168,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         }
     }
 
-    private void ensureEntity()
-    {
-        String id = this.form.mobID.get();
+    public void ensureEntity()
+    {        String id = this.form.mobID.get();
         String nbt = this.form.mobNBT.get();
         boolean slim = this.form.slim.get();
 
@@ -192,7 +199,30 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         if (entityType.isPresent())
         {
-            this.entity = entityType.get().value().create(Minecraft.getInstance().level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            net.minecraft.world.entity.EntityType<?> type = entityType.get().value();
+            net.minecraft.world.level.Level level = Minecraft.getInstance().level;
+
+            /* EntityType.create() returns null for types whose canSummon()
+             * flag is false (a handful of special mobs). Fall back to the
+             * entity factory directly so every mob in the palette can be
+             * previewed and morphed into. */
+            try
+            {
+                this.entity = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            }
+            catch (Exception e)
+            {
+                this.entity = null;
+            }
+
+            if (this.entity == null)
+            {
+                this.entity = this.createViaFactory(type, level);
+            }
+        }
+        else
+        {
+            mchorse.bbs_mod.client.PipGeometry.debug("mobCreate", "ensureEntity: entity type not found for " + id);
         }
 
         if (this.entity == null && this.form.isPlayer())
@@ -204,7 +234,59 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         {
             compound.putString("id", id);
             this.entity.noPhysics = true;
+
+            /* MC 26.2: entities created through EntityType.create() have no
+             * entity ID assigned. extractRenderState() reads getId() and
+             * throws "Tried to access entity ID before ID assignment".
+             * Assign a stable, unique-ish ID here so the render state can
+             * be extracted. */
+            this.entity.setId(20000 + Math.abs(this.hashCode() % 100000));
         }
+    }
+
+    /**
+     * Fallback creation for entity types where create() refuses to spawn
+     * (canSummon() == false). Finds the EntityFactory field on EntityType
+     * and invokes it directly with the level.
+     */
+    @SuppressWarnings("unchecked")
+    private Entity createViaFactory(net.minecraft.world.entity.EntityType<?> type, net.minecraft.world.level.Level level)
+    {
+        try
+        {
+            for (java.lang.reflect.Field field : type.getClass().getSuperclass().getDeclaredFields())
+            {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers()))
+                {
+                    continue;
+                }
+
+                if (field.getType().getName().endsWith("EntityFactory")
+                    || field.getType().getSimpleName().equals("EntityFactory"))
+                {
+                    field.setAccessible(true);
+
+                    Object factory = field.get(type);
+
+                    if (factory != null)
+                    {
+                        java.lang.reflect.Method create = factory.getClass().getMethod("create", net.minecraft.world.entity.EntityType.class, net.minecraft.world.level.Level.class);
+
+                        return (Entity) create.invoke(factory, type, level);
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            PipGeometry.debug("mobCreate", "factory fallback failed for " + this.form.mobID.get() + ": " + e.getMessage());        }
+
+        return null;
+    }
+
+    public Entity getEntity()
+    {
+        return this.entity;
     }
 
     @Override
@@ -325,9 +407,46 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             currentPose = this.form.pose.get();
             currentPoseOverlay = this.form.poseOverlay.get();
 
-            // [MC 26.2] EntityRenderDispatcher.render requires MultiBufferSource, not VertexConsumer
-            // Entity rendering is disabled until API is adapted
-            // Minecraft.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
+            /* [MC 26.2] EntityRenderDispatcher.render was removed. The model
+             * is now rendered directly: extract the entity's render state,
+             * run setupAnim() for the animation, then upload the ModelPart
+             * tree into a local BufferBuilder and draw it like every other
+             * BBS world model. */
+            if (Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(this.entity) instanceof LivingEntityRenderer livingRenderer)
+            {
+                EntityModel model = livingRenderer.getModel();
+
+                if (model != null)
+                {
+                    EntityRenderState state = livingRenderer.createRenderState();
+                    livingRenderer.extractRenderState(this.entity, state, context.getTransition());
+                    model.setupAnim(state);
+
+                    ByteBufferBuilder byteBuf = new ByteBufferBuilder(65536);
+                    BufferBuilder builder = new BufferBuilder(byteBuf, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP);
+
+                    context.stack.pushPose();
+                    this.applyTransforms(context.stack, false, context.getTransition());
+
+                    if (this.form.mobID.get().equals("minecraft:ender_dragon"))
+                    {
+                        context.stack.mulPose(com.mojang.math.Axis.YP.rotation(MathUtils.PI));
+                    }
+
+                    if (this.entity instanceof LivingEntity entity)
+                    {
+                        int u = context.overlay & '\uffff';
+                        int v = context.overlay >> 16 & '\uffff';
+
+                        entity.hurtTime = v != 10 ? 100 : 0;
+                    }
+
+                    model.renderToBuffer(context.stack, builder, context.light, context.overlay, 0xFFFFFFFF);
+                    context.stack.popPose();
+
+                    Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT);
+                }
+            }
 
             currentPose = currentPoseOverlay = null;
 
@@ -360,7 +479,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 /* Limb swing is so ugly */
                 if (livingEntity.walkAnimation instanceof LimbAnimatorAccessor a && entity.getLimbAnimator() instanceof LimbAnimatorAccessor b)
                 {
-                    a.setPrevSpeed(b.getPrevSpeed());
+                    a.setSpeedOld(b.getSpeedOld());
                     a.setSpeed(b.getSpeed());
                     a.setPos(b.getPos());
                 }

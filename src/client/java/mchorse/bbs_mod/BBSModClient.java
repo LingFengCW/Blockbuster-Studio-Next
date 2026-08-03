@@ -25,6 +25,7 @@ import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
+import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterL10nEvent;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.film.Recorder;
@@ -41,6 +42,7 @@ import mchorse.bbs_mod.graphics.texture.TextureManager;
 import mchorse.bbs_mod.items.GunProperties;
 import mchorse.bbs_mod.items.GunZoom;
 import mchorse.bbs_mod.l10n.L10n;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.network.ServerNetwork;
@@ -52,10 +54,14 @@ import mchorse.bbs_mod.resources.packs.URLRepository;
 import mchorse.bbs_mod.resources.packs.URLSourcePack;
 import mchorse.bbs_mod.resources.packs.URLTextureErrorCallback;
 import mchorse.bbs_mod.selectors.EntitySelectors;
+import mchorse.bbs_mod.projects.ProjectManager;
+import mchorse.bbs_mod.projects.SceneManager;
+import mchorse.bbs_mod.ui.scenes.UISceneMenu;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
+import mchorse.bbs_mod.ui.projects.UIProjectMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockEditorMenu;
 import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
@@ -79,8 +85,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -88,8 +92,6 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.PackType;
-import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -104,7 +106,10 @@ import java.util.List;
 public class BBSModClient implements ClientModInitializer
 {
     public static final Logger LOGGER = LoggerFactory.getLogger("BBSClient");
-    private static boolean bbsResourcesInitialized = false;
+    /** True when a GL context is available (OpenGL backend, not Vulkan). */
+    public static boolean GL_AVAILABLE;
+    private static boolean bbsResourcesInitialized;
+    private static int bbsResourcesRetries;
     private static TextureManager textures;
     private static FramebufferManager framebuffers;
     private static SoundManager sounds;
@@ -119,6 +124,7 @@ public class BBSModClient implements ClientModInitializer
     private static ParticleManager particles;
 
     private static KeyMapping keyDashboard;
+    private static KeyMapping keyTimeline;
     private static KeyMapping keyItemEditor;
     private static KeyMapping keyPlayFilm;
     private static KeyMapping keyPauseFilm;
@@ -223,6 +229,76 @@ public class BBSModClient implements ClientModInitializer
         }
 
         return dashboard;
+    }
+
+    /**
+     * The single entry point of the editor: work -> scene -> dashboard.
+     *
+     * No work picked yet? Show the work browser. Work picked but no scene
+     * open? Show the scene browser. Otherwise open the dashboard and make
+     * sure the active scene's content is actually loaded into the editor.
+     *
+     * @param panel optional panel to focus once the dashboard is up
+     */
+    public static void openEditorFlow(Class<?> panel)
+    {
+        try
+        {
+            openEditorFlowUnchecked(panel);
+        }
+        catch (Exception e)
+        {
+            LOGGER.error("openEditorFlow failed, falling back to the dashboard", e);
+
+            try
+            {
+                UIScreen.open(getDashboard());
+            }
+            catch (Exception ex)
+            {
+                LOGGER.error("Failed to open the dashboard either", ex);
+            }
+        }
+    }
+
+    private static void openEditorFlowUnchecked(Class<?> panel)
+    {
+        /* Always land on the dashboard - with or without a current work.
+         * The dashboard's default panel is the work library, where the user
+         * picks or creates a work; the legacy full-screen work picker is no
+         * longer part of this flow. */
+        UIDashboard dashboard = getDashboard();
+
+        UIScreen.open(dashboard);
+
+        if (panel != null)
+        {
+            Object found = dashboard.getPanel(panel);
+
+            if (found instanceof mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel dashboardPanel)
+            {
+                dashboard.setPanel(dashboardPanel);
+            }
+        }
+    }
+
+    /**
+     * F key - the classic Blockbuster entry to the timeline, active while
+     * the editor is open. Outside the editor it does nothing: per the
+     * PR-style redesign the editor is only entered from the main menu
+     * 【项目】 button.
+     */
+    private static void keyOpenTimeline()
+    {
+        if (UIScreen.getCurrentMenu() instanceof UIDashboard dashboard)
+        {
+            UIFilmPanel film = dashboard.getPanel(UIFilmPanel.class);
+
+            if (film != null)
+            {
+                dashboard.setPanel(film);
+            }
+        }
     }
 
     public static int getGUIScale()
@@ -342,6 +418,29 @@ public class BBSModClient implements ClientModInitializer
 
         BBSMod.events.post(new RegisterL10nEvent(l10n));
 
+        /* Detect rendering backend once at startup.
+         * OpenGL → GL11 calls are safe. Vulkan → skip all GL calls.
+         * Defer to first tick if window is not yet available. */
+        try
+        {
+            if (Minecraft.getInstance() != null && Minecraft.getInstance().getWindow() != null)
+            {
+                Object backend = Minecraft.getInstance().getWindow().backend();
+                String cls = backend.getClass().getName();
+                GL_AVAILABLE = cls.contains("GlBackend") || cls.contains("opengl");
+            }
+        }
+        catch (Throwable t)
+        {
+            LOGGER.warn("Failed to detect graphics backend, assuming non-GL", t);
+        }
+
+        LOGGER.info("Graphics backend: GL_AVAILABLE=" + GL_AVAILABLE);
+
+        /* MC 26.2: register the picture-in-picture renderer used by model
+           preview panels (legal replacement for extraction-phase rendering) */
+        net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry.register((ctx) -> new mchorse.bbs_mod.ui.framework.elements.utils.UIModelPipRenderer());
+
         File parentFile = BBSMod.getSettingsFolder().getParentFile();
 
         particles = new ParticleManager(() -> new File(BBSMod.getAssetsFolder(), "particles"));
@@ -404,6 +503,7 @@ public class BBSModClient implements ClientModInitializer
 
         /* Keybinds */
         keyDashboard = this.createKey("dashboard", GLFW.GLFW_KEY_0);
+        keyTimeline = this.createKey("timeline", GLFW.GLFW_KEY_F);
         keyItemEditor = this.createKey("item_editor", GLFW.GLFW_KEY_HOME);
         keyPlayFilm = this.createKey("play_film", GLFW.GLFW_KEY_RIGHT_CONTROL);
         keyPauseFilm = this.createKey("pause_film", GLFW.GLFW_KEY_BACKSLASH);
@@ -459,6 +559,37 @@ public class BBSModClient implements ClientModInitializer
 
             /* screen tick removed in MC 26.2 - moved to private in Gui */
 
+            /* Deferred BBSResources.init: retry each tick until data components bind. */
+            if (!bbsResourcesInitialized && bbsResourcesRetries < 3000)
+            {
+                try
+                {
+                    BBSResources.init();
+                    bbsResourcesInitialized = true;
+                    BBSModClient.LOGGER.info("BBSResources.init completed after " + bbsResourcesRetries + " retries");
+                }
+                catch (NullPointerException e)
+                {
+                    bbsResourcesRetries++;
+
+                    if (bbsResourcesRetries % 100 == 0)
+                    {
+                        BBSModClient.LOGGER.info("BBSResources.init retry " + bbsResourcesRetries);
+                    }
+                }
+                catch (Exception e)
+                {
+                    BBSModClient.LOGGER.error("BBSResources.init permanently failed", e);
+                    bbsResourcesInitialized = true;
+                }
+            }
+            else if (!bbsResourcesInitialized && bbsResourcesRetries >= 3000)
+            {
+                BBSModClient.LOGGER.warn("BBSResources.init: gave up after " + bbsResourcesRetries + " retries");
+                bbsResourcesInitialized = true;
+                bbsResourcesInitialized = true;
+            }
+
             cameraController.update();
 
             if (!mc.isPaused())
@@ -469,7 +600,10 @@ public class BBSModClient implements ClientModInitializer
                 textures.update();
             }
 
-            while (keyDashboard.consumeClick()) UIScreen.open(getDashboard());
+            /* PR-style redesign: the editor is only reachable from the main
+             * menu 【项目】 button. The old global 0/B hotkeys are removed so
+             * the dashboard no longer pops up mid-game. */
+            while (keyTimeline.consumeClick()) this.keyOpenTimeline();
             while (keyItemEditor.consumeClick()) this.keyOpenModelBlockEditor(mc);
             while (keyPlayFilm.consumeClick()) this.keyPlayFilm();
             while (keyPauseFilm.consumeClick()) this.keyPauseFilm();
@@ -487,13 +621,6 @@ public class BBSModClient implements ClientModInitializer
                 BBSRendering.setCustomSize(videoRecorder.isRecording(), width, height);
             }
             while (keyOpenReplays.consumeClick()) this.keyOpenReplays();
-            while (keyOpenMorphing.consumeClick())
-            {
-                UIDashboard dashboard = getDashboard();
-
-                UIScreen.open(dashboard);
-                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
-            }
             while (keyDemorph.consumeClick()) ClientNetwork.sendPlayerForm(null);
             while (keyTeleport.consumeClick()) this.keyTeleport();
 
@@ -533,6 +660,65 @@ public class BBSModClient implements ClientModInitializer
             }
         );
 
+        /* Main menu entry point (PR-style redesign: a 【项目】 button at the
+         * very top of the vanilla button column, 180x24, flat styled).
+         *
+         * This deliberately does NOT go through a mixin: bbs.client.mixins.json
+         * is not registered in fabric.mod.json (19 of its client mixins target
+         * methods that no longer exist in 26.2, so turning it on crashes the
+         * game). The Fabric screen API gives us the same injection point with
+         * zero mixin risk. */
+        /* The in-game drawn menu bar (TitleToolbarWidget) was mounted on the
+         * title screen by AFTER_INIT, painting an 18px full-width dark bar
+         * over the top of the screen (left over from the undecorated-window
+         * era, complete with a self-window frame). It is removed entirely.
+         *
+         * The 【项目】 entry on the title screen is added here through the
+         * Fabric screen API (Screens.getWidgets) - the vanilla Button
+         * created by the old TitleScreenMixin never received clicks in 26.2
+         * and was dropped. Clicking it opens the project picker, where the
+         * user selects a work to edit. */
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
+        {
+            if (screen instanceof net.minecraft.client.gui.screens.TitleScreen titleScreen)
+            {
+                /* Icon button in the bottom-right corner, built like Mod
+                 * Menu's mods button: vanilla SpriteIconButton.CenteredIcon
+                 * fed by a GUI-atlas sprite (textures/gui/sprites/ loads it
+                 * automatically - no manual texture registration needed).
+                 * The window's gui-scaled size matches the widget coordinate
+                 * space, so the corner position is exact at any GUI scale. */
+                /* Mod Menu places its 20x20 mods button 22px from the
+                 * bottom-right corner; same spot for the works button. */
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                int btnX = mc.getWindow().getGuiScaledWidth() - 16;
+                int btnY = mc.getWindow().getGuiScaledHeight() - 16;
+
+                /* AFTER_INIT fires on every TitleScreen init (returning from
+                 * a world, resizing, etc.); skip if the button is already in
+                 * this screen's widget list, otherwise they pile up across
+                 * the whole screen. */
+                boolean alreadyAdded = false;
+
+                for (net.minecraft.client.gui.components.AbstractWidget w : net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(titleScreen))
+                {
+                    if (w instanceof lingfeng.bbsnext.ui.titlebar.ProjectsIconButton)
+                    {
+                        alreadyAdded = true;
+
+                        break;
+                    }
+                }
+
+                if (!alreadyAdded)
+                {
+                    net.minecraft.client.gui.components.AbstractButton button = new lingfeng.bbsnext.ui.titlebar.ProjectsIconButton(btnX, btnY);
+
+                    net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(titleScreen).add(button);
+                }
+            }
+        });
+
         ClientLifecycleEvents.CLIENT_STOPPING.register((e) -> BBSResources.stopWatchdog());
         ClientLifecycleEvents.CLIENT_STARTED.register((e) ->
         {
@@ -545,41 +731,16 @@ public class BBSModClient implements ClientModInitializer
 
             /* Replace the game window icon after launch (no-op until bbs_mod/icon.png is supplied). */
             GameIconPlugin.apply();
-        });
 
-        /* Defer BBSResources.init() via a ResourceManagerHelper reload listener. In MC 26.2 the
-           built-in item registry's data components are not bound while a resource reload
-           (LoadingOverlay) is active, so constructing registry ItemStacks there throws
-           "Components not bound yet" and aborts the whole reload ("资源重载失败"). The listener
-           itself still runs DURING the reload, so we further defer the actual init to the next
-           client tick via Minecraft.execute() — which only runs AFTER the LoadingOverlay finishes
-           and components are bound. Guarded so it runs exactly once. */
-        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener()
-        {
-            @Override
-            public Identifier getFabricId()
-            {
-                return Identifier.fromNamespaceAndPath("bbs", "init");
-            }
+            /* The native Win32 menu bar is gone: its WM_COMMAND callbacks
+             * ran on the window message thread and stalled the main thread,
+             * and hot-reloading it across screens never worked. The in-game
+             * top bar (UITopBar) is mounted on every UIBaseMenu instead. */
 
-            @Override
-            public void onResourceManagerReload(ResourceManager manager)
-            {
-                /* MC 26.2: while a resource reload (LoadingOverlay) is active, the item
-                   registry's Holder components are NOT yet bound, so constructing registry
-                   ItemStacks (e.g. Items.STICK in ExtraFormSection) throws
-                   "Components not bound yet" and aborts the whole reload ("资源重载失败").
-                   Defer BBSResources.init() to the next client tick via Minecraft.execute(),
-                   which only runs AFTER the LoadingOverlay finishes and components are bound. */
-                Minecraft.getInstance().execute(() ->
-                {
-                    if (!bbsResourcesInitialized)
-                    {
-                        bbsResourcesInitialized = true;
-                        BBSResources.init();
-                    }
-                });
-            }
+            /* MC 26.2: init is deferred because ExtraFormSection.initiate() creates an
+             * ItemStack which requires data components to be bound. CLIENT_STARTED fires
+             * too early; we set a flag and let END_CLIENT_TICK retry. */
+            bbsResourcesInitialized = false;
         });
 
         URLTextureErrorCallback.EVENT.register((url, error) ->
@@ -706,7 +867,7 @@ public class BBSModClient implements ClientModInitializer
     {
         UIFilmPanel panel = getDashboard().getPanel(UIFilmPanel.class);
 
-        if (panel.getData() != null)
+        if (panel != null && panel.getData() != null)
         {
             Films.playFilm(panel.getData().getId(), false);
         }
@@ -716,7 +877,7 @@ public class BBSModClient implements ClientModInitializer
     {
         UIFilmPanel panel = getDashboard().getPanel(UIFilmPanel.class);
 
-        if (panel.getData() != null)
+        if (panel != null && panel.getData() != null)
         {
             Films.pauseFilm(panel.getData().getId());
         }
@@ -767,7 +928,12 @@ public class BBSModClient implements ClientModInitializer
         }
         else
         {
-            dashboard.setPanel(dashboard.getPanel(UIFilmPanel.class));
+            UIFilmPanel film = dashboard.getPanel(UIFilmPanel.class);
+
+            if (film != null)
+            {
+                dashboard.setPanel(film);
+            }
         }
     }
 
@@ -791,7 +957,16 @@ public class BBSModClient implements ClientModInitializer
     {
         if (key.isEmpty())
         {
-            key = Minecraft.getInstance().options.languageCode;
+            /* MC 26.2: onInitializeClient runs before Minecraft.options is
+             * initialized. Fall back to an empty string; L10n.reload() will
+             * only load en_us until reloadLanguage() is called later with
+             * the proper client language code from the options callback. */
+            Minecraft mc = Minecraft.getInstance();
+
+            if (mc != null && mc.options != null)
+            {
+                key = mc.options.languageCode;
+            }
         }
 
         return key;
@@ -800,5 +975,33 @@ public class BBSModClient implements ClientModInitializer
     public static void reloadLanguage(String language)
     {
         l10n.reload(language, BBSMod.getProvider());
+    }
+
+    /**
+     * Reports a failure: logs it AND surfaces it to the user through the active
+     * UI's error channel (notifyError). Previously these failures were only
+     * written to the log, so a broken custom model, a failed audio load or a
+     * shader error was completely invisible to the player. When no menu/screen
+     * is open the call degrades to logging only, so it can never affect startup
+     * or crash the game.
+     */
+    public static void reportError(String context, Throwable t)
+    {
+        LOGGER.error(context, t);
+
+        try
+        {
+            UIBaseMenu menu = UIScreen.getCurrentMenu();
+
+            if (menu != null)
+            {
+                String detail = (t != null && t.getMessage() != null) ? t.getMessage() : "";
+                menu.context.notifyError(IKey.constant("[BBS] " + context + (detail.isEmpty() ? "" : ": " + detail)));
+            }
+        }
+        catch (Throwable ignored)
+        {
+            LOGGER.warn("Failed to report error to UI (reportError self-failure)", ignored);
+        }
     }
 }

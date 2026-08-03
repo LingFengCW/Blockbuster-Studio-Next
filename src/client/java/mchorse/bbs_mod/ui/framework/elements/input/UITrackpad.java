@@ -111,6 +111,7 @@ public class UITrackpad extends UIBaseTextbox
 
         this.setValue(0);
         this.h(20);
+        this.tooltip(UIKeys.TRACKPAD_HINT);
     }
 
     public UITrackpad max(double max)
@@ -326,7 +327,7 @@ public class UITrackpad extends UIBaseTextbox
     @Override
     public void unfocus(UIContext context)
     {
-        this.evaluate();
+        this.evaluate(context);
 
         super.unfocus(context);
 
@@ -578,7 +579,7 @@ public class UITrackpad extends UIBaseTextbox
         return result;
     }
 
-    private void evaluate()
+    private void evaluate(UIContext context)
     {
         String text = this.textbox.getText().trim();
 
@@ -599,7 +600,9 @@ public class UITrackpad extends UIBaseTextbox
             this.textbox.moveCursorToEnd();
         }
         catch (Exception e)
-        {}
+        {
+            context.notifyError(UIKeys.TRACKPAD_INVALID_VALUE);
+        }
     }
 
     @Override

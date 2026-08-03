@@ -57,8 +57,6 @@ public class StencilFormFramebuffer
             Texture texture = new Texture();
 
             texture.setSize(2, 2);
-            texture.setFilter(GL11.GL_NEAREST);
-            texture.setWrap(GL13.GL_CLAMP_TO_EDGE);
 
             Renderbuffer renderbuffer = new Renderbuffer();
 
@@ -110,8 +108,6 @@ public class StencilFormFramebuffer
         try (MemoryStack stack = MemoryStack.stackPush())
         {
             FloatBuffer floats = stack.mallocFloat(4);
-
-            GL11.glReadPixels(x, y, 1, 1, GL11.GL_RGBA, GL11.GL_FLOAT, floats);
 
             /* TODO: make other channels work */
             int r = (int) (floats.get() * 255F);

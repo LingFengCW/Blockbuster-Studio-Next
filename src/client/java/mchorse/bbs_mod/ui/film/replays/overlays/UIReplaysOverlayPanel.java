@@ -115,10 +115,20 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             this.relative, UI.row(this.relativeOffsetX, this.relativeOffsetY, this.relativeOffsetZ),
             this.axesPreview, this.pickAxesPreviewBone
         );
-        this.properties.relative(this.replays).x(1F).wTo(this.icons.area).h(1F);
-        this.replays.relative(this.content).w(0.5F).h(1F);
 
-        this.content.add(this.replays, this.properties);
+        /* An always-visible "add character" button above the replay list -
+         * the old way (right-click menu only) was easy to miss. */
+        UIButton addReplayBtn = new UIButton(UIKeys.FILM_REPLAY_CONTEXT_ADD, (b) -> this.replays.addReplay());
+        addReplayBtn.h(20);
+
+        UIElement replaysWrap = UI.column(2);
+        replaysWrap.relative(this.content).w(0.5F).h(1F);
+        replaysWrap.add(addReplayBtn, this.replays);
+
+        this.replays.relative(replaysWrap).w(1F).h(1F, -22);
+        this.properties.relative(replaysWrap).x(1F).wTo(this.icons.area).h(1F);
+
+        this.content.add(replaysWrap, this.properties);
     }
 
     private void edit(Consumer<Replay> consumer)

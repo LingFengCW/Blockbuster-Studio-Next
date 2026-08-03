@@ -1,4 +1,31 @@
 {
+    "bbs.ui.menubar.file": "ملف",
+    "bbs.ui.menubar.edit": "تحرير",
+    "bbs.ui.menubar.tools": "أدوات",
+    "bbs.ui.menubar.window": "نافذة",
+    "bbs.ui.menubar.help": "مساعدة",
+    "bbs.ui.menubar.file.new": "مشروع جديد",
+    "bbs.ui.menubar.file.open": "فتح مشروع",
+    "bbs.ui.menubar.file.save": "حفظ",
+    "bbs.ui.menubar.file.close": "إغلاق",
+    "bbs.ui.menubar.edit.undo": "تراجع",
+    "bbs.ui.menubar.edit.redo": "إعادة",
+    "bbs.ui.menubar.tools.morphing": "مورفينغ",
+    "bbs.ui.menubar.tools.film": "فيلم",
+    "bbs.ui.menubar.tools.models": "كتل نموذجية",
+    "bbs.ui.menubar.tools.particles": "جسيمات",
+    "bbs.ui.menubar.tools.textures": "قوام",
+    "bbs.ui.menubar.tools.audio": "صوت",
+    "bbs.ui.menubar.tools.graph": "رسم بياني",
+    "bbs.ui.menubar.window.toggle": "تبديل اللوحات",
+    "bbs.ui.menubar.window.cycle": "لوحة تالية",
+    "bbs.ui.menubar.window.reset_camera": "إعادة ضبط الكاميرا",
+    "bbs.ui.menubar.help.shortcuts": "اختصارات لوحة المفاتيح",
+    "bbs.ui.menubar.help.about": "حول",
+    "bbs.ui.menubar.title.default": "Blockbuster Studio",
+    "bbs.ui.menubar.help.shortcuts.desc": "B يفتح لوحة التحوّل. Esc يغلق أي لوحة. مرّر الماوس فوق عنصر للتلميح.",
+    "bbs.ui.menubar.help.about.desc": "Blockbuster Studio Next – مجموعة أدوات للأفلام والرسوم المتحركة داخل Minecraft.",
+    "bbs.ui.menubar.saved": "تم حفظ المشروع",
     "block.bbs.model": "ﺑﻠﻮﻙ ﺍﻟﻨﻤﻮﺫﺝ",
     "block.bbs.chroma_red": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺣﻤﺮ",
     "block.bbs.chroma_green": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺧﻀﺮ",
@@ -8,10 +35,8 @@
     "block.bbs.chroma_yellow": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺻﻔﺮ",
     "block.bbs.chroma_black": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺳﻮﺩ",
     "block.bbs.chroma_white": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺑﻴﺾ",
-
     "item.bbs.gun": "ﺳﻼﺡ BBS",
     "itemGroup.bbs.main": "ﻣﻮﺩ BBS",
-
     "key.bbs.item_editor": "ﻣﺤﺮﺭ ﺍﻟﻌﻨﺎﺻﺮ",
     "key.bbs.dashboard": "ﻟﻮﺣﺔ ﺍﻟﺘﺤﻜﻢ",
     "key.bbs.demorph": "ﺇﻟﻐﺎﺀ ﺍﻟﺘﺤﻮﻝ",
@@ -23,8 +48,8 @@
     "key.bbs.record_video": "ﺗﺴﺠﻴﻞ ﻓﻴﺪﻳﻮ",
     "key.bbs.teleport": "ﺍﻻﻧﺘﻘﺎﻝ ﺇﻟﻰ ﺍﻹﻋﺎﺩﺓ ﺍﻟﺤﺎﻟﻴﺔ",
     "key.bbs.zoom": "ﺗﻜﺒﻴﺮ (ﺳﻼﺡ BBS)",
-
     "category.bbs.main": "ﻣﻮﺩ BBS",
-
-    "gamerule.bbsEditing": "ﺇﺫﻥ ﺍﻟﺘﻌﺪﻳﻞ ﻓﻲ ﻣﻮﺩ BBS"
+    "gamerule.bbsEditing": "ﺇﺫﻥ ﺍﻟﺘﻌﺪﻳﻞ ﻓﻲ ﻣﻮﺩ BBS",
+    "bbs.ui.trackpad.hint": "Drag to change value - Shift = big step - Ctrl = single step & round - Alt = fine step - scroll = adjust - middle-click = negate - right-click drag = cancel",
+    "bbs.ui.trackpad.invalid_value": "Invalid number or formula, previous value kept"
 }

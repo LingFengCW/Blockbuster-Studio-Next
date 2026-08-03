@@ -7,15 +7,15 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AssetProvider
 {
-    private Map<String, List<ISourcePack>> sourcePacks = new HashMap<>();
+    private Map<String, List<ISourcePack>> sourcePacks = new ConcurrentHashMap<>();
 
     public void registerFirst(ISourcePack pack)
     {
@@ -41,6 +41,8 @@ public class AssetProvider
 
     public InputStream getAsset(Link link) throws IOException
     {
+        if (link == null) throw new IOException("Asset link is null");
+
         List<ISourcePack> packs = this.getPacks(link.source);
 
         for (ISourcePack pack : packs)

@@ -10,7 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(MouseHandler.class)
 public class MouseHandlerMixin
 {
-    @Inject(method = "onMouseHandlerScroll", at = @At("HEAD"))
+    /* MC 26.2: onMouseHandlerScroll was renamed to onScroll. */
+    @Inject(method = "onScroll", at = @At("HEAD"))
     public void mouseScroll(long window, double horizontal, double vertical, CallbackInfo ci)
     {
         if (window == Window.getWindow())
@@ -19,5 +20,3 @@ public class MouseHandlerMixin
         }
     }
 }
-
-

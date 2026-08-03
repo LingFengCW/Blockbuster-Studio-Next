@@ -18,8 +18,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.IFlightSupported;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
-import mchorse.bbs_mod.ui.dashboard.textures.UITextureManagerPanel;
-import mchorse.bbs_mod.ui.dashboard.utils.UIGraphPanel;
+import lingfeng.bbsnext.ui.dashboard.panels.UIProjectsPanel;
 import mchorse.bbs_mod.ui.dashboard.utils.UIOrbitCamera;
 import mchorse.bbs_mod.ui.dashboard.utils.UIOrbitCameraKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
@@ -54,6 +53,8 @@ public class UIDashboard extends UIBaseMenu
 {
     private UIDashboardPanels panels;
 
+    private static final int TOP_BAR_H = 0;
+
     public UIIcon settings;
     public UIIcon selectors;
 
@@ -87,6 +88,10 @@ public class UIDashboard extends UIBaseMenu
 
             this.copyCurrentEntityCamera();
         });
+        /* Panels fill the whole viewport (vanilla behaviour). The previous
+         * flex shorthand (x(0,0).y(0,0).w(1,0).h(1,0)) set no explicit
+         * relative parent, so the flex resolver left the area at 0x0 and the
+         * dashboard rendered nothing. full() anchors to the viewport. */
         this.panels.full(this.viewport);
         this.registerPanels();
 
@@ -152,6 +157,24 @@ public class UIDashboard extends UIBaseMenu
     public void copyCurrentEntityCamera()
     {
         Entity cameraEntity = Minecraft.getInstance().getCameraEntity();
+
+        /* The dashboard can be opened from the main menu (via the 【项目】
+         * entry) where there is no camera entity yet - fall back to a neutral
+         * origin instead of crashing. */
+        if (cameraEntity == null)
+        {
+            Camera fallback = new Camera();
+
+            fallback.position.set(0, 64, 0);
+            fallback.rotation.set(0, 0, 0);
+            fallback.fov = MathUtils.toRad(Minecraft.getInstance().options.fov().get().floatValue());
+
+            this.orbit.setup(fallback);
+            this.camera.setup(BBSModClient.getCameraController().camera, 0F);
+
+            return;
+        }
+
         Vec3 eyePos = cameraEntity.getEyePosition();
         Camera camera = new Camera();
 
@@ -163,7 +186,7 @@ public class UIDashboard extends UIBaseMenu
         this.camera.setup(BBSModClient.getCameraController().camera, 0F);
     }
 
-    private void cyclePanels()
+    public void cyclePanels()
     {
         List<UIDashboardPanel> panels = this.panels.panels;
 
@@ -239,21 +262,24 @@ public class UIDashboard extends UIBaseMenu
 
     protected void registerPanels()
     {
+        /* Minimal dashboard: pick a work, browse supporters info, open the
+         * editor. The film editor has no task-bar icon - it is entered by
+         * picking a work from the library (an icon would just duplicate
+         * that flow). Settings/selectors are pinned icons, not panels. */
+        this.panels.registerPanel(new UIProjectsPanel(this), UIKeys.PROJECTS_LIBRARY, Icons.FOLDER);
+        this.panels.registerPanel(new UIFilmPanel(this), UIKeys.FILM_TITLE, Icons.FILM, true);
         this.panels.registerPanel(new UISupportersPanel(this), UIKeys.SUPPORTERS_TITLE, Icons.USER);
-        this.panels.registerPanel(new UIMorphingPanel(this), UIKeys.MORPHING_TITLE, Icons.MORPH);
-        this.panels.registerPanel(new UIFilmPanel(this), UIKeys.FILM_TITLE, Icons.FILM);
-        this.panels.registerPanel(new UIModelBlockPanel(this), UIKeys.MODEL_BLOCKS_TITLE, Icons.BLOCK);
-        this.panels.registerPanel(new UIParticleSchemePanel(this), UIKeys.PANELS_PARTICLES, Icons.PARTICLE).marginLeft(10);
-        this.panels.registerPanel(new UITextureManagerPanel(this), UIKeys.TEXTURES_TOOLTIP, Icons.MATERIAL);
-        this.panels.registerPanel(new UIAudioEditorPanel(this), UIKeys.AUDIO_TITLE, Icons.SOUND);
-        this.panels.registerPanel(new UIGraphPanel(this), UIKeys.GRAPH_TOOLTIP, Icons.GRAPH);
 
         if (FabricLoader.getInstance().isDevelopmentEnvironment())
         {
             this.panels.registerPanel(new UIDebugPanel(this), IKey.raw("Sandbox"), Icons.CODE);
         }
 
-        this.setPanel(this.getPanel(UISupportersPanel.class));
+        /* Default to the work picker. The film editor is a 3D panel that
+         * activates the orbit camera - opening it as the default panel
+         * blanks the whole dashboard and swallows clicks, so it is only
+         * entered by picking a work. */
+        this.setPanel(this.getPanel(UIProjectsPanel.class));
     }
 
     public <T> T getPanel(Class<T> clazz)

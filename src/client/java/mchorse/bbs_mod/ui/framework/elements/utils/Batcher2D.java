@@ -11,6 +11,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
@@ -26,8 +29,6 @@ public class Batcher2D
 
     private GuiGraphicsExtractor context;
     private FontRenderer font;
-    private int clipX, clipY, clipW, clipH;
-    private boolean clipped;
 
     public static FontRenderer getDefaultTextRenderer()
     {
@@ -46,6 +47,16 @@ public class Batcher2D
         return this.context;
     }
 
+    /**
+     * MC 26.2: rebind this batcher to the extractor provided by the game for
+     * the current frame. All extraction calls (fill, text, etc.) then go into
+     * the game's own GuiRenderState, which the engine draws in the draw phase.
+     */
+    public void setContext(GuiGraphicsExtractor context)
+    {
+        this.context = context;
+    }
+
     public FontRenderer getFont()
     {
         return this.font;
@@ -58,9 +69,44 @@ public class Batcher2D
 
     /* ======== Box drawing ======== */
 
-    public void box(int x, int y, int w, int h, int color)
+    /* All box/gradient methods take (x1, y1, x2, y2) boundary coordinates,
+     * matching every call site in the codebase. During the MC 26.2 migration
+     * these were mistakenly changed to (x, y, width, height), which made every
+     * rectangle absurdly large and misaligned (e.g. selection outlines and
+     * dashboard highlights). */
+    public void box(int x1, int y1, int x2, int y2, int color)
     {
-        this.context.fill(x, y, x + w, y + h, color);
+        this.context.fill(x1, y1, x2, y2, color);
+    }
+
+    /**
+     * Rounded rectangle via a stepped corner approximation. The middle body
+     * is a plain fill; every corner is a 1px-wide staircase following a
+     * quarter circle of radius {@code r}. Good enough for panel corners at
+     * typical UI sizes without any texture or shader work.
+     */
+    public void roundedBox(int x1, int y1, int x2, int y2, int r, int color)
+    {
+        if (x2 <= x1 || y2 <= y1)
+        {
+            return;
+        }
+
+        r = Math.max(0, Math.min(r, Math.min((x2 - x1) / 2, (y2 - y1) / 2)));
+
+        this.box(x1 + r, y1, x2 - r, y2, color);
+        this.box(x1, y1 + r, x1 + r, y2 - r, color);
+        this.box(x2 - r, y1 + r, x2, y2 - r, color);
+
+        for (int i = 0; i < r; i++)
+        {
+            int dy = (int) Math.round(Math.sqrt(r * r - i * i));
+
+            this.box(x1 + i, y1, x1 + i + 1, y1 + dy, color);
+            this.box(x2 - i - 1, y1, x2 - i, y1 + dy, color);
+            this.box(x1 + i, y2 - dy, x1 + i + 1, y2, color);
+            this.box(x2 - i - 1, y2 - dy, x2 - i, y2, color);
+        }
     }
 
     public void box(Area area, int color)
@@ -68,9 +114,9 @@ public class Batcher2D
         this.context.fill(area.x, area.y, area.x + area.w, area.y + area.h, color);
     }
 
-    public void box(double x, double y, double w, double h, int color)
+    public void box(double x1, double y1, double x2, double y2, int color)
     {
-        this.context.fill((int)x, (int)y, (int)(x + w), (int)(y + h), color);
+        this.context.fill((int)x1, (int)y1, (int)x2, (int)y2, color);
     }
 
     public void box(float x1, float y1, float x2, float y2, int color)
@@ -78,11 +124,13 @@ public class Batcher2D
         this.context.fill((int)x1, (int)y1, (int)x2, (int)y2, color);
     }
 
-    public void box(float x, float y, float w, float h, int color1, int color2, int color3, int color4)
+    public void box(float x1, float y1, float x2, float y2, int color1, int color2, int color3, int color4)
     {
-        this.context.fill((int)x, (int)y, (int)(x + w), (int)(y + h), color1);
+        this.context.fill((int)x1, (int)y1, (int)x2, (int)y2, color1);
     }
 
+    /* fillRect keeps (x, y, width, height) semantics - every call site uses
+     * widths/heights (unlike box/gradient methods which use x2/y2). */
     public void fillRect(int x, int y, int w, int h, int color)
     {
         this.context.fill(x, y, x + w, y + h, color);
@@ -97,29 +145,29 @@ public class Batcher2D
         this.context.fill(minX, minY, maxX, maxY, color);
     }
 
-    public void gradientVBox(int x, int y, int w, int h, int color1, int color2)
+    public void gradientVBox(int x1, int y1, int x2, int y2, int color1, int color2)
     {
-        this.context.fill(x, y, w, h, color1);
+        this.context.fill(x1, y1, x2, y2, color1);
     }
 
-    public void gradientVBox(float x, float y, float w, float h, int color1, int color2)
+    public void gradientVBox(float x1, float y1, float x2, float y2, int color1, int color2)
     {
-        this.context.fill((int)x, (int)y, (int)w, (int)h, color1);
+        this.context.fill((int)x1, (int)y1, (int)x2, (int)y2, color1);
     }
 
-    public void gradientHBox(int x, int y, int w, int h, int color1, int color2)
+    public void gradientHBox(int x1, int y1, int x2, int y2, int color1, int color2)
     {
-        this.context.fill(x, y, w, h, color1);
+        this.context.fill(x1, y1, x2, y2, color1);
     }
 
-    public void gradientHBox(float x, float y, float w, float h, int color1, int color2)
+    public void gradientHBox(float x1, float y1, float x2, float y2, int color1, int color2)
     {
-        this.context.fill((int)x, (int)y, (int)w, (int)h, color1);
+        this.context.fill((int)x1, (int)y1, (int)x2, (int)y2, color1);
     }
 
-    public void gradientBox(float x, float y, float w, float h, int topLeft, int topRight, int bottomRight, int bottomLeft)
+    public void gradientBox(float x1, float y1, float x2, float y2, int topLeft, int topRight, int bottomRight, int bottomLeft)
     {
-        this.context.fill((int)x, (int)y, (int)(x + w), (int)(y + h), topLeft);
+        this.context.fill((int)x1, (int)y1, (int)x2, (int)y2, topLeft);
     }
 
     public void dropShadow(float x, float y, float w, float h, int offset)
@@ -250,8 +298,16 @@ public class Batcher2D
     private void drawText(String str, int x, int y, int color, boolean shadow)
     {
         Font font = Minecraft.getInstance().font;
-        int bgColor = shadow ? 0x44000000 : 0;
-        this.context.textWithBackdrop(font, Component.literal(str), x + 1, y + 1, color, bgColor);
+
+        /* MC 26.2: text(font, str, x, y, ARGB color, dropShadow). Colors with
+         * a zero alpha channel are treated as fully transparent by the font
+         * renderer, so force opaque alpha for legacy 0xRRGGBB values. */
+        if ((color & 0xFF000000) == 0)
+        {
+            color |= 0xFF000000;
+        }
+
+        this.context.text(font, str, x, y, color, shadow);
     }
 
     public void wallText(String string, int x, int y, int color)
@@ -261,85 +317,152 @@ public class Batcher2D
 
     /* ======== Icon rendering ======== */
 
+    /** Render an icon sub-rectangle through the extractor's blit pipeline.
+     *  The blit methods expect u/v in pixels (not normalized), and the
+     *  srcWidth/srcHeight defaults to width/height. */
+    private void renderIcon(Icon icon, int color, int dx, int dy)
+    {
+        if (icon == null || icon.texture == null || this.context == null) return;
+
+        try
+        {
+            Identifier id = mchorse.bbs_mod.client.PipGeometry.bridge(icon.texture);
+
+            /* This blit overload takes normalized UVs (0..1) */
+            this.context.blit(id, dx, dy, dx + icon.w, dy + icon.h,
+                icon.x / (float) icon.textureW,
+                (icon.x + icon.w) / (float) icon.textureW,
+                icon.y / (float) icon.textureH,
+                (icon.y + icon.h) / (float) icon.textureH);
+        }
+        catch (Exception e)
+        {
+            this.context.fill(dx, dy, dx + icon.w, dy + icon.h,
+                color >= 0 ? color | 0xFF000000 : 0x88FFFFFF);
+        }
+    }
+
     public void icon(Icon icon, int x, int y)
     {
+        this.renderIcon(icon, -1, x, y);
     }
 
     public void icon(Icon icon, int x, int y, float ax, float ay)
     {
+        if (icon == null) return;
+        this.renderIcon(icon, -1, x - Math.round(icon.w * ax), y - Math.round(icon.h * ay));
     }
 
     public void icon(Icon icon, int color, int x, int y, float ax, float ay)
     {
+        if (icon == null) return;
+        this.renderIcon(icon, color, x - Math.round(icon.w * ax), y - Math.round(icon.h * ay));
     }
 
     public void icon(Icon icon, int color, int x, int y)
     {
+        this.renderIcon(icon, color, x, y);
     }
 
     public void iconArea(Icon icon, int x, int y, int w, int h)
     {
+        if (icon == null || icon.texture == null || this.context == null) return;
+        try
+        {
+            Identifier id = mchorse.bbs_mod.client.PipGeometry.bridge(icon.texture);
+            this.context.blit(id, x, y, x + w, y + h,
+                icon.x / (float) icon.textureW,
+                (icon.x + icon.w) / (float) icon.textureW,
+                icon.y / (float) icon.textureH,
+                (icon.y + icon.h) / (float) icon.textureH);
+        }
+        catch (Exception e)
+        {
+            this.context.fill(x, y, x + w, y + h, 0x88FFFFFF);
+        }
     }
 
     public void iconArea(Icon icon, int color, int x, int y, int w, int h)
     {
+        if (icon == null || icon.texture == null || this.context == null) return;
+        try
+        {
+            Identifier id = mchorse.bbs_mod.client.PipGeometry.bridge(icon.texture);
+            this.context.blit(id, x, y, x + w, y + h,
+                icon.x / (float) icon.textureW,
+                (icon.x + icon.w) / (float) icon.textureW,
+                icon.y / (float) icon.textureH,
+                (icon.y + icon.h) / (float) icon.textureH);
+        }
+        catch (Exception e)
+        {
+            this.context.fill(x, y, x + w, y + h, color >= 0 ? color | 0xFF000000 : 0x88FFFFFF);
+        }
     }
 
     public void outlinedIcon(Icon icon, int x, int y, float ax, float ay)
     {
+        this.icon(icon, x, y, ax, ay);
     }
 
     /* ======== Clipping ======== */
+
+    private static boolean glCheckDone;
+    private static boolean glAvailable;
+
+    private static boolean isGLAvailable()
+    {
+        if (!glCheckDone)
+        {
+            glCheckDone = true;
+            try
+            {
+                /* MC 26.2: detect backend by checking Window.backend()
+                 * class name. "GlBackend" → OpenGL, anything else → Vulkan
+                 * (which has no current GL context). */
+                Object backend = net.minecraft.client.Minecraft.getInstance().getWindow().backend();
+                String cls = backend.getClass().getName();
+                glAvailable = cls.contains("GlBackend") || cls.contains("opengl");
+            }
+            catch (Throwable t)
+            {
+                glAvailable = false;
+            }
+        }
+        return glAvailable;
+    }
 
     public void clip(Area area, UIContext context)
     {
         if (context != null)
         {
-            this.clipX = area.x;
-            this.clipY = area.y;
-            this.clipW = area.w;
-            this.clipH = area.h;
-            this.clipped = true;
-            GL11.glEnable(GL11.GL_SCISSOR_TEST);
-            GL11.glScissor(area.x, area.y, area.w, area.h);
+            this.clip(area.x, area.y, area.w, area.h, 0, 0);
         }
     }
 
     public void clip(int x, int y, int w, int h, int sw, int sh)
     {
-        this.clipX = x;
-        this.clipY = y;
-        this.clipW = w;
-        this.clipH = h;
-        this.clipped = true;
-        GL11.glEnable(GL11.GL_SCISSOR_TEST);
-        GL11.glScissor(x, y, w, h);
+        if (this.context != null)
+        {
+            this.context.enableScissor(x, y, x + w, y + h);
+        }
     }
 
     public void unclip(UIContext context)
     {
-        if (this.clipped)
-        {
-            this.clipped = false;
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
-        }
+        this.unclip();
     }
 
     public void unclip(int sw, int sh)
     {
-        if (this.clipped)
-        {
-            this.clipped = false;
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
-        }
+        this.unclip();
     }
 
     public void unclip()
     {
-        if (this.clipped)
+        if (this.context != null)
         {
-            this.clipped = false;
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            this.context.disableScissor();
         }
     }
 
@@ -349,6 +472,5 @@ public class Batcher2D
 
     public void reset()
     {
-        this.clipped = false;
     }
 }

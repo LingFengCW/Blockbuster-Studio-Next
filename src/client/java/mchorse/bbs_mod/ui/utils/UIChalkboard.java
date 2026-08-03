@@ -35,7 +35,6 @@ public class UIChalkboard extends UIElement
         super();
 
         this.texture = new Texture();
-        this.texture.setFilter(GL11.GL_NEAREST);
 
         this.picker = new UIColor((c) -> this.color = c).withAlpha();
         this.picker.direction(Direction.TOP).withTarget(this).setColor(this.color);

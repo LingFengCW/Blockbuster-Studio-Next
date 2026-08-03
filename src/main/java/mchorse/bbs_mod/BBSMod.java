@@ -342,6 +342,16 @@ public class BBSMod implements ModInitializer
 
     public static File getSettingsPath(String path)
     {
+        /* Project isolation: when a project is active, all BBS data (forms,
+         * categories, animation data, ...) is scoped to that project's own
+         * directory so different works never share or overwrite state. */
+        mchorse.bbs_mod.projects.BBSProject project = mchorse.bbs_mod.projects.ProjectManager.get().getCurrent();
+
+        if (project != null)
+        {
+            return project.getDirectory().resolve("settings").resolve(path).toFile();
+        }
+
         return new File(settingsFolder, path);
     }
 

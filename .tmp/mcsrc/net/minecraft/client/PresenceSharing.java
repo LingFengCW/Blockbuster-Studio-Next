@@ -1,0 +1,49 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  com.mojang.serialization.Codec
+ *  net.minecraft.network.chat.Component
+ *  net.minecraft.util.StringRepresentable
+ */
+package net.minecraft.client;
+
+import com.mojang.serialization.Codec;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.StringRepresentable;
+
+public enum PresenceSharing implements StringRepresentable
+{
+    NONE("none"),
+    LIMITED("limited"),
+    ALL("all");
+
+    public static final Codec<PresenceSharing> CODEC;
+    public static final String TRANSLATION_KEY_BASE = "options.sharePresence";
+    private final String name;
+    private final Component translatable;
+    private final Component tooltip;
+
+    private PresenceSharing(String name) {
+        this.name = name;
+        this.translatable = Component.translatable((String)("options.sharePresence." + name));
+        this.tooltip = Component.translatable((String)("options.sharePresence." + name + ".tooltip"));
+    }
+
+    public String getSerializedName() {
+        return this.name;
+    }
+
+    public Component getTranslation() {
+        return this.translatable;
+    }
+
+    public Component getTooltip() {
+        return this.tooltip;
+    }
+
+    static {
+        CODEC = StringRepresentable.fromEnum(PresenceSharing::values);
+    }
+}
+

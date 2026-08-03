@@ -223,7 +223,7 @@ public class CubicModelBakery implements IModelLoader
                 }
                 catch (Exception e)
                 {
-                    BBSModClient.LOGGER.error("Exception", e);
+                    BBSModClient.reportError("自定义模型(.bbs.json/OBJ)加载失败", e);
                 }
             }
             else
@@ -264,7 +264,7 @@ public class CubicModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("自定义模型(.bbs.json/OBJ)加载失败", e);
         }
 
         output.delete();
@@ -367,7 +367,7 @@ public class CubicModelBakery implements IModelLoader
             }
             catch (Exception e)
             {
-                BBSModClient.LOGGER.error("Exception", e);
+                BBSModClient.reportError("自定义模型(.bbs.json/OBJ)加载失败", e);
             }
         }
 
@@ -404,7 +404,7 @@ public class CubicModelBakery implements IModelLoader
             }
             catch (Exception e)
             {
-                BBSModClient.LOGGER.error("Exception", e);
+                BBSModClient.reportError("自定义模型(.bbs.json/OBJ)加载失败", e);
             }
         }
 
@@ -483,7 +483,7 @@ public class CubicModelBakery implements IModelLoader
                 }
                 catch (Exception e)
                 {
-                    BBSModClient.LOGGER.error("Exception", e);
+                    BBSModClient.reportError("自定义模型(.bbs.json/OBJ)加载失败", e);
                 }
             }
         }

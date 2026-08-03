@@ -36,8 +36,6 @@ public class UISubtitleRenderer
         {
             Texture texture = BBSModClient.getTextures().createTexture(Link.bbs("test"));
 
-            texture.setFilter(GL11.GL_NEAREST);
-            texture.setWrap(GL13.GL_CLAMP_TO_EDGE);
 
             f.deleteTextures();
             f.attach(texture, GL30.GL_COLOR_ATTACHMENT0);

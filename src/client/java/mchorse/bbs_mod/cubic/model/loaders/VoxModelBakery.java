@@ -60,7 +60,7 @@ public class VoxModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("Vox模型加载失败", e);
         }
 
         return null;
@@ -104,7 +104,7 @@ public class VoxModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("Vox模型加载失败", e);
         }
 
         pixels.delete();

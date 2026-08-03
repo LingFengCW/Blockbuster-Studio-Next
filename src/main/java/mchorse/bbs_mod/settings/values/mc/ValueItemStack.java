@@ -12,10 +12,22 @@ public class ValueItemStack extends BaseValueBasic<ItemStack>
         super(id, ItemStack.EMPTY);
     }
 
+    /* MC 26.2: some code paths set the value to null (e.g. forms built from
+     * data without an item component). Returning EMPTY instead of null keeps
+     * every consumer (ItemStack.CODEC encoding, getDefaultDisplayName, ...)
+     * safe without crashing the morph/send pipeline. */
+    @Override
+    public ItemStack get()
+    {
+        ItemStack stack = super.get();
+
+        return stack == null ? ItemStack.EMPTY : stack;
+    }
+
     @Override
     public BaseType toData()
     {
-        return KeyframeFactories.ITEM_STACK.toData(this.value);
+        return KeyframeFactories.ITEM_STACK.toData(this.get());
     }
 
     @Override

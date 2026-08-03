@@ -465,7 +465,7 @@ public class UIReplayList extends UIList<Replay>
         palette.updatable();
     }
 
-    private void addReplay()
+    public void addReplay()
     {
         Level world = Minecraft.getInstance().level;
         Camera camera = this.panel.getCamera();

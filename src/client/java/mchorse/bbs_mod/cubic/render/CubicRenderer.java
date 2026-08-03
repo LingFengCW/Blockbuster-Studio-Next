@@ -2,7 +2,7 @@ package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 public class CubicRenderer
@@ -14,7 +14,7 @@ public class CubicRenderer
      * applies given render processor. Processor may return true from its
      * sole method which means that iteration should be halted.
      */
-    public static boolean processRenderModel(ICubicRenderer renderProcessor, BufferBuilder builder, PoseStack stack, Model model)
+    public static boolean processRenderModel(ICubicRenderer renderProcessor, VertexConsumer builder, PoseStack stack, Model model)
     {
         for (ModelGroup group : model.topGroups)
         {
@@ -30,7 +30,7 @@ public class CubicRenderer
     /**
      * Apply the render processor, recursively
      */
-    private static boolean processRenderRecursively(ICubicRenderer renderProcessor, BufferBuilder builder, PoseStack stack, Model model, ModelGroup group)
+    private static boolean processRenderRecursively(ICubicRenderer renderProcessor, VertexConsumer builder, PoseStack stack, Model model, ModelGroup group)
     {
         stack.pushPose();
         renderProcessor.applyGroupTransformations(stack, group);

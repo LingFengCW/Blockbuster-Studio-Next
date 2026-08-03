@@ -10,7 +10,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.client.ShaderProgram;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 // [MC 26.2 REMOVED] import net.minecraft.client.renderer.LightTexture;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -29,7 +29,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(VertexConsumer builder, PoseStack stack, ModelGroup group, Model model)
     {
         ModelVAO modelVAO = this.model.getVaos().get(group);
 
