@@ -335,7 +335,10 @@ public class ModelInstance implements IModelInstance
 
     public void render(PoseStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys)
     {
-        this.render(stack, program, color, light, overlay, stencilMap, keys, program == null || program.get() == null);
+        /* The 7-arg overload defaults to the CPU/BufferBuilder path (gui=true),
+         * which is what every current caller passes (program is always null).
+         * The explicit gui overload is used when the caller knows the mode. */
+        this.render(stack, program, color, light, overlay, stencilMap, keys, true);
     }
 
     public void render(PoseStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, boolean gui)

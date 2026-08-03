@@ -106,12 +106,13 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             Color color = Colors.COLOR.set(overlayColor, true);
             Color formColor = this.form.color.get();
 
-            BBSModClient.getTextures().bindTexture(texture);
-
             // [MC 26.2] RenderSystem.enableBlend/defaultBlendFunc/disableBlend removed
             // [MC 26.2] gameRenderer.getLightmapTextureManager/getOverlayTexture removed
 
-            ModelVAORenderer.render(shader.get(), data, matrices, color.r * formColor.r, color.g * formColor.g, color.b * formColor.b, color.a * formColor.a, light, overlay);
+            /* CPU path: write the extruded mesh into a native BufferBuilder
+             * and draw it through the 26.2 pipeline with the texture bound. */
+            data.render(DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, matrices, texture,
+                color.r * formColor.r, color.g * formColor.g, color.b * formColor.b, color.a * formColor.a, light, overlay);
         }
     }
 }

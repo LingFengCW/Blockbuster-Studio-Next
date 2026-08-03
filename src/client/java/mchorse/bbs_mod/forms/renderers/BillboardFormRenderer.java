@@ -5,6 +5,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
+import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -16,6 +17,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import net.minecraft.client.Minecraft;
 import mchorse.bbs_mod.client.ShaderProgram;
+import net.minecraft.client.renderer.RenderPipelines;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.PrimitiveTopology;
@@ -162,10 +164,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             uvQuad.transform(matrix);
         }
 
-        this.renderQuad(format, texture, shader, matrices, overlay, light, overlayColor, transition);
+        this.renderQuad(format, texture, t, shader, matrices, overlay, light, overlayColor, transition);
     }
 
-    private void renderQuad(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition)
+    private void renderQuad(VertexFormat format, Texture texture, Link textureLink, Supplier<ShaderProgram> shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition)
     {
         // [MC 26.2] Tessellator removed, create BufferBuilder directly
         ByteBufferBuilder byteBuf = new ByteBufferBuilder(1536);
@@ -218,7 +220,12 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         // [MC 26.2] RenderSystem.defaultBlendFunc/enableBlend/BufferRenderer removed
         texture.setFilterMipmap(false, false);
-        byteBuf.close();
+
+        /* Draw the filled quad through the 26.2 pipeline with the BBS
+         * texture bound to Sampler0 (without this the quad never appears). */
+        Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT,
+            textureLink == null ? null : mchorse.bbs_mod.client.PipGeometry.bridgeView(textureLink),
+            textureLink == null ? null : mchorse.bbs_mod.client.PipGeometry.bridgeSampler());
     }
 
     private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, Color color, float u, float v, int overlay, int light, PoseStack.Pose pose, float nz)
