@@ -389,7 +389,9 @@ public class ModelInstance implements IModelInstance
                 ByteBufferBuilder byteBuf = new ByteBufferBuilder(65536);
                 BufferBuilder builder = new BufferBuilder(byteBuf, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP);
                 CubicRenderer.processRenderModel(renderProcessor, builder, stack, model);
-                Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT);
+                Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT,
+                    mchorse.bbs_mod.client.PipGeometry.bridgeView(this.texture),
+                    mchorse.bbs_mod.client.PipGeometry.bridgeSampler());
             }
         }
         else if (this.model instanceof BOBJModel model)
@@ -445,7 +447,9 @@ public class ModelInstance implements IModelInstance
 
                 this.renderBOBJ(vao, builder, stack, color, light, overlay, false);
 
-                Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT);
+                Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT,
+                    mchorse.bbs_mod.client.PipGeometry.bridgeView(this.texture),
+                    mchorse.bbs_mod.client.PipGeometry.bridgeSampler());
             }
         }
     }

@@ -40,6 +40,12 @@ public class UIKeys
     public static final IKey ASSETS_IMPORT_FAILED = L10n.lang("bbs.ui.assets.import_failed");
     public static final IKey ASSETS_EXPORT_FOLDER = L10n.lang("bbs.ui.assets.export_folder");
     public static final IKey ASSETS_EXPORT_EMPTY = L10n.lang("bbs.ui.assets.export_empty");
+    public static final IKey PLUGINS_TITLE = L10n.lang("bbs.ui.plugins.title");
+    public static final IKey PLUGINS_EMPTY = L10n.lang("bbs.ui.plugins.empty");
+    public static final IKey PLUGINS_OPEN_FOLDER = L10n.lang("bbs.ui.plugins.open_folder");
+    public static final IKey PLUGINS_RELOAD = L10n.lang("bbs.ui.plugins.reload");
+    public static final IKey PLUGINS_FOLDER = L10n.lang("bbs.ui.plugins.folder");
+    public static final IKey PLUGINS_RELOADED = L10n.lang("bbs.ui.plugins.reloaded");
     public static final IKey ENTITY_TYPE = L10n.lang("bbs.ui.entity.type");
     public static final IKey ENTITY_TYPE_MOB = L10n.lang("bbs.ui.entity.type.mob");
     public static final IKey ENTITY_TYPE_MODEL = L10n.lang("bbs.ui.entity.type.model");

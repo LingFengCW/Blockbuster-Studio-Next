@@ -269,6 +269,7 @@ public class UIDashboard extends UIBaseMenu
         this.panels.registerPanel(new UIProjectsPanel(this), UIKeys.PROJECTS_LIBRARY, Icons.FOLDER);
         this.panels.registerPanel(new UIFilmPanel(this), UIKeys.FILM_TITLE, Icons.FILM, true);
         this.panels.registerPanel(new UISupportersPanel(this), UIKeys.SUPPORTERS_TITLE, Icons.USER);
+        this.panels.registerPanel(new mchorse.bbs_mod.ui.plugins.UIPluginsPanel(this), UIKeys.PLUGINS_TITLE, Icons.CODE);
 
         if (FabricLoader.getInstance().isDevelopmentEnvironment())
         {
