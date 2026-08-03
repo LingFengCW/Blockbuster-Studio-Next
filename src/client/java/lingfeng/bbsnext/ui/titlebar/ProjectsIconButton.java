@@ -6,11 +6,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 /**
- * Title-screen projects button, built exactly like Mod Menu's mods button:
- * a vanilla {@link SpriteIconButton.CenteredIcon} fed by a GUI-atlas sprite.
- * The PNG lives in textures/gui/sprites/, so the atlas loads it automatically
- * (sprite id = bbs:projects_icon) - no manual texture registration, and the
- * vanilla button renders the hover highlight frame for us.
+ * Title-screen projects button: a 16x16 vanilla
+ * {@link SpriteIconButton.CenteredIcon} fed by a GUI-atlas sprite
+ * (textures/gui/sprites/ loads it automatically - sprite id
+ * bbs:projects_icon, no manual texture registration needed).
  */
 public class ProjectsIconButton extends SpriteIconButton.CenteredIcon
 {
@@ -18,8 +17,7 @@ public class ProjectsIconButton extends SpriteIconButton.CenteredIcon
 
     public ProjectsIconButton(int x, int y)
     {
-        /* 16x16 button, 12x12 icon. Below 16px the vanilla
-         * SpriteIconButton stretches the sprite across the screen. */
+        /* 16x16 button, 12x12 icon. */
         super(x, y, Component.empty(), 16, 16, 12, 12,
             new WidgetSprites(ICON, ICON, ICON),
             (b) -> mchorse.bbs_mod.BBSModClient.openEditorFlow(null),
