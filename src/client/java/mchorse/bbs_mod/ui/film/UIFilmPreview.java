@@ -206,6 +206,41 @@ public class UIFilmPreview extends UIElement
 
         this.icons.add(this.replays, this.onionSkin, this.plause, this.teleport, this.flight, this.control, this.perspective, this.recordReplay, this.recordVideo);
         this.add(this.icons);
+
+        /* Right-click on the viewport: display helpers, camera reset and
+         * capture actions (design doc 9.2 - viewport context menu). */
+        this.context((menu) ->
+        {
+            menu.action(Icons.SQUARE, mchorse.bbs_mod.l10n.keys.IKey.raw("中心线"), BBSSettings.editorCenterLines.get(), () ->
+            {
+                BBSSettings.editorCenterLines.set(!BBSSettings.editorCenterLines.get());
+            });
+            menu.action(Icons.LINE, mchorse.bbs_mod.l10n.keys.IKey.raw("三分构图线"), BBSSettings.editorRuleOfThirds.get(), () ->
+            {
+                BBSSettings.editorRuleOfThirds.set(!BBSSettings.editorRuleOfThirds.get());
+            });
+            menu.action(Icons.CURSOR, mchorse.bbs_mod.l10n.keys.IKey.raw("准星"), BBSSettings.editorCrosshair.get(), () ->
+            {
+                BBSSettings.editorCrosshair.set(!BBSSettings.editorCrosshair.get());
+            });
+            menu.action(Icons.REFRESH, mchorse.bbs_mod.l10n.keys.IKey.raw("重置视角"), () ->
+            {
+                this.panel.dashboard.orbit.setup(this.panel.getCamera());
+            });
+            menu.action(Icons.CAMERA, UIKeys.FILM_SCREENSHOT, () ->
+            {
+                ScreenshotRecorder recorder = BBSModClient.getScreenshotRecorder();
+                Texture texture = BBSRendering.getTexture();
+
+                recorder.takeScreenshot(Window.isAltPressed() ? null : recorder.getScreenshotFile(), texture.id, texture.width, texture.height);
+
+                UIOverlay.addOverlay(this.getContext(), new UIMessageFolderOverlayPanel(
+                    UIKeys.FILM_SCREENSHOT_TITLE,
+                    UIKeys.FILM_SCREENSHOT_DESCRIPTION,
+                    recorder.getScreenshots()
+                ));
+            });
+        });
     }
 
     public void openReplays()
@@ -290,6 +325,13 @@ public class UIFilmPreview extends UIElement
         {
             context.batcher.texturedBox(texture.id, Colors.WHITE, area.x, area.y, area.w, area.h, 0, texture.height, texture.width, 0, texture.width, texture.height);
         }
+
+        /* Viewport title bar - makes the preview read as a named dock. */
+        String title = "预览";
+        int tw = context.batcher.getFont().getWidth(title);
+
+        context.batcher.box(area.x, area.y, area.x + tw + 14, area.y + 18, Colors.A75);
+        context.batcher.text(title, area.x + 7, area.y + 4, Colors.LIGHTER_GRAY, true);
 
         this.renderCursor(context);
 

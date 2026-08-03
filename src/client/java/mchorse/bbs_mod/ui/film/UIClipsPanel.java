@@ -35,7 +35,18 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
         this.filmPanel = panel;
         this.clips = new UIClips(this, factory);
 
-        this.add(this.clips.full(this));
+        /* Panel title bar - makes the timeline read as a distinct dock
+         * (PR style) instead of a bare strip. */
+        mchorse.bbs_mod.ui.framework.elements.utils.UILabel header =
+            mchorse.bbs_mod.ui.utils.UI.label(mchorse.bbs_mod.l10n.keys.IKey.raw("时间轴"), 14, mchorse.bbs_mod.utils.colors.Colors.LIGHTER_GRAY);
+
+        header.relative(this).x(0).y(0).w(1, 0).h(18);
+        header.background(0x33000000);
+
+        this.add(header);
+
+        this.clips.relative(this).x(0).y(18).w(1, 0).h(1, -18);
+        this.add(this.clips);
     }
 
     public UIClipsPanel target(UIElement target)
