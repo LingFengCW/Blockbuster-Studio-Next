@@ -762,6 +762,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.notifyServer(ActionState.STOP);
         super.fill(data);
         this.notifyServer(ActionState.RESTART);
+
+        /* Keep the asset bin's project/backpack lists in sync with the
+         * scene/sequence that was just opened. */
+        this.assetBin.refresh();
     }
 
     @Override

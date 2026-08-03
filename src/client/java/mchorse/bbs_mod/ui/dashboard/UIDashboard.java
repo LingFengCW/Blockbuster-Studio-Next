@@ -30,7 +30,6 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
-import mchorse.bbs_mod.ui.selectors.UISelectorsOverlayPanel;
 import mchorse.bbs_mod.ui.supporters.UISupportersPanel;
 import mchorse.bbs_mod.ui.utility.UIUtilityOverlayPanel;
 import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
@@ -56,7 +55,6 @@ public class UIDashboard extends UIBaseMenu
     private static final int TOP_BAR_H = 0;
 
     public UIIcon settings;
-    public UIIcon selectors;
 
     /* Camera data */
     public final UIOrbitCamera orbitUI = new UIOrbitCamera();
@@ -106,15 +104,10 @@ public class UIDashboard extends UIBaseMenu
             UIOverlay.addOverlayRight(this.context, this.settingsPanel, 240);
         });
         this.settings.tooltip(UIKeys.CONFIG_TITLE, Direction.TOP);
-        this.selectors = new UIIcon(Icons.PROPERTIES, (b) ->
-        {
-            UIOverlay.addOverlayRight(this.context, new UISelectorsOverlayPanel(), 240);
-        });
-        this.selectors.tooltip(UIKeys.SELECTORS_TITLE, Direction.TOP);
         this.chalkboard = new UIChalkboard();
         this.chalkboard.full(this.getRoot());
 
-        this.panels.pinned.add(this.settings, this.selectors);
+        this.panels.pinned.add(this.settings);
         this.getRoot().prepend(this.orbitUI);
         this.getRoot().add(this.orbitKeysUI);
         this.getRoot().add(this.chalkboard);
