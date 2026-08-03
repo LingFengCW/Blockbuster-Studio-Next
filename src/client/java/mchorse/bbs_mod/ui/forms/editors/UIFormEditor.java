@@ -727,6 +727,13 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             return this.statesKeyframes.getOrigin(transition);
         }
 
+        /* The form editor's UIForm may be null while browsing the palette
+         * (list mode). The preview renderer calls getOrigin() even then. */
+        if (this.editor == null)
+        {
+            return null;
+        }
+
         return this.editor.getOrigin(transition);
     }
 

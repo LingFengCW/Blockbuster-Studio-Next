@@ -1023,8 +1023,6 @@ public class UIFilmController extends UIElement
 
         boolean altPressed = Window.isAltPressed();
 
-        GL11.glDepthFunc(GL11.GL_LESS);
-
         /* Cache the global stuff */
         PoseStackUtils.cacheMatrices();
 
@@ -1042,8 +1040,6 @@ public class UIFilmController extends UIElement
 
         /* Return back to orthographic projection */
         PoseStackUtils.restoreMatrices();
-
-        GL11.glDepthFunc(GL11.GL_ALWAYS);
 
         this.hoveredEntity = null;
 
@@ -1067,7 +1063,6 @@ public class UIFilmController extends UIElement
             previewProgram.setUniform(target, index, 0, 0, 0);
         }
 
-        GL11.glEnable(GL11.GL_BLEND);
         context.batcher.texturedBox(getPickerPreviewProgram, texture.id, Colors.WHITE, area.x, area.y, area.w, area.h, 0, h, w, 0, w, h);
 
         if (altPressed)

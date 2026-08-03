@@ -18,6 +18,9 @@ public class BBSResources
 
     public static void setupWatchdog()
     {
+        /* Stop any previous watchdog thread before creating a new one (retry guard). */
+        stopWatchdog();
+
         File assetsFolder = BBSMod.getAssetsFolder();
 
         watchDog = new WatchDog(assetsFolder, false, (runnable) -> Minecraft.getInstance().execute(runnable));

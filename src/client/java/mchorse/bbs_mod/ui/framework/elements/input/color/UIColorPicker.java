@@ -51,6 +51,7 @@ public class UIColorPicker extends UIElement
     public Area alpha = new Area();
 
     private int dragging = -1;
+    private boolean modified = false;
     private Color hsv = new Color();
 
     public static void renderAlphaPreviewQuad(Batcher2D batcher, int x1, int y1, int x2, int y2, Color color)
@@ -68,6 +69,7 @@ public class UIColorPicker extends UIElement
         this.input = new UITextbox(7, (string) ->
         {
             this.setValue(Colors.parse(string));
+            this.modified = true;
             this.callback();
         });
         this.input.context((menu) -> menu.action(Icons.FAVORITE, UIKeys.COLOR_CONTEXT_FAVORITES_ADD, () -> this.addToFavorites(this.color)));
@@ -126,6 +128,7 @@ public class UIColorPicker extends UIElement
 
     public void updateColor()
     {
+        this.modified = true;
         this.updateField();
         this.callback();
     }
@@ -154,6 +157,7 @@ public class UIColorPicker extends UIElement
     public void setup(int x, int y)
     {
         this.xy(x, y);
+        this.modified = false;
         this.setupSize();
     }
 
@@ -263,7 +267,11 @@ public class UIColorPicker extends UIElement
         if (!this.area.isInside(context))
         {
             this.removeFromParent();
-            this.addToRecent();
+
+            if (this.modified)
+            {
+                this.addToRecent();
+            }
         }
 
         return super.subMouseClicked(context);
@@ -283,7 +291,11 @@ public class UIColorPicker extends UIElement
         if (context.isPressed(GLFW.GLFW_KEY_ESCAPE))
         {
             this.removeFromParent();
-            this.addToRecent();
+
+            if (this.modified)
+            {
+                this.addToRecent();
+            }
 
             return true;
         }

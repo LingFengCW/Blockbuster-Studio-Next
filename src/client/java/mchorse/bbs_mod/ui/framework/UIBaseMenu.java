@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.framework;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.ui.Keys;
+import mchorse.bbs_mod.ui.dashboard.topbar.UITopBar;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IViewport;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -51,6 +52,10 @@ public abstract class UIBaseMenu
         popka.keys().register(Keys.KEYBINDS, () -> this.context.toggleKeybinds());
         popka.keys().register(Keys.TRANSFORMATIONS_TOGGLE_AXES, () -> renderAxes = !renderAxes);
         this.root.add(popka);
+
+        /* In-game top bar is DISABLED for now: mounting it made the whole
+         * dashboard content silently stop rendering (panels sized fine but
+         * nothing drew). Investigate before re-enabling. */
 
         this.context.keybinds.relative(this.viewport).wh(0.5F, 1F);
     }
@@ -220,8 +225,6 @@ public abstract class UIBaseMenu
 
     public void renderMenu(UIRenderingContext context, int mouseX, int mouseY)
     {
-        GL11.glDepthFunc(GL11.GL_ALWAYS);
-
         this.context.resetMatrix();
         this.context.setMouse(mouseX, mouseY);
 
@@ -242,8 +245,6 @@ public abstract class UIBaseMenu
         {
             inputRenderer.render(this, mouseX, mouseY);
         }
-
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
     }
 
     protected void preRenderMenu(UIRenderingContext context)

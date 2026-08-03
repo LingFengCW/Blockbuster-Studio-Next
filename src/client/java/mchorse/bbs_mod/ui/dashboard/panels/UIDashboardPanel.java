@@ -60,4 +60,21 @@ public class UIDashboardPanel extends UIElement
 
     public void renderPanelBackground(UIContext context)
     {}
+
+    /**
+     * Undo the last edit in this panel. Panels that own an undo manager
+     * (e.g. the film editor) override this; the default is a no-op because
+     * not every panel holds editable state.
+     */
+    public void undo()
+    {}
+
+    public void redo()
+    {}
+
+    /**
+     * Persist this panel's data. Overridden by panels that own savable state.
+     */
+    public void save()
+    {}
 }

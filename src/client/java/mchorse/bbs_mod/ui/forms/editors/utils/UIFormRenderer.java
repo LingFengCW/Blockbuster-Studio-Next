@@ -19,11 +19,15 @@ public class UIFormRenderer extends UIModelRenderer
     {
         if (this.form == null)
         {
+            mchorse.bbs_mod.client.PipGeometry.debug("rUM", "UIFormRenderer.renderUserModel: form is null");
+
             return;
         }
 
+        mchorse.bbs_mod.client.PipGeometry.debug("rUM", "UIFormRenderer.renderUserModel: form=" + this.form.getFormId());
+
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, new PoseStack(), 0xF000F0, 0, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.entity, this.createModelStack(), 0xF000F0, 0, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 

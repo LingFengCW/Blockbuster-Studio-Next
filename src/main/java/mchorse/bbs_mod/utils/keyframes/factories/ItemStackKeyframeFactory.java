@@ -25,6 +25,15 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public BaseType toData(ItemStack value)
     {
+        /* MC 26.2: the ItemStack codec dereferences the stack while encoding;
+         * a null value (e.g. a form whose item value was never initialized)
+         * throws an NPE deep inside RecordCodecBuilder, which breaks morphing
+         * entirely (Form.toData -> sendPlayerForm). */
+        if (value == null)
+        {
+            value = ItemStack.EMPTY;
+        }
+
         Optional<Tag> result = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(new MapType());

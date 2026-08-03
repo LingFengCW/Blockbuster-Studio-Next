@@ -40,6 +40,13 @@ public class MorphRenderer
 
         Morph morph = Morph.getMorph(player);
 
+        if (morph != null)
+        {
+            mchorse.bbs_mod.client.PipGeometry.debug("morphState",
+                "renderPlayer: morph=" + (morph.getForm() == null ? "null" : morph.getForm().getFormId())
+                    + " canRender=" + canRender() + " hide=" + hidePlayer);
+        }
+
         if (morph != null && morph.getForm() != null)
         {
             if (canRender())

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Loggers>
+        <!-- Suppress EMF repeating IllegalStateException spam for BBS model parts -->
+        <Logger name="com.groundwork" level="WARN" additivity="false">
+            <AppenderRef ref="File"/>
+        </Logger>
+    </Loggers>
+</Configuration>

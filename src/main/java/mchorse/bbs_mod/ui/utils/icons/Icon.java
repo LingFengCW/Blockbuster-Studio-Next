@@ -10,8 +10,11 @@ public class Icon
     public final int y;
     public final int w;
     public final int h;
-    public int textureW = 256;
-    public int textureH = 256;
+    /* The atlas is now 2048x2048 (128px cells); logical icon coordinates
+     * (16-unit grid) are unchanged, so every icon samples a 128px region
+     * while still drawing at its 16px UI size - crisp at any GUI scale. */
+    public int textureW = 2048;
+    public int textureH = 2048;
 
     public Icon(Link texture, String id, int x, int y)
     {

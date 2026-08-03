@@ -126,13 +126,13 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
     }
 
     @Override
-    protected void renderGrid(UIContext context)
+    protected void renderGrid(PoseStack stack, net.minecraft.client.renderer.SubmitNodeCollector collector)
     {
-        super.renderGrid(context);
+        super.renderGrid(stack, collector);
 
         if (UIBaseMenu.renderAxes)
         {
-            Draw.coolerAxes(new PoseStack(), 1F, 0.01F, 1.01F, 0.02F);
+            Draw.coolerAxes(this.createModelStack(), 1F, 0.01F, 1.01F, 0.02F);
         }
     }
 }

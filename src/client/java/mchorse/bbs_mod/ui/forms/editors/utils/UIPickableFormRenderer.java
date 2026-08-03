@@ -102,13 +102,16 @@ public class UIPickableFormRenderer extends UIFormRenderer
     {
         if (this.form == null)
         {
+            mchorse.bbs_mod.client.PipGeometry.debug("rUM", "UIPickableFormRenderer.renderUserModel: form is null");
             return;
         }
+
+        mchorse.bbs_mod.client.PipGeometry.debug("rUM", "UIPickableFormRenderer.renderUserModel: form=" + this.form.getFormId());
 
         this.formEditor.preFormRender(context, this.form);
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.target == null ? this.entity : this.target, new PoseStack(), 0xF000F0, 0, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.target == null ? this.entity : this.target, this.createModelStack(), 0xF000F0, 0, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 
@@ -126,10 +129,13 @@ public class UIPickableFormRenderer extends UIFormRenderer
 
         if (this.area.isInside(context))
         {
-            GlStateManager._disableScissorTest();
+            if (mchorse.bbs_mod.BBSModClient.GL_AVAILABLE)
+            {
+                GlStateManager._disableScissorTest();
 
-            this.stencilMap.setup();
-            this.stencil.apply();
+                this.stencilMap.setup();
+                this.stencil.apply();
+            }
 
             FormUtilsClient.render(this.form, formContext.stencilMap(this.stencilMap));
 
@@ -143,20 +149,29 @@ public class UIPickableFormRenderer extends UIFormRenderer
                 PoseStackUtils.multiply(stack, PoseStackUtils.stripScale(matrix));
             }
 
-            Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
+            if (mchorse.bbs_mod.BBSModClient.GL_AVAILABLE)
+            {
+                Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
+            }
 
             stack.popPose();
 
-            this.stencil.pickGUI(context, this.area);
-            this.stencil.unbind(this.stencilMap);
+            if (mchorse.bbs_mod.BBSModClient.GL_AVAILABLE)
+            {
+                this.stencil.pickGUI(context, this.area);
+                this.stencil.unbind(this.stencilMap);
 
-            /* mainRenderTarget binding removed in MC 26.2 */
+                /* mainRenderTarget binding removed in MC 26.2 */
 
-            GlStateManager._enableScissorTest();
+                GlStateManager._enableScissorTest();
+            }
         }
         else
         {
-            this.stencil.clearPicking();
+            if (mchorse.bbs_mod.BBSModClient.GL_AVAILABLE)
+            {
+                this.stencil.clearPicking();
+            }
         }
     }
 
@@ -242,11 +257,11 @@ public class UIPickableFormRenderer extends UIFormRenderer
     }
 
     @Override
-    protected void renderGrid(UIContext context)
+    protected void renderGrid(PoseStack stack, net.minecraft.client.renderer.SubmitNodeCollector collector)
     {
         if (this.renderForm == null || this.renderForm.get())
         {
-            super.renderGrid(context);
+            super.renderGrid(stack, collector);
         }
     }
 }

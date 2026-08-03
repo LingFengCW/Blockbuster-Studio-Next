@@ -21,7 +21,7 @@ public class Framebuffer
 
     public Framebuffer()
     {
-        this.id = GL30.glGenFramebuffers();
+        this.id = -1;
     }
 
     public Framebuffer enableAdvancedClearing()
@@ -53,8 +53,6 @@ public class Framebuffer
         this.bind();
         texture.bind();
 
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, attachment, texture.target, texture.id, 0);
-
         return this;
     }
 
@@ -65,8 +63,6 @@ public class Framebuffer
     {
         this.renderbuffers.add(renderbuffer);
         renderbuffer.bind();
-
-        GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, renderbuffer.target, GL30.GL_RENDERBUFFER, renderbuffer.id);
     }
 
     public void attachments(int count)
@@ -75,7 +71,7 @@ public class Framebuffer
 
         for (int i = 0; i < count; i++)
         {
-            attachments[i] = GL30.GL_COLOR_ATTACHMENT0 + i;
+            attachments[i] = i;
         }
 
         this.attachments(attachments);
@@ -83,7 +79,6 @@ public class Framebuffer
 
     public void attachments(int... attachments)
     {
-        GL30.glDrawBuffers(attachments);
     }
 
     public void applyClear()
@@ -96,47 +91,19 @@ public class Framebuffer
     {
         Texture texture = this.getMainTexture();
 
-        GL11.glViewport(0, 0, texture.width, texture.height);
         this.bind();
     }
 
     public void clear()
     {
-        if (this.advancedClearing)
-        {
-            int i = 0;
-
-            for (Texture texture : this.textures)
-            {
-                if (texture.getFormat().isColor())
-                {
-                    if (texture.isClearable())
-                    {
-                        GL30.glClearBufferfv(GL30.GL_COLOR, i, CLEAR_COLOR);
-                    }
-
-                    i += 1;
-                }
-                else if (texture.isClearable())
-                {
-                    GL30.glClearBufferfv(GL30.GL_DEPTH, 0, CLEAR_DEPTH);
-                }
-            }
-        }
-        else
-        {
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-        }
     }
 
     public void bind()
     {
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.id);
     }
 
     public void unbind()
     {
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
     }
 
     public void resize(int w, int h)
@@ -157,8 +124,6 @@ public class Framebuffer
 
     public void delete()
     {
-        GL30.glDeleteFramebuffers(this.id);
-
         if (this.deleteTextures)
         {
             for (Texture texture : this.textures)

@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.supporters;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
@@ -12,6 +13,7 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
 
 public class UISupporterBanner extends UIElement
@@ -106,13 +108,23 @@ public class UISupporterBanner extends UIElement
 
         if (this.supporter.banner != null && !this.supporter.banner.path.equals("..."))
         {
-            Texture texture = BBSModClient.getTextures().getTexture(this.supporter.banner, GL11.GL_LINEAR);
+            /* MC 26.2: bridge the banner texture through PipGeometry so it
+             * can be rendered via the extractor's blit pipeline. */
+            try
+            {
+                Identifier id = mchorse.bbs_mod.client.PipGeometry.bridge(this.supporter.banner);
 
-            context.batcher.fullTexturedBox(texture, a.x, a.y, a.w, a.h);
+                context.batcher.getContext().blit(id, a.x, a.y, a.ex(), a.ey(),
+                    0F, 1F, 0F, 1F);
+            }
+            catch (Exception e)
+            {
+                context.batcher.box(a.x, a.y, a.ex(), a.ey(), color2, color1, color1, color2);
+            }
         }
         else
         {
-            context.batcher.box(a.x, a.y, a.w, a.h, color2, color1, color1, color2);
+            context.batcher.box(a.x, a.y, a.ex(), a.ey(), color2, color1, color1, color2);
         }
     }
 }

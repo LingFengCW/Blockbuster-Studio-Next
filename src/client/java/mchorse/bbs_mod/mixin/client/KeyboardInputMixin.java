@@ -18,15 +18,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(KeyboardInput.class)
 public class KeyboardInputMixin
 {
+    /* MC 26.2: moveVector lives on the ClientInput superclass and tick()
+     * no longer takes slowDown parameters. */
     @Shadow
     protected Vec2 moveVector;
-    private static float getMovementMultiplier(boolean positive, boolean negative)
-    {
-        return positive == negative ? 0F : (positive ? 1F : -1F);
-    }
 
     @Inject(method = "tick", at = @At("RETURN"))
-    public void onTick(boolean slowDown, float slowDownFactor, CallbackInfo info)
+    public void onTick(CallbackInfo info)
     {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
@@ -49,11 +47,11 @@ public class KeyboardInputMixin
             float forwardImpulse = getMovementMultiplier(forward, backward);
             float leftImpulse = getMovementMultiplier(left, right);
             this.moveVector = new Vec2(leftImpulse, forwardImpulse);
-
-            if (slowDown)
-            {
-                this.moveVector = new Vec2(this.moveVector.x * slowDownFactor, this.moveVector.y * slowDownFactor);
-            }
         }
+    }
+
+    private static float getMovementMultiplier(boolean positive, boolean negative)
+    {
+        return positive == negative ? 0F : (positive ? 1F : -1F);
     }
 }

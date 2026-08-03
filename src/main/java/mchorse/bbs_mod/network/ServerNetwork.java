@@ -196,6 +196,9 @@ public class ServerNetwork
 
             server.execute(() ->
             {
+                System.out.println("[BBS MORPH] server handlePlayerFormPacket: fromData form="
+                    + (finalForm == null ? "null" : finalForm.getFormId()));
+
                 Morph.getMorph(player).setForm(FormUtils.copy(finalForm));
 
                 sendMorphToTracked(player, finalForm);

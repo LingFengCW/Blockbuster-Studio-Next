@@ -11,7 +11,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(OptionInstance.class)
 public class OptionInstanceMixin
 {
-    @Inject(method = "getValue", at = @At("HEAD"), cancellable = true)
+    /* MC 26.2: getValue was renamed to get. */
+    @Inject(method = "get", at = @At("HEAD"), cancellable = true)
     public void onGetValue(CallbackInfoReturnable info)
     {
         OptionInstance option = (OptionInstance) (Object) this;
@@ -27,5 +28,3 @@ public class OptionInstanceMixin
         }
     }
 }
-
-

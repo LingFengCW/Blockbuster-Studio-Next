@@ -52,7 +52,7 @@ public class BBSShaders
         }
         catch (Exception e)
         {
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("着色器初始化失败", e);
         }
     }
 

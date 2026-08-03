@@ -19,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class ExtraFormSection extends FormSection
@@ -56,7 +57,18 @@ public class ExtraFormSection extends FormSection
         billboard.texture.set(Link.assets("textures/error.png"));
         extruded.texture.set(Link.assets("textures/error.png"));
         block.blockState.set(Blocks.GRASS_BLOCK.defaultBlockState());
-        item.stack.set(new ItemStack(Items.STICK));
+
+        /* MC 26.2: ItemStack creation may fail with "Components not bound yet"
+         * before the game finishes its data component fixup. The default item
+         * form will have a null stack until the user sets one manually. */
+        try
+        {
+            item.stack.set(new ItemStack(Items.STICK));
+        }
+        catch (NullPointerException e)
+        {
+            item.stack.set(null);
+        }
 
         extra.addForm(anchor);
         extra.addForm(billboard);
@@ -95,6 +107,6 @@ public class ExtraFormSection extends FormSection
     @Override
     public List<FormCategory> getCategories()
     {
-        return this.categories;
+        return this.categories == null ? Collections.emptyList() : this.categories;
     }
 }

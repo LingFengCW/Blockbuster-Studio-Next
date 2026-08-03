@@ -133,6 +133,9 @@ public class UndoManager<T>
             this.undos.add(undo);
         }
 
+        /* Any new edit means the active project now has unsaved changes. */
+        EditState.markDirty();
+
         return present;
     }
 

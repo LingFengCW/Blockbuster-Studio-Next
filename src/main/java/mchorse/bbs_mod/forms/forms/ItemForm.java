@@ -6,6 +6,7 @@ import mchorse.bbs_mod.settings.values.mc.ValueItemStack;
 import mchorse.bbs_mod.utils.colors.Color;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemForm extends Form
 {
@@ -23,6 +24,13 @@ public class ItemForm extends Form
     @Override
     protected String getDefaultDisplayName()
     {
-        return BuiltInRegistries.ITEM.getKey(this.stack.get().getItem()).toString();
+        ItemStack stack = this.stack.get();
+
+        if (stack == null || stack.isEmpty())
+        {
+            return "item";
+        }
+
+        return BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
     }
 }

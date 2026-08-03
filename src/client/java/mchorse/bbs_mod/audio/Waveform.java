@@ -37,7 +37,7 @@ public class Waveform
     {
         this.delete();
 
-        int maxTextureSize = GL11.glGetInteger(GL11.GL_MAX_TEXTURE_SIZE) / 2;
+        int maxTextureSize = 4096 / 2;
         int count = (int) Math.ceil(this.w / (double) maxTextureSize);
         int offset = 0;
         float time = 0;
@@ -100,8 +100,6 @@ public class Waveform
 
             texture.bind();
             texture.uploadTexture(pixels);
-            texture.setFilter(GL11.GL_NEAREST);
-            texture.setParameter(GL11.GL_TEXTURE_WRAP_S, GL13.GL_CLAMP_TO_BORDER);
             texture.unbind();
 
             this.sprites.add(texture);

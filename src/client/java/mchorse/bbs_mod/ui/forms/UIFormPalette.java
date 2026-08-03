@@ -185,6 +185,12 @@ public class UIFormPalette extends UIElement implements IUIFormList
         {
             this.callback.accept(form);
         }
+
+        /* MC 26.2: When a form is selected from the list the editor's
+         * renderer.form must be kept in sync so that the PiP preview callback
+         * (renderUserModel) finds a non-null form and actually renders the
+         * model. Without this the preview area remains black/empty. */
+        this.editor.renderer.form = form;
     }
 
     public void setSelected(Form form)

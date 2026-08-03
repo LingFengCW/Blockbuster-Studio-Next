@@ -141,7 +141,9 @@ public class L10n
 
     public void reload()
     {
-        this.reload(BBSSettings.language.get(), BBSMod.getProvider());
+        /* Use BBSModClient.getLanguageKey() so we fall back to the
+         * Minecraft client language when BBSSettings.language is empty. */
+        this.reload(BBSModClient.getLanguageKey(), BBSMod.getProvider());
     }
 
     public void reload(String language, AssetProvider provider)

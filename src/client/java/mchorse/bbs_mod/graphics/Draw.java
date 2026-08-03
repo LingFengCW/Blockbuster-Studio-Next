@@ -43,24 +43,25 @@ public class Draw
 
         CommandEncoder encoder = device.createCommandEncoder();
         java.nio.ByteBuffer vertexData = mesh.vertexBuffer();
-        GpuBuffer vertices = device.createBuffer(() -> "vertices", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE, vertexData.remaining());
+        GpuBuffer vertices = device.createBuffer(() -> "vertices", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE | GpuBuffer.USAGE_COPY_DST, vertexData.remaining());
         GpuBufferSlice vertSlice = new GpuBufferSlice(vertices, 0, vertexData.remaining());
         encoder.writeToBuffer(vertSlice, vertexData);
 
-        PrimitiveTopology topo = pipeline.getPrimitiveTopology();
+        java.nio.ByteBuffer indexData = mesh.indexBuffer();
         GpuBuffer indices;
         com.mojang.blaze3d.IndexType indexType;
 
-        if (topo == PrimitiveTopology.QUADS)
+        if (indexData != null)
         {
-            mesh.sortQuads(new ByteBufferBuilder(256), RenderSystem.getProjectionType().vertexSorting());
-            java.nio.ByteBuffer indexData = mesh.indexBuffer();
-            indices = device.createBuffer(() -> "indices", GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_MAP_WRITE, indexData.remaining());
+            indices = device.createBuffer(() -> "indices", GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_MAP_WRITE | GpuBuffer.USAGE_COPY_DST, indexData.remaining());
             encoder.writeToBuffer(new GpuBufferSlice(indices, 0, indexData.remaining()), indexData);
             indexType = drawState.indexType();
         }
         else
         {
+            /* For non-indexed meshes (e.g. TRIANGLES without explicit indices), use
+               the auto-generated sequential index buffer from RenderSystem. */
+            PrimitiveTopology topo = pipeline.getPrimitiveTopology();
             RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer = RenderSystem.getSequentialBuffer(topo);
             indices = shapeIndexBuffer.getBuffer(drawState.indexCount());
             indexType = shapeIndexBuffer.type();

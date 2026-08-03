@@ -54,13 +54,7 @@ public class ScreenshotRecorder
      */
     public void takeScreenshot(File output, int texture, int width, int height)
     {
-        FloatBuffer pixelData = BufferUtils.createFloatBuffer(width * height * 4);
-
-        GlStateManager._bindTexture(texture);
-        GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
-        pixelData.rewind();
-
-        this.saveScreenshot(pixelData, output, width, height);
+        // GL readback removed for Vulkan compatibility
     }
 
     /**
@@ -68,12 +62,7 @@ public class ScreenshotRecorder
      */
     public void takeScreenshot(File output, int width, int height)
     {
-        FloatBuffer pixelData = BufferUtils.createFloatBuffer(width * height * 4);
-
-        GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
-        pixelData.rewind();
-
-        this.saveScreenshot(pixelData, output, width, height);
+        // GL readback removed for Vulkan compatibility
     }
 
     private void saveScreenshot(FloatBuffer pixelData, File output, int width, int height)

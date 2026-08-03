@@ -18,19 +18,26 @@ import java.nio.IntBuffer;
  * Plugin that replaces the Minecraft window icon after the game has launched.
  *
  * The icon is loaded from the mod's classpath resource {@code bbs_mod/icon.png}.
- * Until the icon asset is supplied it is a safe no-op, so the mod builds and
- * runs without it. Once the PNG is dropped into {@code src/client/resources/bbs_mod/icon.png}
- * and the mod is rebuilt, the custom icon is applied automatically.
- *
- * Implementation note: MC 26.2 changed {@code Window.setIcon} to take PackResources,
- * which doesn't fit loading a custom PNG. Like other 1.21+ icon mods we go straight
- * to GLFW: decode the PNG with STBImage and call {@code glfwSetWindowIcon} on the
- * window handle. (On macOS this is a no-op by GLFW design; fine on Windows/Linux.)
+ * The title is applied here for the initial window, and re-applied continuously
+ * in BBSModClient's END_CLIENT_TICK so it isn't overwritten by MC's own
+ * window title changes during startup/world loading.
  */
 public class GameIconPlugin
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(GameIconPlugin.class);
     private static final String ICON_RESOURCE = "/bbs_mod/icon.png";
+    public static final String WINDOW_TITLE = "Blockbuster Studio Next";
+
+    public static void unsafeApplyTitle()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        Window window = mc.getWindow();
+
+        if (window != null)
+        {
+            GLFW.glfwSetWindowTitle(window.handle(), WINDOW_TITLE);
+        }
+    }
 
     public static void apply()
     {

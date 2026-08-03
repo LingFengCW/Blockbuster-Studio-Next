@@ -10,8 +10,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL30;
 
 public class BOBJModelVAO
 {
@@ -34,6 +32,23 @@ public class BOBJModelVAO
     private int[] tmpLight;
     private float[] tmpTangents;
 
+    /* CPU-side transformed mesh data, exposed for the native (BufferBuilder)
+     * rendering path. updateMesh() fills these every frame. */
+    public float[] getTmpVertices()
+    {
+        return this.tmpVertices;
+    }
+
+    public float[] getTmpNormals()
+    {
+        return this.tmpNormals;
+    }
+
+    public int getCount()
+    {
+        return this.count;
+    }
+
     public BOBJModelVAO(BOBJLoader.CompiledData data)
     {
         this.data = data;
@@ -49,46 +64,11 @@ public class BOBJModelVAO
      */
     private void initBuffers()
     {
-        this.vao = GL30.glGenVertexArrays();
-
-        GL30.glBindVertexArray(this.vao);
-
-        this.vertexBuffer = GL30.glGenBuffers();
-        this.normalBuffer = GL30.glGenBuffers();
-        this.lightBuffer = GL30.glGenBuffers();
-        this.texCoordBuffer = GL30.glGenBuffers();
-        this.tangentBuffer = GL30.glGenBuffers();
-        this.midTextureBuffer = GL30.glGenBuffers();
-
         this.count = this.data.normData.length / 3;
         this.tmpVertices = new float[this.data.posData.length];
         this.tmpNormals = new float[this.data.normData.length];
         this.tmpLight = new int[this.data.posData.length];
         this.tmpTangents = new float[this.count * 4];
-
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.vertexBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.data.posData, GL30.GL_DYNAMIC_DRAW);
-        GL30.glVertexAttribPointer(Attributes.POSITION, 3, GL30.GL_FLOAT, false, 0, 0);
-
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.normalBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.data.normData, GL30.GL_DYNAMIC_DRAW);
-        GL30.glVertexAttribPointer(Attributes.NORMAL, 3, GL30.GL_FLOAT, false, 0, 0);
-
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.lightBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.tmpLight, GL30.GL_DYNAMIC_DRAW);
-        GL30.glVertexAttribIPointer(Attributes.LIGHTMAP_UV, 2, GL30.GL_INT, 0, 0);
-
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.texCoordBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.data.texData, GL30.GL_STATIC_DRAW);
-        GL30.glVertexAttribPointer(Attributes.TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
-
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.tangentBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.tmpTangents, GL30.GL_STATIC_DRAW);
-        GL30.glVertexAttribPointer(Attributes.TANGENTS, 4, GL30.GL_FLOAT, false, 0, 0);
-
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.texCoordBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.data.texData, GL30.GL_STATIC_DRAW);
-        GL30.glVertexAttribPointer(Attributes.MID_TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
     }
 
     /**
@@ -96,14 +76,6 @@ public class BOBJModelVAO
      */
     public void delete()
     {
-        GL30.glDeleteVertexArrays(this.vao);
-
-        GL15.glDeleteBuffers(this.vertexBuffer);
-        GL15.glDeleteBuffers(this.normalBuffer);
-        GL15.glDeleteBuffers(this.lightBuffer);
-        GL15.glDeleteBuffers(this.texCoordBuffer);
-        GL15.glDeleteBuffers(this.tangentBuffer);
-        GL15.glDeleteBuffers(this.midTextureBuffer);
     }
 
     /**
@@ -186,26 +158,6 @@ public class BOBJModelVAO
         }
 
         this.processData(newVertices, newNormals);
-
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.vertexBuffer);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, newVertices, GL15.GL_DYNAMIC_DRAW);
-
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.normalBuffer);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, newNormals, GL15.GL_DYNAMIC_DRAW);
-
-        if (BBSRendering.isIrisShadersEnabled())
-        {
-            BBSRendering.calculateTangents(this.tmpTangents, newVertices, newNormals, this.data.texData);
-
-            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.tangentBuffer);
-            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, this.tmpTangents, GL15.GL_DYNAMIC_DRAW);
-        }
-
-        if (stencilMap != null)
-        {
-            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.lightBuffer);
-            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, this.tmpLight, GL15.GL_DYNAMIC_DRAW);
-        }
     }
 
     protected void processData(float[] newVertices, float[] newNormals)
@@ -213,45 +165,11 @@ public class BOBJModelVAO
 
     public void render(ShaderProgram shader, PoseStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay)
     {
-        boolean hasShaders = BBSRendering.isIrisShadersEnabled();
-
-        GL30.glVertexAttrib4f(Attributes.COLOR, r, g, b, a);
-        GL30.glVertexAttribI2i(Attributes.OVERLAY_UV, overlay & '\uffff', overlay >> 16 & '\uffff');
-        GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
-
-        int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-        int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
-
         ModelVAORenderer.setupUniforms(stack, shader);
 
+        if (shader == null) return;
+
         shader.bind();
-
-        GL30.glBindVertexArray(this.vao);
-
-        GL30.glEnableVertexAttribArray(Attributes.POSITION);
-        GL30.glEnableVertexAttribArray(Attributes.TEXTURE_UV);
-        GL30.glEnableVertexAttribArray(Attributes.NORMAL);
-
-        if (stencilMap != null) GL30.glEnableVertexAttribArray(Attributes.LIGHTMAP_UV);
-        if (hasShaders) GL30.glEnableVertexAttribArray(Attributes.TANGENTS);
-        if (hasShaders) GL30.glEnableVertexAttribArray(Attributes.MID_TEXTURE_UV);
-
-        GL30.glDrawArrays(GL30.GL_TRIANGLES, 0, this.count);
-
-        GL30.glDisableVertexAttribArray(Attributes.POSITION);
-        GL30.glDisableVertexAttribArray(Attributes.TEXTURE_UV);
-        GL30.glDisableVertexAttribArray(Attributes.NORMAL);
-
-        if (stencilMap != null) GL30.glDisableVertexAttribArray(Attributes.LIGHTMAP_UV);
-        if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.TANGENTS);
-        if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.MID_TEXTURE_UV);
-
         shader.unbind();
-
-        GL30.glBindVertexArray(currentVAO);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
     }
 }
-
-
-

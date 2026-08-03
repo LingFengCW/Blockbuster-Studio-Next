@@ -4,8 +4,8 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.utils.PoseStackUtils;
 import mchorse.bbs_mod.utils.MathUtils;
-import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -61,7 +61,7 @@ public interface ICubicRenderer
         moveBackFromGroupPivot(stack, group);
     }
 
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model);
+    public boolean renderGroup(VertexConsumer builder, PoseStack stack, ModelGroup group, Model model);
 }
 
 

@@ -176,7 +176,6 @@ public abstract class BaseFilmController
             stack.popPose();
         }
 
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
     }
 
     private static void renderAxes(String bone, boolean local, StencilMap stencilMap, Form form, IEntity entity, float transition, PoseStack stack)
@@ -199,7 +198,6 @@ public abstract class BaseFilmController
                 Gizmo.INSTANCE.renderStencil(stack, stencilMap);
             }
 
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
             stack.popPose();
         }
     }
@@ -618,8 +616,6 @@ public abstract class BaseFilmController
 
     public void render(LevelRenderContext context)
     {
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-
         for (Map.Entry<Integer, IEntity> entry : this.entities.entrySet())
         {
             int i = entry.getKey();

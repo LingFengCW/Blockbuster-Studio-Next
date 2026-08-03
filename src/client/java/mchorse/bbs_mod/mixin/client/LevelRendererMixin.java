@@ -30,8 +30,6 @@ public class LevelRendererMixin
         {
             Color color = Color.rgb(BBSSettings.chromaSkyColor.get());
 
-            GL11.glClearColor(color.r, color.g, color.b, 1F);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
             // RenderSystem.setShaderFogColor(color.r, color.g, color.b, 1F);
 
             info.cancel();

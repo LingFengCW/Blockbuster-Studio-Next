@@ -130,7 +130,9 @@ public class FormUtilsClient
                 renderer.render(context);
             }
             catch (Exception e)
-            {}
+            {
+                e.printStackTrace();
+            }
 
             currentForm.pop();
         }

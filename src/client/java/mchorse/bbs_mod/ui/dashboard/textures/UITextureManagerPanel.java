@@ -21,7 +21,7 @@ public class UITextureManagerPanel extends UIDashboardPanel
     {
         if (pixels == null)
         {
-            /* TODO: throw error */
+            BBSModClient.reportError("textures.extract", new IllegalArgumentException("纹理像素数据为空，无法提取帧纹理"));
 
             return;
         }
@@ -31,7 +31,7 @@ public class UITextureManagerPanel extends UIDashboardPanel
 
         if (endX > pixels.width || endY > pixels.height)
         {
-            /* TODO: throw error */
+            BBSModClient.reportError("textures.extract", new IllegalArgumentException("提取区域超出纹理尺寸 (" + endX + "x" + endY + " > " + pixels.width + "x" + pixels.height + ")"));
 
             return;
         }

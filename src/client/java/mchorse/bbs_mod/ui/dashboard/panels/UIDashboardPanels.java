@@ -55,12 +55,13 @@ public class UIDashboardPanels extends UIElement
         this.panelButtons.scroll.scrollSpeed = 5;
         this.panelButtons.preRender((context) ->
         {
-            for (int i = 0, c = this.panels.size(); i < c; i++)
+            int selectedTab = this.panels.indexOf(this.panel);
+
+            if (selectedTab >= 0 && selectedTab < this.panelButtons.getChildren().size())
             {
-                if (this.panel == this.panels.get(i))
-                {
-                    renderHighlight(context.batcher, ((UIIcon) this.panelButtons.getChildren().get(i)).area);
-                }
+                UIElement icon = (UIElement) this.panelButtons.getChildren().get(selectedTab);
+
+                renderHighlight(context.batcher, icon.area);
             }
         });
 
@@ -133,12 +134,26 @@ public class UIDashboardPanels extends UIElement
 
     public UIIcon registerPanel(UIDashboardPanel panel, IKey tooltip, Icon icon)
     {
+        return this.registerPanel(panel, tooltip, icon, false);
+    }
+
+    /**
+     * Register a panel, optionally without a task-bar icon. Hidden panels
+     * stay switchable via {@link #setPanel}/{@link #getPanel} (the editor
+     * is opened by picking a work, not from the task bar).
+     */
+    public UIIcon registerPanel(UIDashboardPanel panel, IKey tooltip, Icon icon, boolean hidden)
+    {
         UIIcon button = new UIIcon(icon, (b) -> this.setPanel(panel));
 
         button.tooltip(tooltip, Direction.TOP);
 
         this.panels.add(panel);
-        this.panelButtons.add(button);
+
+        if (!hidden)
+        {
+            this.panelButtons.add(button);
+        }
 
         return button;
     }

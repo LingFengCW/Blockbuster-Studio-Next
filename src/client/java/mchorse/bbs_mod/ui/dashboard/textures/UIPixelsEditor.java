@@ -188,8 +188,6 @@ public class UIPixelsEditor extends UICanvasEditor
         if (pixels != null)
         {
             this.temporary = new Texture();
-            this.temporary.setFilter(GL11.GL_NEAREST);
-
             this.updateTexture();
             this.setSize(pixels.width, pixels.height);
         }

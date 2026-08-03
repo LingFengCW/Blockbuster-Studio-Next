@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.utils.UIUtils;
-import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
 import sun.misc.Unsafe;
 
@@ -122,15 +121,7 @@ public class VideoRecorder
             this.pbos = new int[2];
             this.pboIndex = 0;
 
-            for (int i = 0; i < 2; i++)
-            {
-                this.pbos[i] = GL30.glGenBuffers();
-
-                GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[i]);
-                GL30.glBufferData(GL30.GL_PIXEL_PACK_BUFFER, size, GL30.GL_STREAM_READ);
-            }
-
-            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+            // PBO init removed for Vulkan compatibility
 
             ProcessBuilder builder = new ProcessBuilder(args);
             File log = path.resolve(movieName.concat(".log")).toFile();
@@ -195,10 +186,7 @@ public class VideoRecorder
 
         if (this.pbos != null)
         {
-            for (int pbo : this.pbos)
-            {
-                GL30.glDeleteBuffers(pbo);
-            }
+            // PBO delete removed for Vulkan compatibility
         }
 
         this.pbos = null;
@@ -262,22 +250,7 @@ public class VideoRecorder
             int pbo = this.pboIndex;
             int nextPbo = (this.pboIndex + 1) % this.pbos.length;
 
-            GL30.glPixelStorei(GL30.GL_PACK_ALIGNMENT, 1);
-            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[pbo]);
-            GL30.glBindTexture(GL30.GL_TEXTURE_2D, this.textureId);
-            GL30.glGetTexImage(GL30.GL_TEXTURE_2D, 0, GL30.GL_BGR, GL30.GL_UNSIGNED_BYTE, 0);
-
-            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[nextPbo]);
-
-            ByteBuffer mappedBuffer = GL30.glMapBuffer(GL30.GL_PIXEL_PACK_BUFFER, GL30.GL_READ_ONLY);
-
-            if (mappedBuffer != null && this.counter != 0)
-            {
-                this.channel.write(mappedBuffer);
-            }
-
-            GL30.glUnmapBuffer(GL30.GL_PIXEL_PACK_BUFFER);
-            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+            // PBO readback removed for Vulkan compatibility
 
             this.pboIndex = nextPbo;
         }

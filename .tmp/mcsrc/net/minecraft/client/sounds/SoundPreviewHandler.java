@@ -1,0 +1,89 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  net.minecraft.sounds.SoundEvent
+ *  net.minecraft.sounds.SoundEvents
+ *  net.minecraft.sounds.SoundSource
+ *  net.minecraft.world.entity.animal.cow.CowSoundVariant
+ *  net.minecraft.world.entity.animal.cow.CowSoundVariants$SoundSet
+ *  org.jspecify.annotations.Nullable
+ */
+package net.minecraft.client.sounds;
+
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.client.sounds.SoundManager;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.animal.cow.CowSoundVariant;
+import net.minecraft.world.entity.animal.cow.CowSoundVariants;
+import org.jspecify.annotations.Nullable;
+
+public final class SoundPreviewHandler {
+    private static @Nullable SoundInstance activePreview;
+    private static @Nullable SoundSource previousCategory;
+
+    public static void preview(SoundManager soundManager, SoundSource category, float volume) {
+        SoundPreviewHandler.stopOtherCategoryPreview(soundManager, category);
+        if (SoundPreviewHandler.canPlaySound(soundManager)) {
+            SoundEvent previewSound;
+            switch (category) {
+                case RECORDS: {
+                    SoundEvent soundEvent = (SoundEvent)SoundEvents.NOTE_BLOCK_GUITAR.value();
+                    break;
+                }
+                case WEATHER: {
+                    SoundEvent soundEvent = SoundEvents.LIGHTNING_BOLT_THUNDER;
+                    break;
+                }
+                case BLOCKS: {
+                    SoundEvent soundEvent = SoundEvents.GRASS_PLACE;
+                    break;
+                }
+                case HOSTILE: {
+                    SoundEvent soundEvent = SoundEvents.ZOMBIE_AMBIENT;
+                    break;
+                }
+                case NEUTRAL: {
+                    SoundEvent soundEvent = (SoundEvent)((CowSoundVariant)SoundEvents.COW_SOUNDS.get(CowSoundVariants.SoundSet.CLASSIC)).ambientSound().value();
+                    break;
+                }
+                case PLAYERS: {
+                    SoundEvent soundEvent = (SoundEvent)SoundEvents.GENERIC_EAT.value();
+                    break;
+                }
+                case AMBIENT: {
+                    SoundEvent soundEvent = (SoundEvent)SoundEvents.AMBIENT_CAVE.value();
+                    break;
+                }
+                case UI: {
+                    SoundEvent soundEvent = (SoundEvent)SoundEvents.UI_BUTTON_CLICK.value();
+                    break;
+                }
+                default: {
+                    SoundEvent soundEvent = previewSound = SoundEvents.EMPTY;
+                }
+            }
+            if (previewSound != SoundEvents.EMPTY) {
+                activePreview = SimpleSoundInstance.forUI(previewSound, 1.0f, volume);
+                soundManager.play(activePreview);
+            }
+        }
+    }
+
+    private static void stopOtherCategoryPreview(SoundManager soundManager, SoundSource category) {
+        if (previousCategory != category) {
+            previousCategory = category;
+            if (activePreview != null) {
+                soundManager.stop(activePreview);
+            }
+        }
+    }
+
+    private static boolean canPlaySound(SoundManager soundManager) {
+        return activePreview == null || !soundManager.isActive(activePreview);
+    }
+}
+

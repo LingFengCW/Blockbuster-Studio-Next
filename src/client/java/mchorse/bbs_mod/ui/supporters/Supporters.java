@@ -10,9 +10,13 @@ import java.util.stream.Collectors;
 public class Supporters
 {
     private List<Supporter> supporters = new ArrayList<>();
+    private List<Supporter> developers = new ArrayList<>();
 
     public void setup()
     {
+        this.supporters.clear();
+        this.developers.clear();
+
         /* Afdian */
         this.add("76823999").withDate(2, 29);
         this.add("Silly_Sheep_").withDate(2, 29);
@@ -794,6 +798,10 @@ public class Supporters
         this.add("qualet", "https://www.youtube.com/@qualet", "textures/banners/QUALET_QUALET_QUALET_QUALET_QUALET_QUALET_QUALET_QUALET_QUALET_QUALET.png").withDate(2025, 2, 3); /* <3 */
         this.add("McHorse", "https://www.youtube.com/channel/UCSLuDXxxql4EVK_Ktd6PNbw", "textures/banners/mchorse.png");
 
+        /* Developers (duplicate entries shown in the dedicated section) */
+        this.developers.add(new Supporter("泠沨ClearWind", "https://space.bilibili.com/3546651169917287", Link.create("textures/banners/lingfeng.png")));
+        this.developers.add(new Supporter("McHorse", "https://www.youtube.com/channel/UCSLuDXxxql4EVK_Ktd6PNbw", Link.create("textures/banners/mchorse.png")));
+
         int afdian = 5;
         int patreon = 0;
         int total = afdian + patreon;
@@ -844,5 +852,10 @@ public class Supporters
     public List<Supporter> getCCSupporters()
     {
         return this.supporters.stream().filter(Supporter::hasBanner).sorted(Comparator.comparing((a) -> a.date)).collect(Collectors.toList());
+    }
+
+    public List<Supporter> getDevelopers()
+    {
+        return new ArrayList<>(this.developers);
     }
 }

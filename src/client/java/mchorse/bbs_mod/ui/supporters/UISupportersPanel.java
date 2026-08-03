@@ -22,6 +22,7 @@ public class UISupportersPanel extends UIDashboardPanel
     public UIElement ccSupporters;
     public UIElement superSupporters;
     public UIElement bbsEarlyAccessSupporters;
+    public UIElement developers;
 
     private Supporters supporters = new Supporters();
 
@@ -37,6 +38,8 @@ public class UISupportersPanel extends UIDashboardPanel
         this.superSupporters.grid(5).items(3);
         this.bbsEarlyAccessSupporters = new UIElement();
         this.bbsEarlyAccessSupporters.grid(5).items(3);
+        this.developers = new UIElement();
+        this.developers.grid(5).items(3);
 
         UIScrollView scrollView = UI.scrollView(0, 0);
         UIElement column = UI.column(5, 10);
@@ -47,7 +50,9 @@ public class UISupportersPanel extends UIDashboardPanel
         Supplier<Integer> color = () -> BBSSettings.primaryColor(Colors.A50);
 
         column.add(UI.label(UIKeys.SUPPORTERS_GRATITUDE));
-        column.add(UI.label(UIKeys.SUPPORTERS_CC).background(color).marginTop(6).marginBottom(6));
+        column.add(UI.label(UIKeys.SUPPORTERS_DEVELOPERS).background(color).marginTop(6).marginBottom(6));
+        column.add(this.developers);
+        column.add(UI.label(UIKeys.SUPPORTERS_CC).background(color).marginTop(12).marginBottom(6));
         column.add(this.ccSupporters);
         column.add(UI.label(UIKeys.SUPPORTERS_SUPER_SUPPORTERS).background(color).marginTop(12).marginBottom(6));
         column.add(this.superSupporters);
@@ -58,6 +63,11 @@ public class UISupportersPanel extends UIDashboardPanel
         UIElement row = UI.row(0, 0, new UIElement(), column, new UIElement());
 
         /* Fill in */
+
+        for (Supporter supporter : this.supporters.getDevelopers())
+        {
+            this.developers.add(this.createSupporter(supporter));
+        }
 
         for (Supporter supporter : this.supporters.getCCSupporters())
         {

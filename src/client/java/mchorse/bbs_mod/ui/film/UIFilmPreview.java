@@ -88,7 +88,7 @@ public class UIFilmPreview extends UIElement
         {
             menu.action(Icons.PLAY, UIKeys.CAMERA_EDITOR_KEYS_EDITOR_PLAY_FILM, () ->
             {
-                if (!this.panel.checkShowNoCamera())
+                if (!this.panel.checkShowNoCamera() && this.panel.checkReplaysReady())
                 {
                     this.panel.dashboard.closeThisMenu();
 

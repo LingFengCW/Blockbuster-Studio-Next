@@ -118,7 +118,7 @@ public class AudioRenderer
             }
             catch (Exception e)
             {
-                BBSModClient.LOGGER.error("Exception", e);
+                BBSModClient.reportError("音频处理失败", e);
             }
         }
 
@@ -152,7 +152,7 @@ public class AudioRenderer
             }
             catch (Exception e)
             {
-                BBSModClient.LOGGER.error("Exception", e);
+                BBSModClient.reportError("音频处理失败", e);
             }
         }
 
@@ -171,7 +171,7 @@ public class AudioRenderer
         }
         catch (IOException e)
         {
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("音频处理失败", e);
         }
 
         return false;

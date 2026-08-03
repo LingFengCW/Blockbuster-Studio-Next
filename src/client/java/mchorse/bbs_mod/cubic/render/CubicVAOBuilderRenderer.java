@@ -11,7 +11,7 @@ import mchorse.bbs_mod.cubic.data.model.ModelMesh;
 import mchorse.bbs_mod.cubic.data.model.ModelQuad;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
 import mchorse.bbs_mod.utils.CollectionUtils;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -52,7 +52,7 @@ public class CubicVAOBuilderRenderer implements ICubicRenderer
     {}
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(VertexConsumer builder, PoseStack stack, ModelGroup group, Model model)
     {
         List<Float> vertices = new ArrayList<>();
         List<Float> normals = new ArrayList<>();

@@ -56,8 +56,6 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             Texture texture = new Texture();
 
             texture.setSize(2, 2);
-            texture.setFilter(GL11.GL_NEAREST);
-            texture.setWrap(GL13.GL_CLAMP_TO_EDGE);
 
             Renderbuffer renderbuffer = new Renderbuffer();
 
@@ -75,8 +73,6 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         {
             IntBuffer viewport = stack.mallocInt(4);
 
-            GL30.glGetIntegerv(GL30.GL_VIEWPORT, viewport);
-
             width = viewport.get(2);
             height = viewport.get(3);
         }
@@ -84,14 +80,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         Texture mainTexture = framebuffer.getMainTexture();
         int w = MathUtils.clamp(this.form.width.get(), 2, 4096);
         int h = MathUtils.clamp(this.form.height.get(), 2, 4096);
-        int prevDraw = GL30.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-        int prevRead = GL30.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
         // [MC 26.2] RenderSystem.shaderLightDirections array removed - use GpuBufferSlice
         // [MC 26.2] RenderSystem.setProjectionMatrix removed
         // [MC 26.2] RenderSystem.setShaderLights(Vector3f, Vector3f) removed
         Matrix4f projectionMatrix = new Matrix4f().identity();
 
-        GL30.glCullFace(GL30.GL_FRONT);
         new PoseStack().pushPose();
         new PoseStack().last().pose().identity();
         new PoseStack().last().normal().identity();
@@ -113,12 +106,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         context.stack.popPose();
 
-        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
-        GL30.glViewport(0, 0, width, height);
-
         new PoseStack().popPose();
-        GL30.glCullFace(GL30.GL_BACK);
 
         // [MC 26.2] DefaultVertexFormat and GameRenderer method reference changes
         boolean shading = !context.isPicking();

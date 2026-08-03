@@ -34,6 +34,9 @@
     },
     "license": "MIT",
     "icon": "assets/bbs/icon.png",
+    "custom": {
+        "bbs_logo": "assets/bbs/icon.png"
+    },
     "environment": "*",
     "entrypoints": {
         "main": [
@@ -44,7 +47,9 @@
         ]
     },
     "mixins": [
-        "bbs.mixins.json"
+        "bbs.mixins.json",
+        "bbs.title.mixins.json",
+        "bbs.client.mixins.json"
     ],
     "accessWidener": "bbs.accesswidener",
     "depends": {

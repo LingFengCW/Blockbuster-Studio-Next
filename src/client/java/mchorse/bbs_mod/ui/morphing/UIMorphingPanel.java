@@ -32,7 +32,6 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.palette.updatable().cantExit();
         this.palette.immersive();
         this.palette.full(this);
-        this.palette.editor.renderer.full(dashboard.getRoot());
         this.palette.noBackground();
         this.palette.canModify();
 
@@ -81,6 +80,10 @@ public class UIMorphingPanel extends UIDashboardPanel
 
         this.palette.list.setupForms(BBSModClient.getFormCategories());
         this.palette.setSelected(morph.getForm());
+
+        /* Show the current morph in the preview right away, without waiting
+         * for the user to click a form in the list. */
+        this.palette.editor.renderer.form = morph == null ? null : morph.getForm();
 
         BBSModClient.getCameraController().add(this.controller);
         Minecraft.getInstance().options.setCameraType(CameraType.THIRD_PERSON_BACK);

@@ -11,9 +11,9 @@ import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
-import com.mojang.blaze3d.vertex.BufferBuilder;
 // [MC 26.2 REMOVED] import net.minecraft.client.renderer.LightTexture;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
@@ -46,6 +46,7 @@ public class CubicCubeRenderer implements ICubicRenderer
     protected int light;
     protected int overlay;
     protected StencilMap stencilMap;
+    protected boolean guiMode = false;
 
     /* Temporary variables to avoid allocating and GC vectors */
     protected Vector3f normal = new Vector3f();
@@ -114,8 +115,13 @@ public class CubicCubeRenderer implements ICubicRenderer
         this.a = a;
     }
 
+    public void setGuiMode(boolean guiMode)
+    {
+        this.guiMode = guiMode;
+    }
+
     @Override
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(VertexConsumer builder, PoseStack stack, ModelGroup group, Model model)
     {
         for (ModelCube cube : group.cubes)
         {
@@ -130,7 +136,7 @@ public class CubicCubeRenderer implements ICubicRenderer
         return false;
     }
 
-    protected void renderCube(BufferBuilder builder, PoseStack stack, ModelGroup group, ModelCube cube)
+    protected void renderCube(VertexConsumer builder, PoseStack stack, ModelGroup group, ModelCube cube)
     {
         stack.pushPose();
         moveToPivot(stack, cube.pivot);
@@ -156,7 +162,7 @@ public class CubicCubeRenderer implements ICubicRenderer
         stack.popPose();
     }
 
-    protected void renderMesh(BufferBuilder builder, PoseStack stack, Model model, ModelGroup group, ModelMesh mesh)
+    protected void renderMesh(VertexConsumer builder, PoseStack stack, Model model, ModelGroup group, ModelMesh mesh)
     {
         stack.pushPose();
         moveToPivot(stack, mesh.origin);
@@ -235,29 +241,40 @@ public class CubicCubeRenderer implements ICubicRenderer
         temp.y = temp.y + Lerps.lerp(initial.y, current.y, x) - initial.y;
     }
 
-    protected void writeVertex(BufferBuilder builder, PoseStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
+    protected void writeVertex(VertexConsumer builder, PoseStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
     {
         this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1);
         stack.last().pose().transform(this.vertex);
 
-        builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .setColor(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a)
-            .setUv(vertex.uv.x, vertex.uv.y)
-            .setUv1(this.overlay & 0xFFFF, this.overlay >> 16 & 0xFFFF);
-
-        if (this.stencilMap != null)
+        if (this.guiMode)
         {
-            builder.setUv2(stencilMap.increment ? group.index : 0, 0);
+            /* GUI_TEXTURED pipeline uses POSITION_TEX_COLOR format */
+            builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z)
+                .setUv(vertex.uv.x, vertex.uv.y)
+                .setColor(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a);
         }
         else
         {
-            int u = (int) Lerps.lerp(this.light & '\uffff', 240, MathUtils.clamp(group.lighting, 0F, 1F));
-            int v = this.light >> 16 & '\uffff';
+            /* ENTITY_TRANSLUCENT pipeline uses POSITION_COLOR_TEX_LIGHTMAP format */
+            builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z)
+                .setColor(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a)
+                .setUv(vertex.uv.x, vertex.uv.y)
+                .setUv1(this.overlay & 0xFFFF, this.overlay >> 16 & 0xFFFF);
 
-            builder.setUv2(u, v);
+            if (this.stencilMap != null)
+            {
+                builder.setUv2(stencilMap.increment ? group.index : 0, 0);
+            }
+            else
+            {
+                int u = (int) Lerps.lerp(this.light & '\uffff', 240, MathUtils.clamp(group.lighting, 0F, 1F));
+                int v = this.light >> 16 & '\uffff';
+
+                builder.setUv2(u, v);
+            }
+
+            builder.setNormal(normal.x, normal.y, normal.z);
         }
-
-        builder.setNormal(normal.x, normal.y, normal.z);
     }
 }
 

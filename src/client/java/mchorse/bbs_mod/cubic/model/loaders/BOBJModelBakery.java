@@ -97,7 +97,7 @@ public class BOBJModelBakery implements IModelLoader
         }
         catch (Exception e)
         {
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("BOBJ模型加载失败", e);
         }
 
         return null;
@@ -130,7 +130,7 @@ public class BOBJModelBakery implements IModelLoader
             catch (Exception e)
             {
                 BBSModClient.LOGGER.warn("Failed to load Emoticons " + link + "!");
-                BBSModClient.LOGGER.error("Exception", e);
+                BBSModClient.reportError("BOBJ模型加载失败", e);
             }
         }
     }

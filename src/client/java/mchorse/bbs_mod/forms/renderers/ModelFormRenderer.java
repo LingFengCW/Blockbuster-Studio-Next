@@ -148,6 +148,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.applyPose(pose, newPose.get());
         }
 
+        /* Apply the active character animation (keyframe timeline) on top
+         * of the form's own pose, so the animation preview drives the model
+         * bones in real time. */
+        mchorse.bbs_mod.animation.AnimationPlayer.apply(pose);
+
         return pose;
     }
 
@@ -302,7 +307,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             newStack.last().normal().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
         }
 
-        model.render(newStack, program, color, light, overlay, stencilMap, this.form.shapeKeys.get());
+        model.render(newStack, program, color, light, overlay, stencilMap, this.form.shapeKeys.get(), ui);
 
         // gameRenderer.getLightmapTextureManager().disable(); // removed in MC 26.2
         // gameRenderer.getOverlayTexture().teardownOverlayColor(); // removed in MC 26.2
@@ -511,7 +516,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             Supplier<ShaderProgram> mainShader = () -> null;
             Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
 
-            this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition());
+            /* [MC 26.2] When rendering inside UIModelRenderer's PiP callback,
+             * modelRenderer is true and we must submit geometry through the
+             * collector (gui=true). In the world/entity path modelRenderer is
+             * false and we keep the direct render pass path. */
+            this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, context.modelRenderer, context.stencilMap, context.getTransition());
         }
     }
 

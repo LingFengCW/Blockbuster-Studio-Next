@@ -170,9 +170,42 @@ public class UIScrollView extends UIElement implements IViewport
 
         this.apply(context);
 
-        this.preRender(context);
-        super.render(context);
-        this.postRender(context);
+        /* MC 26.2 extraction: translate the extractor's pose matrix so
+         * that children render at the scrolled position. Without this the
+         * viewport shift only affects BBS internal coordinates (mouse, area
+         * tests) but not the actual rendering position. The push/pop is
+         * guarded by try-finally so an exception inside a child renderer
+         * can't leak the pose stack (which would shift every later draw
+         * and eventually freeze the GUI). */
+        if (context.batcher.getContext() != null)
+        {
+            var pose = context.batcher.getContext().pose();
+            if (this.scroll.direction == ScrollDirection.VERTICAL)
+            {
+                pose.pushMatrix();
+                pose.translate(0F, (float) -this.scroll.getScroll());
+            }
+            else
+            {
+                pose.pushMatrix();
+                pose.translate((float) -this.scroll.getScroll(), 0F);
+            }
+        }
+
+        try
+        {
+            this.preRender(context);
+            super.render(context);
+            this.postRender(context);
+        }
+        finally
+        {
+            /* Pop the extractor pose translation. */
+            if (context.batcher.getContext() != null)
+            {
+                context.batcher.getContext().pose().popMatrix();
+            }
+        }
 
         this.unapply(context);
 

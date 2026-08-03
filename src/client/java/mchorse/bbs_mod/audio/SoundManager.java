@@ -73,7 +73,7 @@ public class SoundManager implements IWatchDogListener
         {
             this.buffers.put(link, null);
 
-            BBSModClient.LOGGER.error("Exception", e);
+            BBSModClient.reportError("音频数据读写失败", e);
         }
 
         return null;
@@ -134,7 +134,7 @@ public class SoundManager implements IWatchDogListener
             }
             catch (IOException e)
             {
-                BBSModClient.LOGGER.error("Exception", e);
+                BBSModClient.reportError("音频数据读写失败", e);
             }
         }
     }

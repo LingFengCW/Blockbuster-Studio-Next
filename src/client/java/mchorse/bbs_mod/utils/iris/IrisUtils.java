@@ -118,10 +118,15 @@ public class IrisUtils
                 float e2y = v[pc + 1] - v[pa + 1];
                 float e2z = v[pc + 2] - v[pa + 2];
 
-                float dax = u[pb] - u[pa];
-                float day = u[pb + 1] - u[pa + 1];
-                float dbx = u[pc] - u[pa];
-                float dby = u[pc + 1] - u[pa + 1];
+                /* UV has 2 floats per vertex, so index with a*2/b*2/c*2 */
+                int ua = a * 2;
+                int ub = b * 2;
+                int uc = c * 2;
+
+                float dax = u[ub] - u[ua];
+                float day = u[ub + 1] - u[ua + 1];
+                float dbx = u[uc] - u[ua];
+                float dby = u[uc + 1] - u[ua + 1];
 
                 float det = dax * dby - dbx * day;
                 float f = det == 0F ? 0F : 1F / det;
