@@ -33,6 +33,73 @@ public class Draw
         drawBuffer(builder, RenderPipelines.DEBUG_FILLED_BOX);
     }
 
+    /**
+     * Draw with a texture bound to Sampler0. The texture must be a vanilla
+     * registered texture (e.g. from PipGeometry.bridge(Link) or a
+     * DynamicTexture). Without this, ENTITY_TRANSLUCENT pipelines sample an
+     * unbound Sampler0 and BBS models render as plain white/solid quads.
+     */
+    public static void drawBuffer(BufferBuilder builder, RenderPipeline pipeline,
+        com.mojang.blaze3d.textures.GpuTextureView textureView,
+        com.mojang.blaze3d.textures.GpuSampler sampler)
+    {
+        MeshData mesh = builder.buildOrThrow();
+        MeshData.DrawState drawState = mesh.drawState();
+        Minecraft mc = Minecraft.getInstance();
+        GpuDevice device = RenderSystem.getDevice();
+
+        CommandEncoder encoder = device.createCommandEncoder();
+        java.nio.ByteBuffer vertexData = mesh.vertexBuffer();
+        GpuBuffer vertices = device.createBuffer(() -> "vertices", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE | GpuBuffer.USAGE_COPY_DST, vertexData.remaining());
+        GpuBufferSlice vertSlice = new GpuBufferSlice(vertices, 0, vertexData.remaining());
+        encoder.writeToBuffer(vertSlice, vertexData);
+
+        java.nio.ByteBuffer indexData = mesh.indexBuffer();
+        GpuBuffer indices;
+        com.mojang.blaze3d.IndexType indexType;
+
+        if (indexData != null)
+        {
+            indices = device.createBuffer(() -> "indices", GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_MAP_WRITE | GpuBuffer.USAGE_COPY_DST, indexData.remaining());
+            encoder.writeToBuffer(new GpuBufferSlice(indices, 0, indexData.remaining()), indexData);
+            indexType = drawState.indexType();
+        }
+        else
+        {
+            PrimitiveTopology topo = pipeline.getPrimitiveTopology();
+            RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer = RenderSystem.getSequentialBuffer(topo);
+            indices = shapeIndexBuffer.getBuffer(drawState.indexCount());
+            indexType = shapeIndexBuffer.type();
+        }
+
+        GpuBufferSlice transforms = RenderSystem.getDynamicUniforms().writeTransform(RenderSystem.getModelViewMatrixCopy());
+
+        try (RenderPass pass = encoder.createRenderPass(
+            () -> "draw",
+            mc.gameRenderer.mainRenderTarget().getColorTextureView(),
+            Optional.empty(),
+            mc.gameRenderer.mainRenderTarget().getDepthTextureView(),
+            OptionalDouble.empty()
+        ))
+        {
+            pass.setPipeline(pipeline);
+            RenderSystem.bindDefaultUniforms(pass);
+            pass.setUniform("DynamicTransforms", transforms);
+
+            if (textureView != null && sampler != null)
+            {
+                pass.bindTexture("Sampler0", textureView, sampler);
+            }
+
+            pass.setVertexBuffer(0, new GpuBufferSlice(vertices, 0, vertexData.remaining()));
+            pass.setIndexBuffer(indices, indexType);
+            pass.drawIndexed(0, 0, drawState.indexCount(), 1, 1);
+        }
+
+        mesh.close();
+        encoder.submit();
+    }
+
     public static void drawBuffer(BufferBuilder builder, RenderPipeline pipeline)
     {
         MeshData mesh = builder.buildOrThrow();

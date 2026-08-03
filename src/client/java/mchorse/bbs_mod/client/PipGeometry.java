@@ -125,4 +125,33 @@ public class PipGeometry
             Minecraft.getInstance().getTextureManager().release(id);
         }
     }
+
+    /**
+     * Returns the GpuTextureView of the bridged texture for a BBS link, or
+     * null when unavailable. Used to bind BBS textures into 26.2 render
+     * passes (RenderPass.bindTexture("Sampler0", ...)) so models sample
+     * their real texture instead of an unbound sampler.
+     */
+    public static com.mojang.blaze3d.textures.GpuTextureView bridgeView(Link link)
+    {
+        Identifier id = bridge(link);
+
+        if (id == null || id.equals(MissingTextureAtlasSprite.getLocation()))
+        {
+            return null;
+        }
+
+        var texture = Minecraft.getInstance().getTextureManager().getTexture(id);
+
+        return texture == null ? null : texture.getTextureView();
+    }
+
+    /**
+     * Returns a clamped, bilinear GpuSampler for the bridged BBS textures.
+     */
+    public static com.mojang.blaze3d.textures.GpuSampler bridgeSampler()
+    {
+        return com.mojang.blaze3d.systems.RenderSystem.getSamplerCache()
+            .getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+    }
 }
