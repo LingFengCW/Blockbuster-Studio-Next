@@ -97,7 +97,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public UIAssetBin assetBin;
 
     /* HTML (Ultralight) editor overlay. */
-    public mchorse.bbs_mod.ultralight.UIUltralightOverlay ultralightOverlay;
+    public lingfeng.bbsnext.ultralight.UIUltralightOverlay ultralightOverlay;
 
     public UIIcon duplicateFilm;
 
@@ -419,10 +419,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * dependencies that could leave the area at 0. */
         this.editor.resetFlex().relative(this).x(0).y(58).w(1F, -20).h(1F, -58);
 
-        /* HTML (Ultralight) editor overlay - rendered on top of everything
-         * when enabled from the 窗口 menu. */
-        this.ultralightOverlay = new mchorse.bbs_mod.ultralight.UIUltralightOverlay(this);
-        this.ultralightOverlay.relative(this).x(0).y(58).w(1F, -20).h(1F, -78);
+        /* HTML (Ultralight) editor overlay - full screen, replaces the
+         * native editor UI while visible (its viewport area is transparent
+         * so the world preview underneath shows through). It is shown
+         * automatically whenever a film/scene is opened. */
+        this.ultralightOverlay = new lingfeng.bbsnext.ultralight.UIUltralightOverlay(this);
+        this.ultralightOverlay.relative(this).x(0).y(0).w(1F).h(1F);
         this.ultralightOverlay.setVisible(false);
         this.add(this.ultralightOverlay);
     }
@@ -436,7 +438,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (show && this.ultralightOverlay.area.w > 0 && this.ultralightOverlay.area.h > 0)
         {
-            mchorse.bbs_mod.ultralight.UltralightUI.createView(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h);
+            lingfeng.bbsnext.ultralight.UltralightUI.createView(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h, new lingfeng.bbsnext.ultralight.EditorBridge(this));
         }
     }
 
@@ -497,7 +499,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     }
 
     /** Whether the current film has unsaved edits since the last save/load. */
-    private boolean isDirty()
+    public boolean isDirty()
     {
         return this.data != null && this.undoHandler != null
             && this.undoHandler.getUndoManager().getCurrentUndoIndex() != this.savedUndoIndex;
@@ -900,6 +902,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.disableContext();
         this.secretPlay.removeFromParent();
+        this.ultralightOverlay.setVisible(false);
     }
 
     private void disableContext()
@@ -966,6 +969,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         /* Keep the asset bin's project/backpack lists in sync with the
          * scene/sequence that was just opened. */
         this.assetBin.refresh();
+
+        /* The HTML editor replaces the native UI whenever a work is open. */
+        this.ultralightOverlay.setVisible(data != null);
     }
 
     @Override

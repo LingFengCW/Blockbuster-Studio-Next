@@ -204,11 +204,43 @@ public class Batcher2D
 
     public void texturedBox(Supplier<ShaderProgram> shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        this.context.fill((int)x, (int)y, (int)(x + w), (int)(y + h), color);
+        this.texturedBox(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
     }
 
     public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
+        if (texture < 0 || textureW <= 0 || textureH <= 0 || this.context == null)
+        {
+            this.context.fill((int)x, (int)y, (int)(x + w), (int)(y + h), color);
+
+            return;
+        }
+
+        /* The GL texture cannot be blitted directly on MC 26.2 - read it
+         * back through GlTextureBridge and draw it via the vanilla blit
+         * pipeline (works on GL backends; Vulkan falls back to a fill). */
+        try
+        {
+            Identifier id = lingfeng.bbsnext.client.GlTextureBridge.getOrCreate(texture, textureW, textureH);
+
+            if (id != null)
+            {
+                /* Input UVs are GL-style pixel coords with v flipped (v=0 at
+                 * bottom); convert to normalized MC uvs (v=0 at top). */
+                float u0 = Math.min(u1, u2) / (float) textureW;
+                float u1n = Math.max(u1, u2) / (float) textureW;
+                float v0 = 1F - Math.max(v1, v2) / (float) textureH;
+                float v1n = 1F - Math.min(v1, v2) / (float) textureH;
+
+                this.context.blit(id, (int) x, (int) y, (int) (x + w), (int) (y + h), u0, u1n, v0, v1n);
+
+                return;
+            }
+        }
+        catch (Throwable ignored)
+        {
+        }
+
         this.context.fill((int)x, (int)y, (int)(x + w), (int)(y + h), color);
     }
 
