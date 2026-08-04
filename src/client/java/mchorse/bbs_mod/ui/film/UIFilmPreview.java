@@ -321,9 +321,15 @@ public class UIFilmPreview extends UIElement
         camera.projection.set(this.panel.lastProjection);
         context.batcher.flush();
 
-        if (texture != null)
+        if (texture != null && texture.id >= 0 && texture.width > 0 && texture.height > 0)
         {
             context.batcher.texturedBox(texture.id, Colors.WHITE, area.x, area.y, area.w, area.h, 0, texture.height, texture.width, 0, texture.width, texture.height);
+        }
+        else
+        {
+            /* No valid frame texture - draw a plain dark viewport instead
+             * of letting an invalid texture paint over the whole UI. */
+            context.batcher.box(area.x, area.y, area.ex(), area.ey(), Colors.A90);
         }
 
         /* Viewport title bar - makes the preview read as a named dock. */

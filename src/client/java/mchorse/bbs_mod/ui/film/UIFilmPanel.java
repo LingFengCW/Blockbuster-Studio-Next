@@ -411,8 +411,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         /* PR-style top bar: title bar (with dirty *) + main menu bar. */
         this.setupTopBar();
 
-        /* Shift the whole editor area down below the top bar. */
-        this.editor.resetFlex().relative(this).x(0).y(58).wTo(this.iconBar.area).h(1F, -58);
+        /* Shift the whole editor area down below the top bar. Simple pixel
+         * flex (panel width - 20px right icon bar) - no cross-resizer
+         * dependencies that could leave the area at 0. */
+        this.editor.resetFlex().relative(this).x(0).y(58).w(1F, -20).h(1F, -58);
     }
 
     /* ======== PR-style top bar: title bar + main menu bar ======== */
@@ -421,13 +423,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         /* ---- Title bar (project name - *work name) ---- */
         this.titleBar = new UIElement();
-        this.titleBar.relative(this).x(0).y(0).wTo(this.iconBar.area).h(30);
+        this.titleBar.relative(this).x(0).y(0).w(1F, -20).h(30);
 
         this.titleBar.add(new UIRenderable(this::renderTitleBar));
 
         /* ---- Main menu bar (file / edit / view / ... ) ---- */
         this.menuBar = new UIElement();
-        this.menuBar.relative(this).x(0).y(30).wTo(this.iconBar.area).h(28);
+        this.menuBar.relative(this).x(0).y(30).w(1F, -20).h(28);
 
         this.menuBar.add(new UIRenderable((context) ->
         {
