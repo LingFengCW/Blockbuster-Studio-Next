@@ -82,6 +82,21 @@ public class UltralightUI
                 databind = new Databind(DatabindConfiguration.builder().build());
                 renderer = UltralightRenderer.create();
                 initialized = renderer != null;
+
+                if (renderer == null)
+                {
+                    BBSMod.LOGGER.warn("[Ultralight] UltralightRenderer.create() returned null - the HTML editor cannot start. (GL context: {}, backend: {})",
+                        org.lwjgl.glfw.GLFW.glfwGetCurrentContext() != 0L,
+                        Minecraft.getInstance().getWindow().backend() == null ? "null" : Minecraft.getInstance().getWindow().backend().getClass().getName());
+                }
+                else
+                {
+                    BBSMod.LOGGER.info("[Ultralight] Renderer ready");
+                }
+            }
+            else
+            {
+                BBSMod.LOGGER.warn("[Ultralight] Native binaries failed to load");
             }
         }
         catch (Throwable e)
@@ -163,6 +178,10 @@ public class UltralightUI
         extractResource("/assets/bbsnext/ultralight/UltralightCore." + e, dir);
         extractResource("/assets/bbsnext/ultralight/WebCore." + e, dir);
         extractResource("/assets/bbsnext/ultralight/Ultralight." + e, dir);
+
+        /* ICU data and CA bundle are required by the engine at load time. */
+        extractResource("/assets/bbsnext/ultralight/icudt67l.dat", dir);
+        extractResource("/assets/bbsnext/ultralight/cacert.pem", dir);
 
         return Files.exists(dir.resolve("Ultralight." + e)) ? dir : null;
     }

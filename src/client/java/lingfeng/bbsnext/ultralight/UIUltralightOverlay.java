@@ -128,6 +128,15 @@ public class UIUltralightOverlay extends UIElement
             return;
         }
 
+        /* Fallback: if the layout system never called resize() while the
+         * overlay was visible, create the view here (render runs every
+         * frame, so the HTML editor always comes up). */
+        if (!this.created && this.area.w > 0 && this.area.h > 0)
+        {
+            UltralightUI.createView(this.area.w, this.area.h, new EditorBridge(this.panel));
+            this.created = true;
+        }
+
         /* The BBS framework has no mouse-move hook, so forward movement
          * from the render pass (once per frame is enough for hover). */
         int mx = this.mx(context);
