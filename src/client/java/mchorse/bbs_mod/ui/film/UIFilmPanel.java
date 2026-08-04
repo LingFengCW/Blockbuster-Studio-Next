@@ -902,7 +902,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.disableContext();
         this.secretPlay.removeFromParent();
-        this.ultralightOverlay.setVisible(false);
+
+        if (this.ultralightOverlay != null)
+        {
+            this.ultralightOverlay.setVisible(false);
+        }
     }
 
     private void disableContext()
@@ -970,8 +974,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * scene/sequence that was just opened. */
         this.assetBin.refresh();
 
-        /* The HTML editor replaces the native UI whenever a work is open. */
-        this.ultralightOverlay.setVisible(data != null);
+        /* The HTML editor replaces the native UI whenever a work is open.
+         * (The overlay is created at the end of the constructor, so it may
+         * be null while fill() runs during construction.) */
+        if (this.ultralightOverlay != null)
+        {
+            this.ultralightOverlay.setVisible(data != null);
+        }
     }
 
     @Override
