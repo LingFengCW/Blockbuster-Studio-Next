@@ -60,9 +60,14 @@ dependencies {
 
 	// Ultralight HTML UI engine - LabyMod Java bindings (maven central).
 	// Native binaries (Ultralight SDK bin/) are loaded at runtime from the
-	// game dir or classpath; see mchorse.bbs_mod.ultralight.UltralightUI.
+	// game dir or classpath; see lingfeng.bbsnext.ultralight.UltralightUI.
 	implementation "com.labymedia:ultralight-java-base:${project.ultralight_version}"
 	include implementation("com.labymedia:ultralight-java-base:${project.ultralight_version}")
+
+	// Ultralight databind - Java <-> JavaScript interop (bind a Java object
+	// into the page so the HTML editor can drive the real BBS data model).
+	implementation "com.labymedia:ultralight-java-databind:${project.ultralight_version}"
+	include implementation("com.labymedia:ultralight-java-databind:${project.ultralight_version}")
 }
 
 processResources {
