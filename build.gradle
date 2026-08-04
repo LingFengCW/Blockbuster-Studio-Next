@@ -57,6 +57,12 @@ dependencies {
 
 	// Embedded JavaScript engine for user script plugins (pure Java, bundled via JiJ).
 	include implementation("org.mozilla:rhino:${project.rhino_version}")
+
+	// Ultralight HTML UI engine - LabyMod Java bindings (maven central).
+	// Native binaries (Ultralight SDK bin/) are loaded at runtime from the
+	// game dir or classpath; see mchorse.bbs_mod.ultralight.UltralightUI.
+	implementation "com.labymedia:ultralight-java-base:${project.ultralight_version}"
+	include implementation("com.labymedia:ultralight-java-base:${project.ultralight_version}")
 }
 
 processResources {

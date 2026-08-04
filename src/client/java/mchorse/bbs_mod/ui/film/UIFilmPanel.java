@@ -96,6 +96,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public UIFilmPreview preview;
     public UIAssetBin assetBin;
 
+    /* HTML (Ultralight) editor overlay. */
+    public mchorse.bbs_mod.ultralight.UIUltralightOverlay ultralightOverlay;
+
     public UIIcon duplicateFilm;
 
     /* Main editors */
@@ -415,6 +418,26 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * flex (panel width - 20px right icon bar) - no cross-resizer
          * dependencies that could leave the area at 0. */
         this.editor.resetFlex().relative(this).x(0).y(58).w(1F, -20).h(1F, -58);
+
+        /* HTML (Ultralight) editor overlay - rendered on top of everything
+         * when enabled from the 窗口 menu. */
+        this.ultralightOverlay = new mchorse.bbs_mod.ultralight.UIUltralightOverlay(this);
+        this.ultralightOverlay.relative(this).x(0).y(58).w(1F, -20).h(1F, -78);
+        this.ultralightOverlay.setVisible(false);
+        this.add(this.ultralightOverlay);
+    }
+
+    /** Toggle the HTML (Ultralight) editor overlay. */
+    public void toggleUltralight()
+    {
+        boolean show = !this.ultralightOverlay.isVisible();
+
+        this.ultralightOverlay.setVisible(show);
+
+        if (show && this.ultralightOverlay.area.w > 0 && this.ultralightOverlay.area.h > 0)
+        {
+            mchorse.bbs_mod.ultralight.UltralightUI.createView(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h);
+        }
     }
 
     /* ======== PR-style top bar: title bar + main menu bar ======== */
@@ -574,6 +597,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 m.action(Icons.FRUSTUM, IKey.raw("相机时间轴"), () -> this.showPanel(this.cameraEditor));
                 m.action(Icons.SCENE, IKey.raw("回放编辑器"), () -> this.showPanel(this.replayEditor));
                 m.action(Icons.ACTION, IKey.raw("动作编辑器"), () -> this.showPanel(this.actionEditor));
+                m.action(Icons.EDITOR, IKey.raw("HTML 界面 (Ultralight)"), this::toggleUltralight);
             }
             else if (name.equals("设置"))
             {
