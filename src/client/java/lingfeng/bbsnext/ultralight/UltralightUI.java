@@ -195,6 +195,11 @@ public class UltralightUI
 
         if (view != null)
         {
+            /* Re-opening the editor: swap in the fresh bridge and re-bind
+             * it to the page (the page itself is not reloaded). */
+            bridge = jsBridge;
+            bound = false;
+
             view.resize(width, height);
 
             return;
