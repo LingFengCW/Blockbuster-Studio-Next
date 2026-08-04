@@ -333,6 +333,14 @@ public class UIFilmPreview extends UIElement
         context.batcher.box(area.x, area.y, area.x + tw + 14, area.y + 18, Colors.A75);
         context.batcher.text(title, area.x + 7, area.y + 4, Colors.LIGHTER_GRAY, true);
 
+        /* Second (orthographic reference) viewport placeholder - top-right
+         * corner of the preview area (design doc 5: dual preview). */
+        int refW = Math.min(180, area.w / 3);
+        int refH = Math.min(100, area.h / 3);
+
+        context.batcher.box(area.ex() - refW - 8, area.y + 8, area.ex() - 8, area.y + 8 + refH, Colors.A90);
+        context.batcher.text("正交参考视图", area.ex() - refW - 4, area.y + 12, Colors.GRAY, true);
+
         this.renderCursor(context);
 
         /* Render rule of thirds */
