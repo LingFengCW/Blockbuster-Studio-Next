@@ -24,6 +24,7 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.network.ClientNetwork;
+import mchorse.bbs_mod.projects.ProjectManager;
 import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueEditorLayout;
@@ -43,7 +44,9 @@ import mchorse.bbs_mod.ui.film.utils.UIFilmUndoHandler;
 import mchorse.bbs_mod.ui.film.utils.undo.UIUndoHistoryOverlay;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UINumberOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -52,6 +55,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.UIUtils;
+import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.Direction;
@@ -113,6 +117,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     /* Entity control */
     private UIFilmController controller = new UIFilmController(this);
     private UIFilmUndoHandler undoHandler;
+
+    /* PR-style top bar (design doc 5 / 11): title bar + main menu bar. */
+    private UIElement titleBar;
+    private UIElement menuBar;
+    private final List<UIButton> menuButtons = new ArrayList<>();
+    private int savedUndoIndex = -1;
 
     public final Matrix4f lastView = new Matrix4f();
     public final Matrix4f lastProjection = new Matrix4f();
@@ -397,36 +407,200 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         };
 
         this.add(element);
+
+        /* PR-style top bar: title bar (with dirty *) + main menu bar. */
+        this.setupTopBar();
+
+        /* Shift the whole editor area down below the top bar. */
+        this.editor.resetFlex().relative(this).x(0).y(58).wTo(this.iconBar.area).h(1F, -58);
     }
+
+    /* ======== PR-style top bar: title bar + main menu bar ======== */
+
+    private void setupTopBar()
+    {
+        /* ---- Title bar (project name - *work name) ---- */
+        this.titleBar = new UIElement();
+        this.titleBar.relative(this).x(0).y(0).wTo(this.iconBar.area).h(30);
+
+        this.titleBar.add(new UIRenderable(this::renderTitleBar));
+
+        /* ---- Main menu bar (file / edit / view / ... ) ---- */
+        this.menuBar = new UIElement();
+        this.menuBar.relative(this).x(0).y(30).wTo(this.iconBar.area).h(28);
+
+        this.menuBar.add(new UIRenderable((context) ->
+        {
+            context.batcher.box(0, 0, this.menuBar.area.w, this.menuBar.area.h, Colors.A75);
+        }));
+
+        String[] menus = { "文件", "编辑", "视图", "轨道", "关键帧", "录制", "渲染", "窗口", "设置" };
+        int x = 0;
+
+        for (String name : menus)
+        {
+            UIButton btn = new UIButton(IKey.raw(name), (b) -> this.openMenu(b));
+
+            btn.relative(this.menuBar).x(x).y(0).w(64).h(28);
+            btn.textColor(Colors.LIGHTER_GRAY, true);
+            this.menuBar.add(btn);
+            this.menuButtons.add(btn);
+            x += 64;
+        }
+
+        this.add(this.titleBar, this.menuBar);
+    }
+
+    private void renderTitleBar(UIContext context)
+    {
+        int w = this.titleBar.area.w;
+
+        context.batcher.box(0, 0, w, this.titleBar.area.h, Colors.CONTROL_BAR);
+
+        String projectName = "未命名工程";
+        mchorse.bbs_mod.projects.ProjectManager projects = mchorse.bbs_mod.projects.ProjectManager.get();
+
+        if (projects != null && projects.getCurrent() != null)
+        {
+            projectName = projects.getCurrent().name;
+        }
+
+        String workName = this.data == null ? "未打开作品" : String.valueOf(this.data.getId());
+        String title = projectName + " - " + (this.isDirty() ? "*" : "") + workName;
+
+        context.batcher.text(title, 12, 7, this.isDirty() ? Colors.ORANGE : Colors.LIGHTER_GRAY, true);
+    }
+
+    /** Whether the current film has unsaved edits since the last save/load. */
+    private boolean isDirty()
+    {
+        return this.data != null && this.undoHandler != null
+            && this.undoHandler.getUndoManager().getCurrentUndoIndex() != this.savedUndoIndex;
+    }
+
+    /** Open the main menu of the clicked menu-bar button. */
+    private void openMenu(UIButton button)
+    {
+        ContextMenuManager manager = new ContextMenuManager();
+        String name = button.label.get();
+
+        this.buildMenu(manager, name);
+
+        UISimpleContextMenu menu = manager.create();
+
+        if (menu != null)
+        {
+            UIContext ctx = button.getContext();
+
+            if (ctx != null)
+            {
+                menu.setMouse(ctx);
+                ctx.menu.overlay.add(menu);
+            }
+        }
+    }
+
+    /** Fill the 9 top menus with real actions (design doc 11). */
+    private void buildMenu(ContextMenuManager m, String name)
+    {
+        if (this.data != null)
+        {
+            if (name.equals("文件"))
+            {
+                m.action(Icons.ADD, IKey.raw("新建场景"), this::newScene);
+                m.action(Icons.SAVED, IKey.raw("保存"), this::forceSave);
+                m.action(Icons.FILM, IKey.raw("导出当前场景"), () ->
+                {
+                    mchorse.bbs_mod.projects.SceneManager scenes = mchorse.bbs_mod.projects.SceneManager.get();
+                    mchorse.bbs_mod.projects.Scene scene = scenes == null ? null : scenes.getCurrent();
+
+                    if (scene != null && scenes.exportScene(scene) != null)
+                    {
+                        this.getContext().notifySuccess(IKey.raw("已导出: " + scene.name));
+                    }
+                    else
+                    {
+                        this.getContext().notifyError(IKey.raw("导出失败"));
+                    }
+                });
+                m.action(Icons.TRASH, IKey.raw("关闭当前作品"), this::disableContext);
+            }
+            else if (name.equals("编辑"))
+            {
+                m.action(Icons.EDIT, IKey.raw("撤销"), this::undo);
+                m.action(Icons.DUPE, IKey.raw("重做"), this::redo);
+            }
+            else if (name.equals("视图"))
+            {
+                m.action(Icons.SQUARE, IKey.raw("中心线"), BBSSettings.editorCenterLines.get(), () ->
+                {
+                    BBSSettings.editorCenterLines.set(!BBSSettings.editorCenterLines.get());
+                });
+                m.action(Icons.LINE, IKey.raw("三分构图线"), BBSSettings.editorRuleOfThirds.get(), () ->
+                {
+                    BBSSettings.editorRuleOfThirds.set(!BBSSettings.editorRuleOfThirds.get());
+                });
+                m.action(Icons.CURSOR, IKey.raw("准星"), BBSSettings.editorCrosshair.get(), () ->
+                {
+                    BBSSettings.editorCrosshair.set(!BBSSettings.editorCrosshair.get());
+                });
+                m.action(Icons.REFRESH, IKey.raw("重置视角"), () -> this.dashboard.orbit.setup(this.getCamera()));
+            }
+            else if (name.equals("轨道"))
+            {
+                m.action(Icons.FRUSTUM, IKey.raw("打开相机时间轴"), () -> this.showPanel(this.cameraEditor));
+                m.action(Icons.SCENE, IKey.raw("打开回放编辑器"), () -> this.showPanel(this.replayEditor));
+            }
+            else if (name.equals("关键帧"))
+            {
+                m.action(Icons.ARROW_LEFT, IKey.raw("上一帧"), () -> this.setCursor(this.getCursor() - 1));
+                m.action(Icons.ARROW_RIGHT, IKey.raw("下一帧"), () -> this.setCursor(this.getCursor() + 1));
+                m.action(Icons.CURSOR, IKey.raw("跳转到开头"), () -> this.setCursor(0));
+            }
+            else if (name.equals("录制"))
+            {
+                m.action(Icons.PLANE, IKey.raw("切换飞行/录制模式"), this::toggleFlight);
+                m.action(Icons.SPHERE, IKey.raw("录制回放"), () -> this.preview.recordReplay.clickItself());
+                m.action(Icons.VIDEO_CAMERA, IKey.raw("录制视频"), () -> this.preview.recordVideo.clickItself());
+            }
+            else if (name.equals("渲染"))
+            {
+                m.action(Icons.CAMERA, IKey.raw("截图导出"), () -> this.preview.recordVideo.clickItself());
+            }
+            else if (name.equals("窗口"))
+            {
+                m.action(Icons.FRUSTUM, IKey.raw("相机时间轴"), () -> this.showPanel(this.cameraEditor));
+                m.action(Icons.SCENE, IKey.raw("回放编辑器"), () -> this.showPanel(this.replayEditor));
+                m.action(Icons.ACTION, IKey.raw("动作编辑器"), () -> this.showPanel(this.actionEditor));
+            }
+            else if (name.equals("设置"))
+            {
+                m.action(Icons.SETTINGS, IKey.raw("打开设置"), () -> this.dashboard.settings.clickItself());
+            }
+        }
+        else
+        {
+            m.action(Icons.ADD, IKey.raw("新建场景"), this::newScene);
+        }
+    }
+
+    /** Height of the bottom timeline dock (design doc 5: bottom timeline). */
+    private static final int TIMELINE_H = 240;
 
     private void setupEditorFlex(boolean resize)
     {
-        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-
-        layout.setMainSizeH(MathUtils.clamp(layout.getMainSizeH(), 0.05F, 0.95F));
-        layout.setEditorSizeH(MathUtils.clamp(layout.getEditorSizeH(), 0.05F, 0.95F));
-        layout.setMainSizeV(MathUtils.clamp(layout.getMainSizeV(), 0.05F, 0.95F));
-        layout.setEditorSizeV(MathUtils.clamp(layout.getEditorSizeV(), 0.05F, 0.95F));
-
         this.main.resetFlex();
         this.editArea.resetFlex();
         this.preview.resetFlex();
         this.draggableMain.resetFlex();
 
-        if (layout.isHorizontal())
-        {
-            this.main.relative(this.editor).x(0.25F).y(1F - layout.getMainSizeH()).wTo(this.editor.area, 0.75F).hTo(this.editor.area, 1F);
-            this.editArea.relative(this.editor).x(0.25F + (1F - layout.getEditorSizeH()) * 0.75F).wTo(this.editor.area, 1F - 0.25F - (1F - layout.getEditorSizeH()) * 0.75F).hTo(this.main.area, 0F);
-            this.preview.relative(this.editor).x(0.25F).wTo(this.editor.area, (1F - layout.getEditorSizeH()) * 0.75F).hTo(this.main.area, 0F);
-            this.draggableMain.hoverOnly().relative(this.editArea).x(-6).y(0).w(12).h(1F);
-        }
-        else
-        {
-            this.main.relative(this.editor).x(0.25F).y(0).wTo(this.editor.area, layout.getMainSizeV() * 0.75F).h(1F);
-            this.editArea.relative(this.main).x(1F).y(layout.getEditorSizeV()).wTo(this.editor.area, 1F - 0.25F - layout.getMainSizeV() * 0.75F).hTo(this.editor.area, 1F);
-            this.preview.relative(this.main).x(1F).wTo(this.editor.area, 1F - 0.25F - layout.getMainSizeV() * 0.75F).hTo(this.editArea.area, 0F);
-            this.draggableMain.hoverOnly().relative(this.main).x(1F).w(12).h(1F);
-        }
+        /* Fixed PR-style layout: left 25% asset bin (already anchored in
+         * the constructor), right 75% = preview viewport on top with the
+         * timeline docked at the bottom spanning the whole right side. */
+        this.main.relative(this.editor).x(0.25F).y(1F, -TIMELINE_H).w(0.75F).h(TIMELINE_H);
+        this.preview.relative(this.editor).x(0.25F).y(0).w(0.75F).h(1F, -TIMELINE_H);
+        this.editArea.relative(this.preview).x(1F).y(0).w(0).h(0);
+        this.draggableMain.hoverOnly().relative(this.main).x(0).y(-3).w(1F).h(6);
 
         if (resize)
         {
@@ -787,8 +961,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.undoHandler = null;
         }
 
-        this.preview.replays.setEnabled(data != null);
-        this.openHistory.setEnabled(data != null);
+        /* Fresh load = clean state for the title-bar dirty marker. */
+        this.savedUndoIndex = this.undoHandler == null ? -1 : this.undoHandler.getUndoManager().getCurrentUndoIndex();
+
+        this.preview.replays.setEnabled(data != null);        this.openHistory.setEnabled(data != null);
         this.toggleHorizontal.setEnabled(data != null);
         this.openCameraEditor.setEnabled(data != null);
         this.openReplayEditor.setEnabled(data != null);
@@ -814,6 +990,28 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.entered = data != null;
         this.newFilm = false;
+    }
+
+    @Override
+    public void save()
+    {
+        super.save();
+
+        this.markClean();
+    }
+
+    @Override
+    public void forceSave()
+    {
+        super.forceSave();
+
+        this.markClean();
+    }
+
+    /** Record the current undo index as the clean baseline (title-bar *). */
+    private void markClean()
+    {
+        this.savedUndoIndex = this.undoHandler == null ? -1 : this.undoHandler.getUndoManager().getCurrentUndoIndex();
     }
 
     public void undo()
