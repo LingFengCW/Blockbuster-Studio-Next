@@ -178,6 +178,7 @@ public class UltralightUI
         extractResource("/assets/bbsnext/ultralight/UltralightCore." + e, dir);
         extractResource("/assets/bbsnext/ultralight/WebCore." + e, dir);
         extractResource("/assets/bbsnext/ultralight/Ultralight." + e, dir);
+        extractResource("/assets/bbsnext/ultralight/AppCore." + e, dir);
 
         /* ICU data and CA bundle are required by the engine at load time. */
         extractResource("/assets/bbsnext/ultralight/icudt67l.dat", dir);
