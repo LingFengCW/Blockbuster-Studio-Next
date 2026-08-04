@@ -17,12 +17,19 @@ public class ProjectsIconButton extends SpriteIconButton.CenteredIcon
 
     public ProjectsIconButton(int x, int y)
     {
-        /* 16x16 button, 12x12 icon. */
-        super(x, y, Component.empty(), 16, 16, 12, 12,
+        /* 26.2 的 SpriteIconButton 构造器参数是:
+         * (x, y, message, spriteWidth, spriteHeight, spriteOffsetX,
+         *  spriteOffsetY, sprites, onPress, tooltip, narration, flag)
+         * 注意: 没有 width/height 参数位 —— 父类构造时宽高固定为 0,
+         * 必须构造后显式设置, 否则按钮渲染异常(全屏/错位). */
+        super(x, y, Component.empty(), 16, 16, 0, 0,
             new WidgetSprites(ICON, ICON, ICON),
             (b) -> mchorse.bbs_mod.BBSModClient.openEditorFlow(null),
             Component.empty(),
             (btn) -> Component.empty(),
             true);
+
+        this.width = 16;
+        this.height = 16;
     }
 }
