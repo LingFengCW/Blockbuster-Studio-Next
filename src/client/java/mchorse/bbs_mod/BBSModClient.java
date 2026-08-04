@@ -702,7 +702,7 @@ public class BBSModClient implements ClientModInitializer
 
                 for (net.minecraft.client.gui.components.AbstractWidget w : net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(titleScreen))
                 {
-                    if (w instanceof lingfeng.bbsnext.ui.titlebar.ProjectsIconButton)
+                    if (lingfeng.bbsnext.ui.titlebar.ProjectsIconButton.isProjectsButton(w))
                     {
                         alreadyAdded = true;
 
@@ -712,7 +712,7 @@ public class BBSModClient implements ClientModInitializer
 
                 if (!alreadyAdded)
                 {
-                    net.minecraft.client.gui.components.AbstractButton button = new lingfeng.bbsnext.ui.titlebar.ProjectsIconButton(btnX, btnY);
+                    net.minecraft.client.gui.components.AbstractWidget button = lingfeng.bbsnext.ui.titlebar.ProjectsIconButton.create(btnX, btnY);
 
                     net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(titleScreen).add(button);
                 }

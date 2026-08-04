@@ -96,3 +96,75 @@ publishing {
 		// Add repositories to publish to here.
 	}
 }
+
+/* ------------------------------------------------------------------ */
+/* Automatic build-count increment                                    */
+/* Version rule: major.minor.build-count (see gradle.properties).     */
+/* Every successful build that actually compiled code bumps the       */
+/* trailing build-count by one. Listing tasks / syncing does NOT bump.*/
+/* ------------------------------------------------------------------ */
+
+def incrementBuildNumber()
+{
+    def propsFile = project.file('gradle.properties')
+
+    if (!propsFile.exists())
+    {
+        return
+    }
+
+    def version = null
+
+    propsFile.eachLine('UTF-8') { line ->
+        if (line =~ /^\s*mod_version\s*=\s*(.+)/)
+        {
+            version = (line =~ /^\s*mod_version\s*=\s*(.+)/)[0][1]
+        }
+    }
+
+    if (version == null)
+    {
+        return
+    }
+
+    def parts = version.tokenize('.')
+
+    if (parts.size() < 3)
+    {
+        return
+    }
+
+    parts[2] = ((parts[2] as int) + 1).toString()
+
+    def newVersion = parts.join('.')
+
+    def lines = propsFile.readLines('UTF-8')
+    def output = lines.collect { line ->
+        if (line =~ /^\s*mod_version\s*=/)
+        {
+            return "mod_version=" + newVersion
+        }
+
+        return line
+    }
+
+    propsFile.write(output.join('\n'), 'UTF-8')
+
+    println "Build count: ${version} -> ${newVersion}"
+}
+
+def compiledThisBuild = false
+
+gradle.taskGraph.afterTask { task ->
+    if (task.name == 'compileJava' || task.name == 'compileClientJava')
+    {
+        compiledThisBuild = true
+    }
+}
+
+gradle.buildFinished { result ->
+    if (result.failure == null && compiledThisBuild)
+    {
+        incrementBuildNumber()
+    }
+}
