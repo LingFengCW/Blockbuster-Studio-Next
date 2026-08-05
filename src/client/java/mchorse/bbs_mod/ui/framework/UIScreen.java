@@ -141,36 +141,75 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean inside)
     {
+        if (lingfeng.bbsnext.mcef.MCEFUI.onMouseClicked(this.menu, event, inside))
+        {
+            return true;
+        }
+
         return this.menu.mouseClicked((int) event.x(), (int) event.y(), event.buttonInfo().button());
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
     {
+        if (lingfeng.bbsnext.mcef.MCEFUI.onMouseScrolled(this.menu, mouseX, mouseY, horizontalAmount, verticalAmount))
+        {
+            return true;
+        }
+
         return this.menu.mouseScrolled((int) mouseX, (int) mouseY, horizontalAmount, verticalAmount);
     }
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event)
     {
+        if (lingfeng.bbsnext.mcef.MCEFUI.onMouseReleased(this.menu, event))
+        {
+            return true;
+        }
+
         return this.menu.mouseReleased((int) event.x(), (int) event.y(), event.buttonInfo().button());
+    }
+
+    @Override
+    public void mouseMoved(double x, double y)
+    {
+        if (!lingfeng.bbsnext.mcef.MCEFUI.onMouseMoved(this.menu, x, y))
+        {
+            super.mouseMoved(x, y);
+        }
     }
 
     @Override
     public boolean keyPressed(KeyEvent event)
     {
+        if (lingfeng.bbsnext.mcef.MCEFUI.onKeyPressed(this.menu, event))
+        {
+            return true;
+        }
+
         return this.menu.handleKey(event.key(), event.scancode(), BBSRendering.lastAction, event.modifiers());
     }
 
     @Override
     public boolean keyReleased(KeyEvent event)
     {
+        if (lingfeng.bbsnext.mcef.MCEFUI.onKeyReleased(this.menu, event))
+        {
+            return true;
+        }
+
         return this.menu.handleKey(event.key(), event.scancode(), GLFW.GLFW_RELEASE, event.modifiers());
     }
 
     @Override
     public boolean charTyped(CharacterEvent event)
     {
+        if (lingfeng.bbsnext.mcef.MCEFUI.onCharTyped(this.menu, event))
+        {
+            return true;
+        }
+
         if (!event.codepointAsString().isEmpty())
         {
             this.menu.handleTextInput(event.codepointAsString().charAt(0));

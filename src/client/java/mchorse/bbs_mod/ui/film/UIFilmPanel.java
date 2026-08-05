@@ -97,7 +97,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public UIAssetBin assetBin;
 
     /* HTML (Ultralight) editor overlay. */
-    public lingfeng.bbsnext.ultralight.UIUltralightOverlay ultralightOverlay;
+    public lingfeng.bbsnext.mcef.UIOverlay ultralightOverlay;
 
     public UIIcon duplicateFilm;
 
@@ -419,11 +419,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * dependencies that could leave the area at 0. */
         this.editor.resetFlex().relative(this).x(0).y(58).w(1F, -20).h(1F, -58);
 
-        /* HTML (Ultralight) editor overlay - full screen, replaces the
-         * native editor UI while visible (its viewport area is transparent
-         * so the world preview underneath shows through). It is shown
-         * automatically whenever a film/scene is opened. */
-        this.ultralightOverlay = new lingfeng.bbsnext.ultralight.UIUltralightOverlay(this);
+        /* HTML (MCEF) editor overlay - full screen, replaces the entire
+         * native editor UI while visible (the HTML page background is
+         * opaque, except for the transparent viewport area that shows the
+         * world preview underneath). */
+        this.ultralightOverlay = new lingfeng.bbsnext.mcef.UIOverlay(this);
         this.ultralightOverlay.relative(this).x(0).y(0).w(1F).h(1F);
         this.ultralightOverlay.setVisible(false);
         this.add(this.ultralightOverlay);
@@ -438,7 +438,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (show && this.ultralightOverlay.area.w > 0 && this.ultralightOverlay.area.h > 0)
         {
-            lingfeng.bbsnext.ultralight.UltralightUI.createView(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h, new lingfeng.bbsnext.ultralight.EditorBridge(this));
+            lingfeng.bbsnext.mcef.MCEFUI.createBrowser(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h, new lingfeng.bbsnext.mcef.EditorBridge(this));
         }
     }
 

@@ -2,184 +2,220 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>BBS-N 动画编辑器</title>
+<title>BBS 重构动画编辑器</title>
 <style>
-/* ============================================================
-   BBS-N 动画编辑器 - Ultralight 页面
-   通过 window.bbs (EditorBridge) 驱动真实 BBS 数据模型
-   预览区透明 -> 露出游戏世界画面
-   ============================================================ */
-*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI","Microsoft YaHei",sans-serif;user-select:none;-webkit-user-select:none;}
-html,body{width:100%;height:100%;overflow:hidden;background:transparent;color:#d6dae3;font-size:13px;}
-:root{
-  --bg:#1b1d23; --bg2:#22252c; --bg3:#2a2e37; --bg4:#343947;
-  --border:#12141a; --border2:#3a3f4d;
-  --text:#d6dae3; --text-dim:#8a90a0; --text-faint:#5a6070;
-  --accent:#4a90d9; --accent2:#2e6db4; --accent-soft:#1d3a5c;
-  --dirty:#ff6b4a; --ok:#4ac26b; --clip:#3b6fb3;
-}
-
-/* ============ 顶部标题栏 ============ */
-.title-bar{height:30px;background:var(--bg2);display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--border);gap:8px;flex-shrink:0;}
-.title-bar .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);}
-.title-bar .title-name{font-weight:600;}
-.title-bar .title-dirty{color:var(--dirty);font-weight:700;display:none;}
-.title-bar .title-project{color:var(--text);}
-.title-bar .title-right{margin-left:auto;color:var(--text-faint);font-size:11px;}
-
-/* ============ 顶部主菜单栏 ============ */
-.menu-bar{height:28px;background:var(--bg3);display:flex;align-items:stretch;border-bottom:1px solid var(--border);flex-shrink:0;position:relative;z-index:50;}
-.menu-top{display:flex;align-items:center;padding:0 14px;cursor:pointer;position:relative;border-bottom:2px solid transparent;font-size:12px;}
-.menu-top:hover,.menu-top.open{background:var(--accent-soft);border-bottom-color:var(--accent);}
-.menu-top.disabled{opacity:.4;pointer-events:none;}
-.dropdown{position:absolute;top:100%;left:0;min-width:200px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;padding:4px;z-index:100;}
-.dropdown.show{display:block;}
-.menu-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;font-size:12px;}
-.menu-item:hover{background:var(--accent-soft);}
-.menu-item.disabled{opacity:.4;pointer-events:none;}
-.menu-item .shortcut{margin-left:auto;color:var(--text-faint);font-size:11px;}
-.menu-sep{height:1px;background:var(--border2);margin:4px 6px;}
-.menu-item.danger:hover{background:#4a2a2a;}
-
-/* ============ 主体布局 ============ */
-.workspace{position:absolute;top:58px;left:0;right:0;bottom:0;display:flex;}
-
-/* 左侧素材箱 (25%) */
-.left-col{width:25%;height:100%;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
-.asset-head{display:flex;align-items:center;padding:8px 10px;font-weight:600;border-bottom:1px solid var(--border);gap:6px;background:var(--bg3);font-size:12px;}
-.asset-head .count{margin-left:auto;color:var(--text-faint);font-size:11px;font-weight:400;}
-.asset-body{flex:1;overflow-y:auto;padding:4px;}
-.asset-group{font-size:11px;color:var(--text-faint);padding:8px 8px 3px;letter-spacing:1px;display:flex;align-items:center;}
-.asset-group .add{width:16px;height:16px;line-height:16px;text-align:center;border-radius:3px;cursor:pointer;color:var(--text-dim);font-size:12px;}
-.asset-group .add:hover{background:var(--accent2);color:#fff;}
-.asset-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:3px;cursor:pointer;position:relative;font-size:12px;}
-.asset-item:hover{background:var(--bg3);}
-.asset-item.selected{background:var(--accent-soft);border:1px solid var(--accent2);}
-.asset-item .ico{width:16px;text-align:center;flex-shrink:0;}
-.asset-item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
-.asset-item .tag{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
-.asset-item .actions{display:none;gap:2px;flex-shrink:0;}
-.asset-item:hover .actions{display:flex;}
-.asset-item .actions span{width:18px;height:18px;line-height:18px;text-align:center;border-radius:3px;color:var(--text-dim);font-size:11px;}
-.asset-item .actions span:hover{background:var(--bg4);color:var(--text);}
-.asset-item .actions span.on{color:var(--ok);}
-.asset-item .actions span.del:hover{background:#5a2a2a;color:var(--dirty);}
-
-/* 右侧主区 (75%) */
-.main-col{flex:1;display:flex;flex-direction:column;min-width:0;}
-.viewports{flex:1;position:relative;min-height:0;background:transparent;}
-
-/* 预览区工具条（半透明浮层，不遮住画面中央） */
-.vp-tools{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:rgba(0,0,0,.6);border-radius:4px;padding:3px;z-index:7;}
-.vp-tools button{background:transparent;border:none;color:#c8ccd4;width:28px;height:28px;border-radius:3px;cursor:pointer;font-size:13px;}
-.vp-tools button:hover{background:rgba(255,255,255,.15);color:#fff;}
-.vp-tools button.on{background:var(--accent2);color:#fff;}
-.vp-tools button.primary{background:var(--accent);color:#fff;}
-.vp-tools button.primary:hover{background:var(--accent2);}
-
-/* ============ 底部时间轴 (240px) ============ */
-.timeline{height:240px;background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
-.tl-bar{height:30px;background:var(--bg3);display:flex;align-items:center;padding:0 8px;gap:6px;border-bottom:1px solid var(--border);}
-.tl-bar button{background:var(--bg4);border:1px solid var(--border2);border-radius:3px;color:var(--text);height:22px;padding:0 10px;cursor:pointer;font-size:11px;}
-.tl-bar button:hover{background:var(--accent2);border-color:var(--accent2);}
-.tl-bar button.play{background:var(--accent);border-color:var(--accent);color:#fff;}
-.tl-bar .tl-info{margin-left:auto;color:var(--text-faint);font-size:11px;}
-.tl-ruler{height:20px;background:var(--bg);border-bottom:1px solid var(--border);position:relative;overflow:hidden;flex-shrink:0;}
-.tl-ruler span{position:absolute;bottom:2px;font-size:9px;color:var(--text-faint);}
-.tl-body{flex:1;position:relative;overflow-y:auto;background:var(--bg2);}
-.tl-lane{position:relative;height:100%;}
-.tl-clip{position:absolute;top:6px;height:22px;background:var(--clip);border-radius:3px;border-left:2px solid #5da3e0;display:flex;align-items:center;padding:0 8px;font-size:11px;overflow:hidden;white-space:nowrap;color:#d6e4f5;}
-.tl-clip.disabled{opacity:.4;}
-.tl-clip .layer{color:#9db8d8;font-size:10px;margin-right:6px;}
-.tl-playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--dirty);z-index:20;pointer-events:none;}
-.tl-playhead::after{content:"";position:absolute;top:0;left:-4px;border:5px solid transparent;border-top:6px solid var(--dirty);}
-
-/* ============ 全局消息 ============ */
-.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#2e6db4;color:#fff;padding:7px 18px;border-radius:4px;z-index:9999;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,.4);}
-.toast.error{background:#b44a3a;}
-
-/* ============ 滚动条 ============ */
-::-webkit-scrollbar{width:8px;height:8px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px;}
-::-webkit-scrollbar-thumb:hover{background:#454c5e;}
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",Consolas,monospace;user-select:none;}
+body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13px;}
+/* 顶部标题栏 */
+.title-bar{height:30px;background:#2c2c30;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid #111;font-size:13px;gap:10px;}
+.title-dirty{color:#ff5555;margin:0 2px;display:none;}
+.title-dirty.show{display:inline;}
+.title-btn{margin-left:auto;padding:3px 10px;background:#38383c;border-radius:3px;cursor:pointer;font-size:12px;}
+.title-btn:hover{background:#094872;}
+/* 顶部主菜单栏 */
+.main-menu{height:28px;background:#242426;display:flex;border-bottom:1px solid #111;}
+.menu-top-item{padding:4px 16px;font-size:13px;cursor:pointer;position:relative;}
+.menu-top-item:hover{background:#094872;}
+.menu-dropdown{position:absolute;top:100%;left:0;background:#2c2c30;border:1px solid #555;min-width:180px;display:none;z-index:50;}
+.menu-top-item:hover .menu-dropdown{display:block;}
+.menu-item{padding:5px 12px;font-size:12px;cursor:pointer;}
+.menu-item:hover{background:#094872;}
+.menu-divider{height:1px;background:#444;margin:3px 0;}
+/* 整体布局容器 */
+.container{display:grid;grid-template-columns:50px 260px 1fr;grid-template-rows:calc(100vh - 58px - 240px) 240px;height:calc(100vh - 58px);}
+/* 左侧竖向工具栏 */
+.left-toolbar{background:#2c2c30;border-right:1px solid #111;padding:8px 4px;grid-row:1/3;}
+.tool-button{width:42px;height:42px;margin:5px auto;background:#38383c;border-radius:4px;display:grid;place-items:center;cursor:pointer;font-weight:bold;color:#c8ccd4;}
+.tool-button:hover{background:#4a4a50;}
+.tool-button.active{background:#094872;border:1px solid #4096ff;color:#fff;}
+/* 左下角素材箱 */
+.asset-panel{grid-row:2;grid-column:2;background:#242426;border-top:1px solid #111;border-right:1px solid #111;padding:8px;display:flex;flex-direction:column;min-height:0;}
+.asset-head{font-size:13px;padding-bottom:6px;border-bottom:1px solid #333;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.asset-list{flex:1;overflow-y:auto;min-height:0;}
+.asset-item{padding:5px 8px;font-size:12px;border-radius:3px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.asset-item:hover{background:#333338;}
+.asset-item.active{background:#094872;}
+.asset-item .del{opacity:0;cursor:pointer;color:#ff8888;padding:0 4px;}
+.asset-item:hover .del{opacity:1;}
+/* 右上预览视口区域 */
+.viewport-wrap{grid-column:3;grid-row:1;display:flex;flex-direction:column;gap:8px;padding:8px;background:transparent;min-height:0;}
+.viewport{flex:1;border:1px solid #444;border-radius:4px;display:grid;place-items:center;color:#888;background:transparent;min-height:0;}
+.vp-tools{position:absolute;top:12px;right:16px;display:flex;gap:4px;z-index:5;}
+.vp-tools button{background:rgba(30,30,36,.85);border:1px solid #555;color:#c8ccd4;width:28px;height:28px;border-radius:3px;cursor:pointer;font-size:13px;}
+.vp-tools button:hover{background:#094872;}
+/* 底部时间轴 */
+.timeline-wrap{grid-column:3;grid-row:2;background:#242426;border-top:1px solid #111;display:flex;flex-direction:column;min-height:0;}
+.timeline-tabs{height:28px;background:#2c2c30;display:flex;border-bottom:1px solid #111;align-items:center;}
+.tab-item{padding:4px 14px;font-size:12px;border-right:1px solid #222;cursor:pointer;}
+.tab-item.active{background:#1e1e1e;border-top:2px solid #4096ff;}
+.tab-add{padding:4px 10px;font-size:12px;cursor:pointer;color:#888;}
+.tab-add:hover{color:#fff;}
+.timeline-body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden;}
+.tl-ruler{height:18px;background:#1e1e1e;border-bottom:1px solid #333;position:relative;overflow:hidden;}
+.tl-ruler span{position:absolute;top:2px;font-size:10px;color:#777;}
+.tl-tracks{flex:1;overflow-y:auto;min-height:0;position:relative;}
+.track-row{height:38px;background:#2c2c30;border-radius:4px;margin:5px 8px;display:flex;align-items:center;padding-left:10px;font-size:12px;position:relative;border:1px solid transparent;}
+.track-row .track-label{width:110px;color:#9aa;flex-shrink:0;}
+.clip-block{position:absolute;top:4px;height:30px;background:#2367ac;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#cfe3ff;overflow:hidden;white-space:nowrap;}
+.clip-block:hover{background:#2e7cc7;}
+.clip-block.cursor-here{outline:1px solid #ffd966;}
+.tl-playhead{position:absolute;top:0;bottom:0;width:1px;background:#ffd966;z-index:5;pointer-events:none;}
+.tl-playhead::after{content:"";position:absolute;top:0;left:-4px;border:5px solid transparent;border-top:6px solid #ffd966;}
+/* 全局右键菜单 */
+.context-menu{position:absolute;background:#2c2c30;border:1px solid #555;min-width:180px;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.5);}
+.ctx-main-item{padding:5px 12px;font-size:12px;cursor:pointer;}
+.ctx-main-item:hover{background:#094872;}
+.ctx-divider{height:1px;background:#444;margin:3px 0;}
+.ctx-sub{position:absolute;left:100%;top:0;background:#2c2c30;border:1px solid #555;min-width:160px;display:none;}
+.has-sub{position:relative;}
+.has-sub:hover .ctx-sub{display:block;}
+/* 右侧操作栏 */
+.top-actions{position:absolute;top:8px;right:12px;display:flex;gap:4px;z-index:20;}
+.top-actions button{background:#38383c;border:1px solid #555;color:#d6dae3;padding:3px 12px;border-radius:3px;cursor:pointer;font-size:12px;}
+.top-actions button:hover{background:#094872;}
+.top-actions button.play{background:#1d6f42;}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1d6f42;color:#fff;padding:6px 16px;border-radius:4px;font-size:12px;z-index:99999;opacity:.95;}
+.toast.error{background:#a03030;}
 </style>
 </head>
 <body>
 
-<!-- ============ 顶部标题栏 ============ -->
+<!-- 顶部标题栏 -->
 <div class="title-bar">
-  <div class="dot"></div>
-  <span class="title-name">BBS-N</span>
-  <span>-</span>
-  <span class="title-dirty" id="dirtyStar">*</span>
-  <span class="title-project" id="projectName">未打开项目</span>
-  <span class="title-right" id="filmInfo">—</span>
+  <span id="projName">BBS 编辑器</span>
+  <span class="title-dirty" id="dirtyMark">*</span>
+  <span id="filmName" style="color:#889"></span>
+  <div class="title-btn" id="btnSave">保存 (Ctrl+S)</div>
+  <div class="title-btn" id="btnClose">关闭</div>
 </div>
 
-<!-- ============ 顶部主菜单栏 ============ -->
-<div class="menu-bar" id="menuBar">
-  <div class="menu-top" data-menu="file">文件</div>
-  <div class="menu-top" data-menu="edit">编辑</div>
-  <div class="menu-top" data-menu="help">帮助</div>
+<!-- 顶部主菜单栏 -->
+<div class="main-menu">
+  <div class="menu-top-item">文件<div class="menu-dropdown">
+    <div class="menu-item" data-a="save">保存</div>
+    <div class="menu-item" data-a="newScene">新建场景</div>
+    <div class="menu-item" data-a="newCharacter">新建角色</div>
+    <div class="menu-item" data-a="newEntity">新建实体</div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" data-a="closeEditor">退出编辑器</div>
+  </div></div>
+  <div class="menu-top-item">编辑<div class="menu-dropdown">
+    <div class="menu-item" data-a="undo">撤销</div>
+    <div class="menu-item" data-a="redo">重做</div>
+  </div></div>
+  <div class="menu-top-item">视图<div class="menu-dropdown">
+    <div class="menu-item" data-a="cameraMode" data-v="0">跟随相机</div>
+    <div class="menu-item" data-a="cameraMode" data-v="1">自由相机</div>
+    <div class="menu-item" data-a="cameraMode" data-v="2">轨道相机</div>
+    <div class="menu-item" data-a="cameraMode" data-v="4">第三人称</div>
+  </div></div>
+  <div class="menu-top-item">轨道<div class="menu-dropdown">
+    <div class="menu-item" data-a="toggleControl">演员控制</div>
+    <div class="menu-item" data-a="clipOp" data-op="delete" data-idx="-1">删除选中剪辑</div>
+  </div></div>
+  <div class="menu-top-item">关键帧<div class="menu-dropdown">
+    <div class="menu-item" data-a="toggleInstantKeys">瞬间关键帧开关</div>
+  </div></div>
+  <div class="menu-top-item">录制<div class="menu-dropdown">
+    <div class="menu-item" data-a="toggleRecord">开始/停止录制</div>
+  </div></div>
+  <div class="menu-top-item">渲染<div class="menu-dropdown">
+    <div class="menu-item" data-a="closeEditor">渲染设置（暂用退出）</div>
+  </div></div>
+  <div class="menu-top-item">窗口<div class="menu-dropdown">
+    <div class="menu-item" data-a="togglePlay">预览播放</div>
+  </div></div>
+  <div class="menu-top-item">设置<div class="menu-dropdown">
+    <div class="menu-item" data-a="toggleInstantKeys">关键帧设置</div>
+  </div></div>
 </div>
 
-<div class="workspace">
-  <!-- ============ 左侧素材箱 ============ -->
-  <div class="left-col" id="assetBox">
-    <div class="asset-head">素材资源箱 <span class="count" id="assetCount"></span></div>
-    <div class="asset-body">
-      <div class="asset-group">场景 <span class="add" id="btnNewScene" title="新建场景">＋</span></div>
-      <div id="sceneList"></div>
-      <div class="asset-group">角色 <span class="add" id="btnNewCharacter" title="新建角色">＋</span></div>
-      <div id="replayList"></div>
-    </div>
+<div class="container">
+  <!-- 左侧变换工具竖栏 -->
+  <div class="left-toolbar">
+    <div class="tool-button" data-tool="Q" title="选择/相机 Q">Q</div>
+    <div class="tool-button" data-tool="W" title="平移/自由相机 W">W</div>
+    <div class="tool-button" data-tool="E" title="旋转/轨道相机 E">E</div>
+    <div class="tool-button" data-tool="R" title="缩放/第三人称 R">R</div>
+    <div class="tool-button" data-tool="T" title="演员控制 T">T</div>
+    <div class="tool-button" data-tool="C" title="切片/第一人称 C">C</div>
+    <div class="tool-button" data-tool="S" title="吸附/瞬间关键帧 S">S</div>
+    <div class="tool-button" data-tool="Y" title="动作模板/新建实体 Y">Y</div>
+    <div class="tool-button" data-tool="F" title="录制 F">F</div>
   </div>
 
-  <!-- ============ 右侧主区 ============ -->
-  <div class="main-col">
-    <!-- 预览区：透明，露出游戏世界画面 -->
-    <div class="viewports">
-      <div class="vp-tools">
-        <button id="btnPlay" title="播放/暂停 (空格)" onclick="togglePlay()">▶</button>
-        <button title="上一帧" onclick="seek(-1)">◀</button>
-        <button title="下一帧" onclick="seek(1)">▶|</button>
-        <button title="保存 (Ctrl+S)" onclick="doSave()">💾</button>
-        <button id="btnUndo" title="撤销 (Ctrl+Z)" onclick="bbs.undo()">↩</button>
-        <button id="btnRedo" title="重做 (Ctrl+Y)" onclick="bbs.redo()">↪</button>
-        <button title="关闭编辑器" onclick="bbs.closeEditor()">✕</button>
+  <!-- 左下角素材箱 -->
+  <div class="asset-panel" id="assetBox">
+    <div class="asset-head">素材资源箱 <span style="color:#888;font-size:11px">(右键空白新建)</span></div>
+    <div class="asset-list" id="assetList"></div>
+  </div>
+
+  <!-- 右上预览视口 -->
+  <div class="viewport-wrap" style="position:relative">
+    <div class="vp-tools">
+      <button id="btnPlay" title="播放/暂停 (空格)">▶</button>
+      <button id="btnToStart" title="回到开头">⏮</button>
+      <button id="btnUndo" title="撤销">↶</button>
+      <button id="btnRedo" title="重做">↷</button>
+    </div>
+    <div class="viewport" id="mainViewport"></div>
+  </div>
+
+  <!-- 底部时间轴 -->
+  <div class="timeline-wrap">
+    <div class="timeline-tabs">
+      <div class="tab-item active" id="tabFilm">相机序列</div>
+      <div class="tab-add" id="btnNewSeq" title="新建序列">+ 序列</div>
+      <div style="margin-left:auto;padding:0 10px;font-size:11px;color:#888">
+        <span id="tickInfo">0 / 0</span>
       </div>
     </div>
-
-    <!-- 底部时间轴 -->
-    <div class="timeline">
-      <div class="tl-bar">
-        <button class="play" id="tlPlay" onclick="togglePlay()">▶ 播放</button>
-        <button onclick="seek(-10)">◀◀ 10帧</button>
-        <button onclick="seek(10)">10帧 ▶▶</button>
-        <span class="tl-info" id="timecode">0 / 0</span>
-      </div>
+    <div class="timeline-body">
       <div class="tl-ruler" id="ruler"></div>
-      <div class="tl-body" id="tlBody">
-        <div class="tl-lane" id="tlLane"></div>
-        <div class="tl-playhead" id="playhead" style="left:0"></div>
-      </div>
+      <div class="tl-tracks" id="tracks"></div>
+      <div class="tl-playhead" id="playhead"></div>
     </div>
   </div>
+</div>
+
+<!-- 素材箱右键菜单 -->
+<div class="context-menu" id="assetCtx">
+  <div class="ctx-main-item has-sub">新建项 ▶<div class="ctx-sub">
+    <div class="ctx-main-item" data-a="newScene">场景</div>
+    <div class="ctx-main-item" data-a="newCharacter">角色</div>
+    <div class="ctx-main-item" data-a="newEntity">实体</div>
+  </div></div>
+  <div class="ctx-main-item has-sub">导入 ▶<div class="ctx-sub">
+    <div class="ctx-main-item" data-a="importAsset">导入素材</div>
+  </div></div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-main-item" data-a="save">保存项目</div>
+  <div class="ctx-main-item" data-a="closeEditor">关闭编辑器</div>
+</div>
+
+<!-- 剪辑块右键菜单 -->
+<div class="context-menu" id="clipCtx">
+  <div class="ctx-main-item" data-a="clipOp" data-op="split">在播放头拆分</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-main-item" data-a="clipOp" data-op="delete">删除剪辑块</div>
+  <div class="ctx-main-item" data-a="toggleControl">演员控制</div>
 </div>
 
 <script>
-/* ============================================================
-   BBS-N HTML 编辑器 - 通过 window.bbs 驱动真实数据
-   ============================================================ */
+var state = null;
+var lastCursor = -1;
+var selectedClip = -1;
 
-var $ = function(s){ return document.querySelector(s); };
-var bridge = null;
-
-/* ---------- 等待 Java 桥接对象就绪 ---------- */
-function waitBridge(){
-  if (window.bbs) { bridge = window.bbs; notify('HTML 编辑器已连接'); init(); }
-  else setTimeout(waitBridge, 50);
+/* ---------- JSQuery 桥（JS -> Java） ---------- */
+function sendAction(payload, cb){
+  if (window.javaQuery) {
+    window.javaQuery({request: JSON.stringify(payload)}, function(ok, result){
+      if (!ok && result) notify('操作失败: ' + result, true);
+      if (cb) cb(ok, result);
+    });
+  } else {
+    notify('桥未就绪', true);
+  }
 }
 
 function notify(msg, isError){
@@ -187,268 +223,191 @@ function notify(msg, isError){
   t.className = 'toast' + (isError ? ' error' : '');
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(function(){ t.remove(); }, 1800);
+  setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 400); }, 1600);
 }
 
-/* ---------- 全局状态 ---------- */
-var state = null;
-var selectedScene = null;
-var selectedReplay = -1;
-var dragging = false;
-
-function init(){
-  sync();
-  setInterval(sync, 200);
-  document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
-  document.addEventListener('click', function(e){
-    var it = e.target.closest('.asset-item');
-    if (it && it.dataset.kind === 'scene') { selectScene(it.dataset.id); }
-    if (it && it.dataset.kind === 'replay') { selectReplay(it); }
-  });
-  /* 时间轴点击/拖动跳帧 */
-  $('#tlBody').addEventListener('mousedown', function(e){
-    var rect = $('#tlLane').getBoundingClientRect();
-    if (e.clientX < rect.left) return;
-    dragging = true;
-    seekToX(e.clientX);
-  });
-  document.addEventListener('mousemove', function(e){ if (dragging) seekToX(e.clientX); });
-  document.addEventListener('mouseup', function(){ dragging = false; });
-  /* 键盘快捷键 */
-  document.addEventListener('keydown', function(e){
-    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); doSave(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 'z') { bridge.undo(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 'y') { bridge.redo(); }
-    if (e.key === 'Escape') { bridge.closeEditor(); }
-  });
-  buildMenus();
-}
-
-/* ---------- 数据同步 ---------- */
+/* ---------- 状态同步（Java 推送 window.bbsState） ---------- */
 function sync(){
-  if (!bridge) return;
-  var st;
-  try { st = JSON.parse(bridge.getState()); } catch(e){ return; }
-  state = st;
+  if (!window.bbsState) return;
+  state = window.bbsState;
 
-  $('#projectName').textContent = st.project ? st.project : '未打开项目';
-  $('#dirtyStar').style.display = st.dirty ? 'inline' : 'none';
-  $('#filmInfo').textContent = '场景: ' + st.scene + ' | 帧率 30fps | 时长 ' + st.duration + ' 帧';
+  document.getElementById('projName').textContent = state.project || 'BBS 编辑器';
+  document.getElementById('filmName').textContent = state.film || '';
+  document.getElementById('dirtyMark').classList.toggle('show', !!state.dirty);
+  document.getElementById('btnPlay').textContent = state.running ? '⏸' : '▶';
+  document.getElementById('tickInfo').textContent = state.cursor + ' / ' + (state.duration || 0);
 
-  renderScenes(st);
-  renderReplays(st);
-  renderTimeline(st);
-  updatePlayButton(st);
-
-  var tc = $('#timecode');
-  tc.textContent = st.cursor + ' / ' + st.duration;
+  renderAssets();
+  renderTracks();
+  updatePlayhead();
 }
 
-function renderScenes(st){
-  var list = $('#sceneList');
-  var html = '';
-  (st.scenes || []).forEach(function(s){
-    var sel = (s.name === st.scene) ? ' selected' : '';
-    html += '<div class="asset-item' + sel + '" data-kind="scene" data-id="' + s.id + '">' +
-      '<span class="tag" style="background:#4a90d9"></span><span class="ico">🏙️</span>' +
-      '<span class="name">' + esc(s.name) + '</span></div>';
-  });
-  if (!html) html = '<div class="asset-item" style="color:var(--text-faint)">（无场景，点击 ＋ 新建）</div>';
-  list.innerHTML = html;
-  $('#assetCount').textContent = (st.scenes||[]).length + ' 场景 / ' + (st.replays||[]).length + ' 角色';
-}
-
-function renderReplays(st){
-  var list = $('#replayList');
-  var html = '';
-  (st.replays || []).forEach(function(r){
-    var sel = (r.index === selectedReplay) ? ' selected' : '';
-    var icon = r.actor ? '🧍' : (r.fp ? '👁' : '🎭');
-    var en = r.enabled ? '' : ' style="opacity:.45"';
-    html += '<div class="asset-item' + sel + '" data-kind="replay" data-index="' + r.index + '"' + en + '>' +
-      '<span class="tag" style="background:' + (r.actor ? '#c45a5a' : '#5ac47a') + '"></span>' +
-      '<span class="ico">' + icon + '</span>' +
-      '<span class="name">' + esc(r.label || ('角色 ' + (r.index+1))) + '</span>' +
-      '<span class="actions">' +
-        '<span class="' + (r.enabled ? 'on' : '') + '" title="显示/隐藏" onclick="event.stopPropagation();toggleReplay(' + r.index + ')">' + (r.enabled ? '👁' : '🚫') + '</span>' +
-        '<span class="del" title="删除" onclick="event.stopPropagation();delReplay(' + r.index + ')">🗑</span>' +
-      '</span></div>';
-  });
-  if (!html) html = '<div class="asset-item" style="color:var(--text-faint)">（无角色，点击 ＋ 新建）</div>';
-  list.innerHTML = html;
-}
-
-function renderTimeline(st){
-  var lane = $('#tlLane');
-  var body = $('#tlBody');
-  var rect = lane.getBoundingClientRect();
-  var w = rect.width || 600;
-  var duration = st.duration > 0 ? st.duration : 1;
-  var px = w / duration;
-
-  /* 剪辑 */
-  var html = '';
-  (st.clips || []).forEach(function(c){
-    if (!c.enabled) return;
-    var left = c.tick * px;
-    var cw = Math.max(10, c.duration * px - 2);
-    html += '<div class="tl-clip" style="left:' + left + 'px;width:' + cw + 'px">' +
-      '<span class="layer">L' + c.layer + '</span>' + esc(c.title || '剪辑') + '</div>';
-  });
-  lane.innerHTML = html;
-
-  /* 播放头 */
-  var phx = st.cursor * px;
-  $('#playhead').style.left = phx + 'px';
-
-  /* 比例尺 */
-  var ruler = $('#ruler');
-  var rh = '';
-  for (var t = 0; t <= duration; t += Math.max(1, Math.round(duration / 12) * 5)) {
-    rh += '<span style="left:' + (t * px) + 'px">' + fmt(t) + '</span>';
-  }
-  ruler.innerHTML = rh;
-}
-
-function updatePlayButton(st){
-  var playing = !!st.running;
-  $('#btnPlay').textContent = playing ? '⏸' : '▶';
-  $('#btnPlay').classList.toggle('primary', !playing);
-  $('#tlPlay').textContent = playing ? '⏸ 暂停' : '▶ 播放';
-}
-
-function fmt(tick){
-  var sec = Math.floor(tick / 30);
-  var f = tick % 30;
-  var m = Math.floor(sec / 60);
-  return m + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60) + ':' + (f < 10 ? '0' : '') + f;
-}
-
-function esc(s){
-  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-/* ---------- 操作 ---------- */
-function selectScene(id){
-  if (selectedScene === id) return;
-  selectedScene = id;
-  bridge.openScene(id);
-  notify('已切换到场景');
-}
-
-function selectReplay(el){
-  var idx = parseInt(el.dataset.index, 10);
-  selectedReplay = idx;
-  renderReplays(state);
-}
-
-function toggleReplay(idx){
-  bridge.toggleReplay(idx);
-  notify('角色显示状态已切换');
-}
-
-function delReplay(idx){
-  if (confirm('确定删除该角色吗？此操作可撤销。')) {
-    bridge.deleteReplay(idx);
-    notify('角色已删除');
-  }
-}
-
-function togglePlay(){
-  bridge.togglePlay();
-  sync();
-}
-
-function seek(delta){
-  bridge.setCursor((state ? state.cursor : 0) + delta);
-}
-
-function seekToX(clientX){
-  if (!state) return;
-  var rect = $('#tlLane').getBoundingClientRect();
-  var w = rect.width || 1;
-  var x = Math.max(0, Math.min(w, clientX - rect.left));
-  var tick = Math.round(x / w * state.duration);
-  bridge.setCursor(tick);
-}
-
-function doSave(){
-  bridge.save();
-  notify('已保存');
-}
-
-/* ---------- 顶部菜单 ---------- */
-function buildMenus(){
-  var menus = {
-    file: [
-      { label:'新建场景', run:function(){ bridge.newScene(); } },
-      { label:'新建角色', run:function(){ bridge.newCharacter(); } },
-      { sep:true },
-      { label:'保存', shortcut:'Ctrl+S', run:function(){ doSave(); } },
-      { sep:true },
-      { label:'关闭编辑器', shortcut:'Esc', run:function(){ bridge.closeEditor(); } }
-    ],
-    edit: [
-      { label:'撤销', shortcut:'Ctrl+Z', run:function(){ bridge.undo(); } },
-      { label:'重做', shortcut:'Ctrl+Y', run:function(){ bridge.redo(); } },
-      { sep:true },
-      { label:'播放/暂停', shortcut:'空格', run:function(){ togglePlay(); } }
-    ],
-    help: [
-      { label:'HTML 编辑器由 Ultralight 驱动', disabled:true },
-      { label:'数据直接来自 BBS 项目文件', disabled:true }
-    ]
-  };
-
-  Object.keys(menus).forEach(function(key){
+/* ---------- 素材箱 ---------- */
+function renderAssets(){
+  var box = document.getElementById('assetList');
+  box.innerHTML = '';
+  (state.scenes || []).forEach(function(sc){
     var d = document.createElement('div');
-    d.className = 'dropdown'; d.id = 'dd_' + key;
-    buildMenu(d, menus[key]);
-    document.body.appendChild(d);
+    d.className = 'asset-item' + (sc.id === state.scene ? ' active' : '');
+    d.textContent = '🎬 ' + sc.name;
+    d.onclick = function(){ sendAction({a:'openScene', id:sc.id}); };
+    box.appendChild(d);
   });
+  (state.replays || []).forEach(function(rp){
+    var d = document.createElement('div');
+    d.className = 'asset-item';
+    var span = document.createElement('span');
+    span.textContent = (rp.enabled ? '👤 ' : '🚫 ') + rp.label;
+    var del = document.createElement('span');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = function(e){ e.stopPropagation(); sendAction({a:'deleteReplay', index:rp.index}); };
+    d.appendChild(span); d.appendChild(del);
+    d.onclick = function(){ sendAction({a:'toggleReplay', index:rp.index}); };
+    box.appendChild(d);
+  });
+}
 
-  document.querySelectorAll('.menu-top').forEach(function(el){
-    el.onclick = function(e){
-      e.stopPropagation();
-      var k = el.dataset.menu;
-      var open = el.classList.contains('open');
-      closeMenus();
-      if (!open) {
-        el.classList.add('open');
-        var d = $('#dd_' + k);
-        d.classList.add('show');
-        var r = el.getBoundingClientRect();
-        d.style.left = r.left + 'px';
-        d.style.top = r.bottom + 'px';
-      }
+/* ---------- 时间轴 ---------- */
+function renderTracks(){
+  var tracks = document.getElementById('tracks');
+  tracks.innerHTML = '';
+  var dur = Math.max(1, state.duration || 1);
+
+  var row = document.createElement('div');
+  row.className = 'track-row';
+  var label = document.createElement('div');
+  label.className = 'track-label';
+  label.textContent = '相机轨道';
+  row.appendChild(label);
+
+  (state.clips || []).forEach(function(cl, i){
+    var pxPerTick = (tracks.clientWidth - 130) / dur;
+    var w = Math.max(10, Math.round(cl.duration * pxPerTick));
+    var x = 130 + Math.round(cl.tick * pxPerTick);
+    var b = document.createElement('div');
+    b.className = 'clip-block';
+    b.style.left = x + 'px';
+    b.style.width = w + 'px';
+    b.textContent = cl.title || ('剪辑' + i);
+    b.onclick = function(){ sendAction({a:'setCursor', tick:cl.tick}); };
+    b.oncontextmenu = function(e){
+      e.preventDefault();
+      selectedClip = i;
+      showCtx('clipCtx', e.clientX, e.clientY);
     };
+    row.appendChild(b);
   });
-  document.addEventListener('click', closeMenus);
+
+  tracks.appendChild(row);
+
+  /* 标尺 */
+  var ruler = document.getElementById('ruler');
+  ruler.innerHTML = '';
+  var pxPerSec = (ruler.clientWidth - 130) / dur;
+  for (var t = 0; t <= dur; t += Math.max(1, Math.round(dur / 10))) {
+    var s = document.createElement('span');
+    s.style.left = (130 + t * pxPerSec) + 'px';
+    s.textContent = t;
+    ruler.appendChild(s);
+  }
 }
 
-function buildMenu(container, items){
-  container.innerHTML = '';
-  items.forEach(function(it){
-    if (it.sep) { var s=document.createElement('div'); s.className='menu-sep'; container.appendChild(s); return; }
-    var el = document.createElement('div');
-    el.className = 'menu-item' + (it.disabled ? ' disabled' : '') + (it.danger ? ' danger' : '');
-    el.textContent = it.label;
-    if (it.shortcut) { var sc=document.createElement('span'); sc.className='shortcut'; sc.textContent=it.shortcut; el.appendChild(sc); }
-    if (it.run) el.onclick = function(){ closeMenus(); it.run(); };
-    container.appendChild(el);
-  });
+function updatePlayhead(){
+  var ph = document.getElementById('playhead');
+  var tracks = document.getElementById('tracks');
+  var dur = Math.max(1, state ? (state.duration || 1) : 1);
+  var x = 130 + (state ? state.cursor : 0) * ((tracks.clientWidth - 130) / dur);
+  ph.style.left = x + 'px';
+  ph.style.top = '30px';
+  ph.style.height = (tracks.clientHeight - 30) + 'px';
 }
 
-function closeMenus(){
-  document.querySelectorAll('.menu-top').forEach(function(x){ x.classList.remove('open'); });
-  document.querySelectorAll('.dropdown').forEach(function(x){ x.classList.remove('show'); });
+/* ---------- 右键菜单 ---------- */
+function showCtx(id, x, y){
+  document.querySelectorAll('.context-menu').forEach(function(m){ m.style.display = 'none'; });
+  var m = document.getElementById(id);
+  m.style.display = 'block';
+  m.style.left = x + 'px';
+  m.style.top = y + 'px';
 }
 
-/* 新建场景/角色按钮 */
-$('#btnNewScene').onclick = function(){ bridge.newScene(); };
-$('#btnNewCharacter').onclick = function(){ bridge.newCharacter(); };
+document.addEventListener('click', function(){
+  document.querySelectorAll('.context-menu').forEach(function(m){ m.style.display = 'none'; });
+});
+document.addEventListener('contextmenu', function(e){
+  if (!e.target.closest('.asset-panel') && !e.target.closest('.clip-block') && !e.target.closest('.context-menu')) {
+    e.preventDefault();
+  }
+});
 
+/* 素材箱空白右键 */
+document.getElementById('assetBox').addEventListener('contextmenu', function(e){
+  if (e.target.closest('.asset-item')) return;
+  e.preventDefault();
+  showCtx('assetCtx', e.clientX, e.clientY);
+});
+
+/* 右键菜单项统一处理 */
+document.addEventListener('click', function(e){
+  var item = e.target.closest('.menu-item, .ctx-main-item');
+  if (!item) return;
+  var a = item.getAttribute('data-a');
+  if (!a) return;
+  if (a === 'cameraMode') sendAction({a:'setCameraMode', mode: parseInt(item.getAttribute('data-v'))});
+  else if (a === 'clipOp') {
+    var op = item.getAttribute('data-op');
+    var idx = item.hasAttribute('data-idx') ? parseInt(item.getAttribute('data-idx')) : selectedClip;
+    sendAction({a:'clipOp', op:op, index:idx});
+  }
+  else if (a === 'importAsset') notify('请在文件资源管理器中把素材放入 projects 目录');
+  else sendAction({a:a});
+});
+
+/* ---------- 工具栏 ---------- */
+document.querySelectorAll('.tool-button').forEach(function(btn){
+  btn.onclick = function(){
+    document.querySelectorAll('.tool-button').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    sendAction({a:'setTool', tool:btn.getAttribute('data-tool')});
+  };
+});
+
+/* ---------- 顶部操作 ---------- */
+document.getElementById('btnSave').onclick = function(){ sendAction({a:'save'}); notify('已保存'); };
+document.getElementById('btnClose').onclick = function(){ sendAction({a:'closeEditor'}); };
+document.getElementById('btnPlay').onclick = function(){ sendAction({a:'togglePlay'}); };
+document.getElementById('btnToStart').onclick = function(){ sendAction({a:'setCursor', tick:0}); };
+document.getElementById('btnUndo').onclick = function(){ sendAction({a:'undo'}); };
+document.getElementById('btnRedo').onclick = function(){ sendAction({a:'redo'}); };
+document.getElementById('btnNewSeq').onclick = function(){ notify('序列功能开发中'); };
+
+/* 时间轴点击跳帧 */
+document.getElementById('tracks').addEventListener('click', function(e){
+  if (e.target.closest('.clip-block')) return;
+  var rect = e.currentTarget.getBoundingClientRect();
+  var dur = Math.max(1, state ? (state.duration || 1) : 1);
+  var tick = Math.round((e.clientX - rect.left - 130) / ((rect.width - 130) / dur));
+  sendAction({a:'setCursor', tick:Math.max(0, tick)});
+});
+
+/* 键盘快捷键 */
+document.addEventListener('keydown', function(e){
+  if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); sendAction({a:'save'}); }
+  else if (e.key === ' ') { e.preventDefault(); sendAction({a:'togglePlay'}); }
+});
+
+/* ---------- 启动 ---------- */
+function waitBridge(){
+  if (window.bbsState !== undefined && window.javaQuery) {
+    notify('HTML 编辑器已连接');
+    sync();
+  } else {
+    setTimeout(waitBridge, 100);
+  }
+}
+
+window.__onState = function(){ if (window.bbsState) sync(); };
 waitBridge();
 </script>
 </body>

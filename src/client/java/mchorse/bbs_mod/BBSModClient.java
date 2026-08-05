@@ -110,6 +110,7 @@ public class BBSModClient implements ClientModInitializer
     public static boolean GL_AVAILABLE;
     private static boolean bbsResourcesInitialized;
     private static int bbsResourcesRetries;
+    private static boolean mcefWarmed;
     private static TextureManager textures;
     private static FramebufferManager framebuffers;
     private static SoundManager sounds;
@@ -559,6 +560,14 @@ public class BBSModClient implements ClientModInitializer
 
             /* screen tick removed in MC 26.2 - moved to private in Gui */
 
+            /* Pre-warm the Ultralight HTML engine once, on the render
+             * thread with a live GL context (init is idempotent). */
+            if (!mcefWarmed)
+            {
+                mcefWarmed = true;
+                lingfeng.bbsnext.mcef.MCEFUI.initialize();
+            }
+
             /* Deferred BBSResources.init: retry each tick until data components bind. */
             if (!bbsResourcesInitialized && bbsResourcesRetries < 3000)
             {
@@ -586,7 +595,6 @@ public class BBSModClient implements ClientModInitializer
             else if (!bbsResourcesInitialized && bbsResourcesRetries >= 3000)
             {
                 BBSModClient.LOGGER.warn("BBSResources.init: gave up after " + bbsResourcesRetries + " retries");
-                bbsResourcesInitialized = true;
                 bbsResourcesInitialized = true;
             }
 
