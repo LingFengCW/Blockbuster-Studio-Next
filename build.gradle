@@ -58,16 +58,16 @@ dependencies {
 	// Embedded JavaScript engine for user script plugins (pure Java, bundled via JiJ).
 	include implementation("org.mozilla:rhino:${project.rhino_version}")
 
-	// Ultralight HTML UI engine - LabyMod Java bindings (maven central).
-	// Native binaries (Ultralight SDK bin/) are loaded at runtime from the
-	// game dir or classpath; see lingfeng.bbsnext.ultralight.UltralightUI.
-	implementation "com.labymedia:ultralight-java-base:${project.ultralight_version}"
-	include implementation("com.labymedia:ultralight-java-base:${project.ultralight_version}")
+	// jcef-api is bundled inside the mcef-modern jar (nested META-INF/jars);
+	// expose it at compile time from a local copy in libs/.
+	implementation files("libs/jcef-api-jcef-d3de827+cef-146.0.10+g8219561+chromium-146.0.7680.179.jar")
 
-	// Ultralight databind - Java <-> JavaScript interop (bind a Java object
-	// into the page so the HTML editor can drive the real BBS data model).
-	implementation "com.labymedia:ultralight-java-databind:${project.ultralight_version}"
-	include implementation("com.labymedia:ultralight-java-databind:${project.ultralight_version}")
+	// MCEF Modern - Minecraft Chromium Embedded Framework. Provides the
+	// browser engine (JCEF/Chromium) with a working GPU driver and native
+	// MC 26.2 texture integration. Ships as a separate mod in the mods
+	// folder (it manages its own nested jcef jars and downloads the
+	// Chromium binaries at startup).
+	implementation "maven.modrinth:mcef-modern:${project.mcef_version}"
 }
 
 processResources {
