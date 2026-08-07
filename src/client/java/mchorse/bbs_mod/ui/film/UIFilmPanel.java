@@ -103,6 +103,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     /* HTML (Ultralight) editor overlay. */
     public lingfeng.bbsnext.mcef.UIOverlay ultralightOverlay;
 
+    /* Remembered visibility of the native (old) editor UI components, so we
+     * can restore them exactly when the HTML editor closes. */
+    private final java.util.Map<mchorse.bbs_mod.ui.framework.elements.UIElement, Boolean> nativeVisibility = new java.util.IdentityHashMap<>();
+
     public UIIcon duplicateFilm;
 
     /* Main editors */
@@ -442,6 +446,19 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (show)
         {
+            /* Hide every native (old) editor UI component while the HTML
+             * editor is open, so only the HTML page is visible - the HTML
+             * editor replaces the whole native editing chrome. Remember each
+             * component's previous visibility so it can be restored exactly. */
+            for (var child : this.getChildren())
+            {
+                if (child instanceof mchorse.bbs_mod.ui.framework.elements.UIElement e && child != this.ultralightOverlay)
+                {
+                    this.nativeVisibility.put(e, e.isVisible());
+                    e.setVisible(false);
+                }
+            }
+
             /* Exclusive (real) fullscreen on Windows owns the display and
              * hides/occludes other top-level windows, so the OS-level Swing
              * dialogs (scene/character/item) opened from the editor would be
@@ -458,6 +475,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 lingfeng.bbsnext.mcef.MCEFUI.createBrowser(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h, new lingfeng.bbsnext.mcef.EditorBridge(this));
             }
+        }
+        else
+        {
+            /* Restore the native editor UI to its previous visibility. */
+            for (var entry : this.nativeVisibility.entrySet())
+            {
+                entry.getKey().setVisible(entry.getValue());
+            }
+
+            this.nativeVisibility.clear();
         }
     }
 

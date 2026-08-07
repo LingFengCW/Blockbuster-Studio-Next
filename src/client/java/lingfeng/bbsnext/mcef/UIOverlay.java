@@ -118,8 +118,8 @@ public class UIOverlay extends UIElement
 
                 if (graphics != null)
                 {
-                    graphics.blit(id, this.area.x, this.area.y, this.area.ex(), this.area.ey(),
-                        0.0F, 1.0F, 0.0F, 1.0F);
+                    graphics.blit(id, this.area.x, this.area.y, this.area.w, this.area.h,
+                        0.0F, 0.0F, 1.0F, 1.0F);
                 }
                 else
                 {
