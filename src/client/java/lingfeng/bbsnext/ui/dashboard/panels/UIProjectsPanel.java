@@ -158,7 +158,9 @@ public class UIProjectsPanel extends UIDashboardPanel
         }));
     }
 
-    /** Activate the picked work and open the editor panel on top of it. */
+    /** Activate the picked work and open the editor straight into the HTML
+     *  editor (作品 / 场景 / 序列). The old native "影片" panel is hidden,
+     *  so the user is never forced to pick a film. */
     private void openProject(BBSProject project)
     {
         ProjectManager.get().setCurrent(project);
@@ -177,6 +179,13 @@ public class UIProjectsPanel extends UIDashboardPanel
         if (scenes != null && scenes.getCurrent() != null)
         {
             UISceneMenu.openScene(this.dashboard, scenes.getCurrent());
+        }
+
+        /* Always land in the HTML editor, even with no current scene yet
+         * (openScene already opened it when a scene was loaded). */
+        if (!film.ultralightOverlay.isVisible())
+        {
+            film.openHtmlEditor();
         }
     }
 }

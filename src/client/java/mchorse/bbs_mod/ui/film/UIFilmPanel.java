@@ -437,54 +437,69 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.add(this.ultralightOverlay);
     }
 
-    /** Toggle the HTML (Ultralight) editor overlay. */
+    /** Show the HTML editor overlay and hide every native (old) editor UI
+     *  component, so only the HTML page (作品 / 场景 / 序列) is visible.
+     *  Idempotent: calling it while already open is a no-op, which avoids
+     *  re-remembering visibility (that would corrupt the restore state). */
+    public void openHtmlEditor()
+    {
+        if (this.ultralightOverlay == null || this.ultralightOverlay.isVisible())
+        {
+            return;
+        }
+
+        this.ultralightOverlay.setVisible(true);
+
+        for (var child : this.getChildren())
+        {
+            if (child instanceof mchorse.bbs_mod.ui.framework.elements.UIElement e && child != this.ultralightOverlay)
+            {
+                this.nativeVisibility.put(e, e.isVisible());
+                e.setVisible(false);
+            }
+        }
+
+        /* Exclusive (real) fullscreen on Windows owns the display and
+         * hides/occludes other top-level windows, so the OS-level Swing
+         * dialogs (scene/character/item) opened from the editor would be
+         * invisible until the editor closes. Drop to windowed/borderless
+         * so those native windows can float above the game. */
+        var window = net.minecraft.client.Minecraft.getInstance().getWindow();
+
+        if (window.isFullscreen())
+        {
+            window.toggleFullScreen();
+        }
+    }
+
+    /** Restore the native editor UI that {@link #openHtmlEditor()} hid. */
+    public void closeHtmlEditor()
+    {
+        if (this.ultralightOverlay == null || !this.ultralightOverlay.isVisible())
+        {
+            return;
+        }
+
+        for (var entry : this.nativeVisibility.entrySet())
+        {
+            entry.getKey().setVisible(entry.getValue());
+        }
+
+        this.nativeVisibility.clear();
+
+        this.ultralightOverlay.setVisible(false);
+    }
+
+    /** Toggle the HTML (MCEF) editor overlay. */
     public void toggleUltralight()
     {
-        boolean show = !this.ultralightOverlay.isVisible();
-
-        this.ultralightOverlay.setVisible(show);
-
-        if (show)
+        if (this.ultralightOverlay != null && this.ultralightOverlay.isVisible())
         {
-            /* Hide every native (old) editor UI component while the HTML
-             * editor is open, so only the HTML page is visible - the HTML
-             * editor replaces the whole native editing chrome. Remember each
-             * component's previous visibility so it can be restored exactly. */
-            for (var child : this.getChildren())
-            {
-                if (child instanceof mchorse.bbs_mod.ui.framework.elements.UIElement e && child != this.ultralightOverlay)
-                {
-                    this.nativeVisibility.put(e, e.isVisible());
-                    e.setVisible(false);
-                }
-            }
-
-            /* Exclusive (real) fullscreen on Windows owns the display and
-             * hides/occludes other top-level windows, so the OS-level Swing
-             * dialogs (scene/character/item) opened from the editor would be
-             * invisible until the editor closes. Drop to windowed/borderless
-             * so those native windows can float above the game. */
-            var window = net.minecraft.client.Minecraft.getInstance().getWindow();
-
-            if (window.isFullscreen())
-            {
-                window.toggleFullScreen();
-            }
-
-            if (this.ultralightOverlay.area.w > 0 && this.ultralightOverlay.area.h > 0)
-            {
-                lingfeng.bbsnext.mcef.MCEFUI.createBrowser(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h, new lingfeng.bbsnext.mcef.EditorBridge(this));
-            }
+            this.closeHtmlEditor();
         }
         else
         {
-            /* Restore the native editor UI to its previous visibility. */
-            for (var entry : this.nativeVisibility.entrySet())
-            {
-                entry.getKey().setVisible(entry.getValue());
-            }
-
-            this.nativeVisibility.clear();
+            this.openHtmlEditor();
         }
     }
 
@@ -1020,12 +1035,20 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * scene/sequence that was just opened. */
         this.assetBin.refresh();
 
-        /* The HTML editor replaces the native UI whenever a work is open.
-         * (The overlay is created at the end of the constructor, so it may
-         * be null while fill() runs during construction.) */
+        /* The HTML editor (作品 / 场景 / 序列) replaces the native UI
+         * whenever a work is open, so the user never sees the old "影片"
+         * picker. (The overlay is created at the end of the constructor, so
+         * it may be null while fill() runs during construction.) */
         if (this.ultralightOverlay != null)
         {
-            this.ultralightOverlay.setVisible(data != null);
+            if (data != null)
+            {
+                this.openHtmlEditor();
+            }
+            else
+            {
+                this.closeHtmlEditor();
+            }
         }
     }
 
