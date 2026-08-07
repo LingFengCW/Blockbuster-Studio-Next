@@ -555,22 +555,44 @@ public class MCEFUI
 
                 if (px != null && w > 0 && h > 0)
                 {
-                    if (browserTex == null || w != browserTexW || h != browserTexH)
+                    /* (Re)create the texture and its CPU-side NativeImage on
+                     * every paint. The 3-arg NativeImage(width, height, true)
+                     * constructor is the one that actually allocates the RGBA
+                     * buffer; the 4-arg NativeImage(Format, w, h, boolean)
+                     * overload only takes an `allowStretching` flag and leaves
+                     * the buffer unallocated, which made getPixelsABGR() throw
+                     * "Image is not allocated" and the editor render blank.
+                     * Recreating per paint also sidesteps any CPU-buffer freeing
+                     * that DynamicTexture.upload() may do between frames. */
+                    if (browserTex != null)
                     {
-                        if (browserTex != null)
-                        {
-                            Minecraft.getInstance().getTextureManager().release(browserTexId);
-                        }
-
-                        browserTexW = w;
-                        browserTexH = h;
-                        NativeImage image = new NativeImage(NativeImage.Format.RGBA, w, h, true);
-                        browserTex = new DynamicTexture(() -> "bbs mcef browser", image);
-                        browserTexId = Identifier.fromNamespaceAndPath("bbs_mod", "mcefbrowser");
-                        Minecraft.getInstance().getTextureManager().register(browserTexId, browserTex);
+                        Minecraft.getInstance().getTextureManager().release(browserTexId);
                     }
 
-                    uploadBgra(px, w, h);
+                    NativeImage image = new NativeImage(w, h, true);
+                    int[] abgr = image.getPixelsABGR();
+
+                    int p = 0;
+
+                    for (int i = 0; i < w * h; i++)
+                    {
+                        int cb = px[p++] & 0xFF;
+                        int cg = px[p++] & 0xFF;
+                        int cr = px[p++] & 0xFF;
+                        int ca = px[p++] & 0xFF;
+
+                        /* CEF paints BGRA bytes; NativeImage.getPixelsABGR()
+                         * expects ARGB-order ints (alpha high, then R, G, B). */
+                        abgr[i] = (ca << 24) | (cr << 16) | (cg << 8) | cb;
+                    }
+
+                    browserTexW = w;
+                    browserTexH = h;
+                    browserTex = new DynamicTexture(() -> "bbs mcef browser", image);
+                    browserTexId = Identifier.fromNamespaceAndPath("bbs_mod", "mcefbrowser");
+                    Minecraft.getInstance().getTextureManager().register(browserTexId, browserTex);
+                    browserTex.upload();
+
                     pixelsDirty = false;
                 }
             }
@@ -583,44 +605,6 @@ public class MCEFUI
 
             return null;
         }
-    }
-
-    /** Upload CEF BGRA pixels into the cached browser DynamicTexture. */
-    private static void uploadBgra(byte[] px, int w, int h)
-    {
-        if (browserTex == null)
-        {
-            return;
-        }
-
-        NativeImage image = browserTex.getPixels();
-
-        if (image == null)
-        {
-            return;
-        }
-
-        int[] abgr = image.getPixelsABGR();
-
-        if (abgr == null || abgr.length < w * h)
-        {
-            return;
-        }
-
-        int p = 0;
-
-        for (int i = 0; i < w * h; i++)
-        {
-            int cb = px[p++] & 0xFF;
-            int cg = px[p++] & 0xFF;
-            int cr = px[p++] & 0xFF;
-            int ca = px[p++] & 0xFF;
-
-            abgr[i] = (ca << 24) | (cb << 16) | (cg << 8) | cr;
-        }
-
-        browserTex.setPixels(image);
-        browserTex.upload();
     }
 
     public static boolean isReady()
