@@ -9,10 +9,25 @@ import mchorse.bbs_mod.projects.BBSProject;
 import mchorse.bbs_mod.projects.ProjectManager;
 import mchorse.bbs_mod.projects.Scene;
 import mchorse.bbs_mod.projects.SceneManager;
+import mchorse.bbs_mod.projects.Sequence;
+import mchorse.bbs_mod.projects.SequenceManager;
+import mchorse.bbs_mod.forms.forms.BlockForm;
+import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ItemForm;
+import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.forms.ParticleForm;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.utils.clips.Clip;
+import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Java <-> JavaScript bridge for the HTML editor.
@@ -72,6 +87,34 @@ public class EditorBridge
         }
 
         root.add("scenes", sceneArr);
+
+        /* Sequences (containers that reference scenes, not characters) */
+        JsonArray seqArr = new JsonArray();
+
+        if (scenes != null)
+        {
+            for (Sequence seq : SequenceManager.get().getSequences())
+            {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("id", seq.id);
+                obj.addProperty("name", seq.name);
+
+                JsonArray refs = new JsonArray();
+
+                for (Sequence.SequenceRef ref : seq.refs)
+                {
+                    JsonObject r = new JsonObject();
+                    r.addProperty("type", ref.type);
+                    r.addProperty("id", ref.id);
+                    refs.add(r);
+                }
+
+                obj.add("refs", refs);
+                seqArr.add(obj);
+            }
+        }
+
+        root.add("sequences", seqArr);
 
         /* Replays (characters) */
         JsonArray replayArr = new JsonArray();
@@ -170,10 +213,13 @@ public class EditorBridge
                 closeEditor(panel);
                 break;
             case "newScene":
-                panel.newScene();
+                openSceneDialog(panel);
+                break;
+            case "newSequence":
+                newSequence(panel);
                 break;
             case "newCharacter":
-                panel.newCharacter();
+                openCharacterDialog(panel);
                 break;
             case "deleteReplay":
                 deleteReplay(panel, req.get("index").getAsInt());
@@ -199,6 +245,21 @@ public class EditorBridge
             case "newEntity":
                 panel.getController().createEntities();
                 break;
+            case "newParticle":
+                newParticle(panel);
+                break;
+            case "newItem":
+                openItemDialog(panel);
+                break;
+            case "openEquip":
+                openEquipDialog(panel, req.has("index") ? req.get("index").getAsInt() : -1);
+                break;
+            case "equip":
+                equip(panel,
+                    req.has("index") ? req.get("index").getAsInt() : -1,
+                    req.has("slot") ? req.get("slot").getAsString() : "",
+                    req.has("item") ? req.get("item").getAsString() : "");
+                break;
             case "clipOp":
                 clipOp(panel, req.has("op") ? req.get("op").getAsString() : "",
                     req.has("index") ? req.get("index").getAsInt() : -1);
@@ -211,6 +272,252 @@ public class EditorBridge
     }
 
     /* -------- tool / clip actions -------- */
+
+    /** Create a new particle replay (like the entity panel's PARTICLE type). */
+    private static void newParticle(UIFilmPanel panel)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        Replay replay = film.replays.addReplay();
+        replay.form.set(new mchorse.bbs_mod.forms.forms.ParticleForm());
+        replay.label.set("粒子");
+        panel.replayEditor.setReplay(replay);
+        panel.showPanel(1);
+        panel.fillData();
+    }
+
+    /**
+     * Create a new item replay (an ItemForm you can place in the scene).
+     * This replaces the old "new armor" idea - armor is equipment you put ON a
+     * character (see {@link #equip}), not a standalone asset.
+     */
+    private static void newItem(UIFilmPanel panel, String itemId)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        Replay replay = film.replays.addReplay();
+        ItemForm form = new ItemForm();
+
+        if (itemId != null && !itemId.isEmpty())
+        {
+            try
+            {
+                form.stack.set(new ItemStack(BuiltInRegistries.ITEM.get(Identifier.parse(itemId)).orElseThrow().value()));
+            }
+            catch (Throwable t)
+            {
+                /* keep empty stack if the id is invalid */
+            }
+        }
+
+        replay.form.set(form);
+        replay.label.set("物品");
+        replay.actor.set(false);
+        panel.replayEditor.setReplay(replay);
+        panel.showPanel(1);
+        panel.fillData();
+    }
+
+    /**
+     * Equip an item onto a character (actor) replay at the current playhead.
+     * BBS stores actor equipment as keyframe channels on
+     * {@code replay.keyframes} (armorHead/armorChest/armorLegs/armorFeet/
+     * mainHand/offHand) - the same tracks ActionPlayer.apply() reads when
+     * spawning the actor. An empty item id clears the slot.
+     */
+    private static void equip(UIFilmPanel panel, int index, String slot, String itemId)
+    {
+        Film film = panel.getData();
+
+        if (film == null || index < 0 || index >= film.replays.getList().size())
+        {
+            return;
+        }
+
+        Replay replay = film.replays.getList().get(index);
+
+        KeyframeChannel<ItemStack> channel = switch (slot)
+        {
+            case "head" -> replay.keyframes.armorHead;
+            case "chest" -> replay.keyframes.armorChest;
+            case "legs" -> replay.keyframes.armorLegs;
+            case "feet" -> replay.keyframes.armorFeet;
+            case "mainhand" -> replay.keyframes.mainHand;
+            case "offhand" -> replay.keyframes.offHand;
+            default -> null;
+        };
+
+        if (channel == null)
+        {
+            return;
+        }
+
+        ItemStack stack = ItemStack.EMPTY;
+
+        if (itemId != null && !itemId.isEmpty())
+        {
+            try
+            {
+                stack = new ItemStack(BuiltInRegistries.ITEM.get(Identifier.parse(itemId)).orElseThrow().value());
+            }
+            catch (Throwable t)
+            {
+                return;
+            }
+        }
+
+        final KeyframeChannel<ItemStack> ch = channel;
+        final ItemStack st = stack;
+        final int tick = panel.getCursor();
+
+        BaseValue.edit(film, f -> ch.insert(tick, st));
+    }
+
+    /* -------- native (OS window) dialogs -------- */
+
+    /**
+     * Pop a real OS window to collect the scene name + background world, then
+     * create the scene. Replaces {@code UIFilmPanel.newScene()}'s in-game
+     * overlay panel, which renders *under* the MCEF HTML texture and is
+     * therefore buried/unclickable.
+     */
+    private static void openSceneDialog(UIFilmPanel panel)
+    {
+        NativeDialog.sceneDialog((name, bg) ->
+        {
+            if (name == null)
+            {
+                return;
+            }
+
+            Minecraft.getInstance().execute(() ->
+            {
+                SceneManager scenes = SceneManager.get();
+
+                if (scenes == null)
+                {
+                    return;
+                }
+
+                String sceneName = name.isEmpty() ? ("Scene " + (scenes.getScenes().size() + 1)) : name;
+                Scene scene = scenes.create(sceneName, bg == null ? "" : bg);
+
+                panel.assetBin.refresh();
+                panel.openScene(scene);
+            });
+        });
+    }
+
+    /**
+     * Pop a real OS window to collect character/entity options (name, form
+     * type, actor/shadow/looping), then create the replay. Replaces
+     * {@code UIFilmPanel.newCharacter()}'s buried overlay panel.
+     */
+    private static void openCharacterDialog(UIFilmPanel panel)
+    {
+        NativeDialog.characterDialog(r ->
+        {
+            if (r == null)
+            {
+                return;
+            }
+
+            Minecraft.getInstance().execute(() ->
+            {
+                Film film = panel.getData();
+
+                if (film == null)
+                {
+                    panel.getContext().notifyError(UIKeys.ASSETS_NEED_SCENE);
+
+                    return;
+                }
+
+                Replay replay = film.replays.addReplay();
+
+                Form form = switch (r.type)
+                {
+                    case "MODEL" -> new ModelForm();
+                    case "PARTICLE" -> new ParticleForm();
+                    case "BLOCK" -> new BlockForm();
+                    default -> new MobForm();
+                };
+
+                replay.form.set(form);
+
+                if (r.name != null && !r.name.isEmpty())
+                {
+                    replay.label.set(r.name);
+                }
+
+                replay.actor.set(r.actor);
+                replay.shadow.set(r.shadow);
+                replay.looping.set(r.looping ? 1 : 0);
+
+                panel.replayEditor.setReplay(replay);
+                panel.showPanel(1);
+                panel.fillData();
+            });
+        });
+    }
+
+    /** Pop a real OS window to collect an item id, then create an item replay. */
+    private static void openItemDialog(UIFilmPanel panel)
+    {
+        NativeDialog.itemDialog(id ->
+            Minecraft.getInstance().execute(() -> newItem(panel, id == null ? "" : id)));
+    }
+
+    /** Pop a real OS equipment window for the selected actor replay. */
+    private static void openEquipDialog(UIFilmPanel panel, int index)
+    {
+        Film film = panel.getData();
+
+        if (film == null || index < 0 || index >= film.replays.getList().size())
+        {
+            return;
+        }
+
+        Replay replay = film.replays.getList().get(index);
+        String label = replay.label.get();
+
+        NativeDialog.equipDialog("为 " + (label == null ? "角色" : label) + " 装配装备", entry ->
+            Minecraft.getInstance().execute(() ->
+                equip(panel, index, entry.slot, entry.itemId == null ? "" : entry.itemId)));
+    }
+
+    /**
+     * Create a new Sequence (a higher-level container that can reference
+     * scenes but NOT characters/entities), referencing the current scene.
+     * Mirrors UIAssetBin's "new sequence" action.
+     */
+    private static void newSequence(UIFilmPanel panel)
+    {
+        SceneManager scenes = SceneManager.get();
+
+        if (scenes == null || scenes.getCurrent() == null)
+        {
+            return;
+        }
+
+        SequenceManager sequences = SequenceManager.get();
+        Scene current = scenes.getCurrent();
+
+        Sequence sequence = sequences.create(current.name + " seq");
+        sequences.addRef(sequence, Sequence.SequenceRef.SCENE, current.id);
+
+        panel.fillData();
+    }
 
     /** Map the reference UI's left toolbar buttons to real BBS functions. */
     private static void setTool(UIFilmPanel panel, String tool)

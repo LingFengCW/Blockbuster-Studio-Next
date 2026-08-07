@@ -21,8 +21,8 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
-import mchorse.bbs_mod.ui.projects.UINewSceneOverlayPanel;
 import mchorse.bbs_mod.ui.projects.UIProjectMenu;
+import net.minecraft.client.Minecraft;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -389,20 +389,30 @@ public class UISceneMenu extends UIBaseMenu
             return;
         }
 
-        UIOverlay.addOverlay(this.context, new UINewSceneOverlayPanel((name, background) ->
+        lingfeng.bbsnext.mcef.NativeDialog.sceneDialog((name, background) ->
         {
-            String sceneName = name == null ? "" : name.trim();
-
-            if (sceneName.isEmpty())
+            if (name == null)
             {
-                sceneName = UIKeys.SCENES_DEFAULT_NAME.format(scenes.getScenes().size() + 1).get();
+                return;
             }
 
-            Scene scene = scenes.create(sceneName, background);
+            /* NativeDialog callback runs on the Swing EDT; hop back to the
+             * Minecraft main thread before mutating project state. */
+            Minecraft.getInstance().execute(() ->
+            {
+                String sceneName = name.trim();
 
-            this.refresh();
-            this.select(scene);
-        }));
+                if (sceneName.isEmpty())
+                {
+                    sceneName = UIKeys.SCENES_DEFAULT_NAME.format(scenes.getScenes().size() + 1).get();
+                }
+
+                Scene scene = scenes.create(sceneName, background);
+
+                this.refresh();
+                this.select(scene);
+            });
+        });
     }
 
     /* Rename / delete */
