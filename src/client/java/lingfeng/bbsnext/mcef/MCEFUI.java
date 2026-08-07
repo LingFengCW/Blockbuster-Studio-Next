@@ -1,6 +1,5 @@
 package lingfeng.bbsnext.mcef;
 
-import com.mojang.blaze3d.platform.NativeImage;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
@@ -12,14 +11,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
 import org.cef.CefSettings.LogSeverity;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.cef.browser.CefMessageRouter;
-import org.cef.browser.CefPaintEvent;
-import org.cef.browser.CustomCefBrowserOsr;
 import org.cef.callback.CefQueryCallback;
 import org.cef.handler.CefDisplayHandlerAdapter;
 import org.cef.handler.CefMessageRouterHandlerAdapter;
@@ -54,19 +51,12 @@ public class MCEFUI
     private static EditorBridge bridge;
     private static boolean initialized;
 
-    /* Latest CEF paint frame, captured off the CEF UI thread and uploaded to
-     * a vanilla DynamicTexture on the render thread. pixelsDirty gates the
-     * (cheap) re-upload so we don't touch the texture when nothing changed. */
-    private static volatile byte[] latestPixels;
-    private static volatile int latestW;
-    private static volatile int latestH;
-    private static volatile boolean pixelsDirty;
-
-    /* Vanilla texture the browser frame is blitted from. */
-    private static DynamicTexture browserTex;
+    /* The browser frame is drawn via MCEF's own native GpuTexture, exposed
+     * through a vanilla AbstractTexture wrapper registered in the
+     * TextureManager. MCEF keeps that texture updated every paint, so we just
+     * blit it each frame - no GL readback, no pixel copying. */
+    private static AbstractTexture browserTex;
     private static Identifier browserTexId;
-    private static int browserTexW = -1;
-    private static int browserTexH = -1;
 
     /* Browser viewport offset on screen, in GUI (scaled) units. The overlay
      * is positioned at (area.x, area.y); the browser's internal (0,0) maps to
@@ -173,49 +163,17 @@ public class MCEFUI
 
             installJsQuery(browser.getCefBrowser());
 
-            /* Capture CEF's paint pixels off the CEF UI thread. We copy the
-             * buffer (CEF reuses it) and let the render thread upload it to a
-             * DynamicTexture via renderTextureId(). This avoids any GL texture
-             * readback, which is unreliable on MC 26.2's GL backend. */
-            try
+            /* Register MCEF's native browser texture as a vanilla texture so
+             * it can be drawn through GuiGraphics.blit(Identifier, ...). MCEF
+             * uploads each paint frame into its own GpuTexture; we only expose
+             * that view here. MCEF's onPaint path does NOT call the
+             * CustomCefBrowserOsr paint listeners, so capturing pixels from a
+             * listener is futile - we use the texture MCEF already maintains. */
+            if (browserTex == null)
             {
-                ((CustomCefBrowserOsr) browser.getCefBrowser()).setOnPaintListener(e ->
-                {
-                    try
-                    {
-                        java.nio.ByteBuffer frame = e.getRenderedFrame();
-
-                        if (frame == null || e.getWidth() <= 0 || e.getHeight() <= 0)
-                        {
-                            return;
-                        }
-
-                        int w = e.getWidth();
-                        int h = e.getHeight();
-                        int len = w * h * 4;
-
-                        if (frame.remaining() < len)
-                        {
-                            return;
-                        }
-
-                        frame.position(0);
-
-                        byte[] copy = new byte[len];
-                        frame.get(copy);
-
-                        latestPixels = copy;
-                        latestW = w;
-                        latestH = h;
-                        pixelsDirty = true;
-                    }
-                    catch (Throwable ignored)
-                    {
-                    }
-                });
-            }
-            catch (Throwable ignored)
-            {
+                browserTex = new MCEFTexture(browser);
+                browserTexId = Identifier.fromNamespaceAndPath("bbs_mod", "mcefbrowser");
+                Minecraft.getInstance().getTextureManager().register(browserTexId, browserTex);
             }
 
             /* No delayed reload: the console channel (BBS_ACTION:) is the
@@ -294,7 +252,7 @@ public class MCEFUI
             browser = null;
         }
 
-        if (browserTex != null)
+        if (browserTexId != null)
         {
             try
             {
@@ -306,10 +264,6 @@ public class MCEFUI
 
             browserTex = null;
             browserTexId = null;
-            browserTexW = -1;
-            browserTexH = -1;
-            latestPixels = null;
-            pixelsDirty = false;
         }
     }
 
@@ -529,75 +483,31 @@ public class MCEFUI
 
     /**
      * Returns the vanilla {@link Identifier} of the browser's current frame.
-     * The frame is captured from CEF's {@code onPaint} callback (BGRA pixels)
-     * and uploaded to a {@code DynamicTexture} on the render thread, then
-     * drawn with the supported {@code GuiGraphics.blit()} path on MC 26.2.
-     * Returns null only before the first CEF paint has arrived.
      *
-     * <p>We deliberately do NOT read MCEF's GL texture back (glGetTexImage):
-     * that path is unreliable on MC 26.2's GL backend and silently produced a
-     * blank editor. Capturing CEF's own paint pixels is the robust route.</p>
+     * The frame lives in MCEF's native {@code GpuTexture} (updated on every
+     * CEF paint, exposed via {@link MCEFTexture#getTextureView()}). We blit
+     * that texture through the supported {@code GuiGraphics.blit(Identifier,
+     * ...)} path on MC 26.2. Returns null until MCEF has produced its first
+     * paint (its GpuTexture is created lazily inside onPaint), at which point
+     * the caller should show a dark backdrop instead.
      */
     public static Identifier renderTextureId()
     {
-        if (browser == null)
+        if (browser == null || browserTexId == null)
         {
             return null;
         }
 
         try
         {
-            if (pixelsDirty)
+            /* getTextureView() is null until MCEF's first onPaint allocates
+             * the GpuTexture. Guard so we never blit an empty texture. */
+            if (browser.getTextureView() != null)
             {
-                byte[] px = latestPixels;
-                int w = latestW;
-                int h = latestH;
-
-                if (px != null && w > 0 && h > 0)
-                {
-                    /* (Re)create the texture and its CPU-side NativeImage on
-                     * every paint. The 3-arg NativeImage(width, height, true)
-                     * constructor is the one that actually allocates the RGBA
-                     * buffer; the 4-arg NativeImage(Format, w, h, boolean)
-                     * overload only takes an `allowStretching` flag and leaves
-                     * the buffer unallocated, which made getPixelsABGR() throw
-                     * "Image is not allocated" and the editor render blank.
-                     * Recreating per paint also sidesteps any CPU-buffer freeing
-                     * that DynamicTexture.upload() may do between frames. */
-                    if (browserTex != null)
-                    {
-                        Minecraft.getInstance().getTextureManager().release(browserTexId);
-                    }
-
-                    NativeImage image = new NativeImage(w, h, true);
-                    int[] abgr = image.getPixelsABGR();
-
-                    int p = 0;
-
-                    for (int i = 0; i < w * h; i++)
-                    {
-                        int cb = px[p++] & 0xFF;
-                        int cg = px[p++] & 0xFF;
-                        int cr = px[p++] & 0xFF;
-                        int ca = px[p++] & 0xFF;
-
-                        /* CEF paints BGRA bytes; NativeImage.getPixelsABGR()
-                         * expects ARGB-order ints (alpha high, then R, G, B). */
-                        abgr[i] = (ca << 24) | (cr << 16) | (cg << 8) | cb;
-                    }
-
-                    browserTexW = w;
-                    browserTexH = h;
-                    browserTex = new DynamicTexture(() -> "bbs mcef browser", image);
-                    browserTexId = Identifier.fromNamespaceAndPath("bbs_mod", "mcefbrowser");
-                    Minecraft.getInstance().getTextureManager().register(browserTexId, browserTex);
-                    browserTex.upload();
-
-                    pixelsDirty = false;
-                }
+                return browserTexId;
             }
 
-            return browserTexId;
+            return null;
         }
         catch (Throwable t)
         {
