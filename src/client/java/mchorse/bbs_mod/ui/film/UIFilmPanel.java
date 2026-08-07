@@ -19,7 +19,11 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.forms.ParticleForm;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -436,9 +440,24 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.ultralightOverlay.setVisible(show);
 
-        if (show && this.ultralightOverlay.area.w > 0 && this.ultralightOverlay.area.h > 0)
+        if (show)
         {
-            lingfeng.bbsnext.mcef.MCEFUI.createBrowser(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h, new lingfeng.bbsnext.mcef.EditorBridge(this));
+            /* Exclusive (real) fullscreen on Windows owns the display and
+             * hides/occludes other top-level windows, so the OS-level Swing
+             * dialogs (scene/character/item) opened from the editor would be
+             * invisible until the editor closes. Drop to windowed/borderless
+             * so those native windows can float above the game. */
+            var window = net.minecraft.client.Minecraft.getInstance().getWindow();
+
+            if (window.isFullscreen())
+            {
+                window.toggleFullScreen();
+            }
+
+            if (this.ultralightOverlay.area.w > 0 && this.ultralightOverlay.area.h > 0)
+            {
+                lingfeng.bbsnext.mcef.MCEFUI.createBrowser(this.ultralightOverlay.area.w, this.ultralightOverlay.area.h, new lingfeng.bbsnext.mcef.EditorBridge(this));
+            }
         }
     }
 
@@ -1520,19 +1539,29 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        UIOverlay.addOverlay(this.getContext(), new mchorse.bbs_mod.ui.projects.UINewSceneOverlayPanel((name, background) ->
+        lingfeng.bbsnext.mcef.NativeDialog.sceneDialog((name, background) ->
         {
-            String sceneName = name == null ? "" : name.trim();
-
-            if (sceneName.isEmpty())
+            /* The NativeDialog callback fires on the Swing EDT; hop back to
+             * the Minecraft main thread before touching BBS project data. */
+            if (name == null)
             {
-                sceneName = UIKeys.SCENES_DEFAULT_NAME.format(scenes.getScenes().size() + 1).get();
+                return;
             }
 
-            mchorse.bbs_mod.projects.Scene scene = scenes.create(sceneName, background);
-            this.assetBin.refresh();
-            this.openScene(scene);
-        }));
+            Minecraft.getInstance().execute(() ->
+            {
+                String sceneName = name.trim();
+
+                if (sceneName.isEmpty())
+                {
+                    sceneName = UIKeys.SCENES_DEFAULT_NAME.format(scenes.getScenes().size() + 1).get();
+                }
+
+                mchorse.bbs_mod.projects.Scene scene = scenes.create(sceneName, background);
+                this.assetBin.refresh();
+                this.openScene(scene);
+            });
+        });
     }
 
     /**
@@ -1551,25 +1580,54 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        UIOverlay.addOverlay(this.getContext(), new mchorse.bbs_mod.ui.projects.UINewEntityOverlayPanel((result) ->
+        lingfeng.bbsnext.mcef.NativeDialog.characterDialog((result) ->
         {
-            mchorse.bbs_mod.film.replays.Replay replay = film.replays.addReplay();
-
-            replay.form.set(result.type.factory.get());
-
-            if (result.name != null && !result.name.isEmpty())
+            if (result == null)
             {
-                replay.label.set(result.name);
+                return;
             }
 
-            replay.actor.set(result.actor);
-            replay.shadow.set(result.shadow);
-            replay.looping.set(result.looping ? 1 : 0);
+            /* The NativeDialog callback fires on the Swing EDT; hop back to
+             * the Minecraft main thread before touching BBS film data. */
+            Minecraft.getInstance().execute(() ->
+            {
+                mchorse.bbs_mod.film.replays.Replay replay = film.replays.addReplay();
 
-            this.replayEditor.setReplay(replay);
-            this.showPanel(1);
-            this.fillData();
-        }));
+                replay.form.set(createForm(result.type));
+
+                if (result.name != null && !result.name.isEmpty())
+                {
+                    replay.label.set(result.name);
+                }
+
+                replay.actor.set(result.actor);
+                replay.shadow.set(result.shadow);
+                replay.looping.set(result.looping ? 1 : 0);
+
+                this.replayEditor.setReplay(replay);
+                this.showPanel(1);
+                this.fillData();
+            });
+        });
+    }
+
+    /** Map the modern creation dialog's string type to a fresh empty form. */
+    private static Form createForm(String type)
+    {
+        if ("MODEL".equals(type))
+        {
+            return new ModelForm();
+        }
+        else if ("PARTICLE".equals(type))
+        {
+            return new ParticleForm();
+        }
+        else if ("BLOCK".equals(type))
+        {
+            return new BlockForm();
+        }
+
+        return new MobForm();
     }
 
     private void playWithGuard()

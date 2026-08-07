@@ -47,6 +47,19 @@ public class GlTextureBridge
     }
 
     /**
+     * Returns the vanilla Identifier already cached for {@code glId} without
+     * touching the GPU, or null when that GL id is not (yet) bridged. Used to
+     * avoid a per-frame pixel readback when the source texture has not
+     * changed.
+     */
+    public static Identifier peek(int glId)
+    {
+        Entry entry = cache.get(glId);
+
+        return entry == null ? null : entry.id;
+    }
+
+    /**
      * Returns the vanilla Identifier of the given GL texture, reading the
      * pixels back on the CPU if needed (size change -> re-read). Returns
      * null when no GL context is available.

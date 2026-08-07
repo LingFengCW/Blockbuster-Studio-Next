@@ -1,6 +1,7 @@
 package lingfeng.bbsnext.mcef;
 
-import com.mojang.blaze3d.textures.GpuTextureView;
+import mchorse.bbs_mod.BBSMod;
+import net.minecraft.client.Minecraft;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -48,21 +49,29 @@ public class UIOverlay extends UIElement
         }
     }
 
-    /** Keep the browser viewport in sync with the overlay size (handles
-     *  window resizing / fullscreen toggles). */
-    private int lastW = -1;
-    private int lastH = -1;
+    /** Keep the browser viewport in sync with the actual game window size.
+     *  MCEF's OSR texture is reallocated on resize(), so calling it whenever
+     *  the window (or fullscreen state) changes is the correct way to keep
+     *  the browser rendering across fullscreen toggles (no texture rebuild
+     *  needed - MC 26.2 preserves the GL context on fullscreen). */
+    private int lastGW = -1;
+    private int lastGH = -1;
+    private int dbgFrames = 0;
 
     private void syncSize()
     {
-        if (this.area.w != this.lastW || this.area.h != this.lastH)
-        {
-            this.lastW = this.area.w;
-            this.lastH = this.area.h;
+        Minecraft mc = Minecraft.getInstance();
+        int gw = mc.getWindow().getGuiScaledWidth();
+        int gh = mc.getWindow().getGuiScaledHeight();
 
-            if (this.created && this.area.w > 0 && this.area.h > 0)
+        if (gw != this.lastGW || gh != this.lastGH)
+        {
+            this.lastGW = gw;
+            this.lastGH = gh;
+
+            if (this.created && gw > 0 && gh > 0)
             {
-                MCEFUI.resizeBrowser(this.area.w, this.area.h);
+                MCEFUI.resizeBrowser(gw, gh);
             }
         }
     }
@@ -84,9 +93,24 @@ public class UIOverlay extends UIElement
 
         this.syncSize();
 
-        GpuTextureView texture = MCEFUI.renderTexture();
+        /* Keep the input coordinate origin in sync with where the texture is
+         * actually blitted (area.x/area.y), so clicks map to the right spot. */
+        MCEFUI.setViewportOffset(this.area.x, this.area.y);
 
-        if (texture != null)
+        /* The browser frame is bridged to a vanilla texture Identifier
+         * (GlTextureBridge) and drawn via the supported blit() path. A raw
+         * GpuTextureView cannot be blitted directly on MC 26.2. */
+        net.minecraft.resources.Identifier id = MCEFUI.renderTextureId();
+
+        if (this.dbgFrames < 6)
+        {
+            this.dbgFrames++;
+            BBSMod.LOGGER.info("[MCEF-DBG] render#{} visible={} created={} area=({},{},{},{}) idNull={} ready={}",
+                this.dbgFrames, this.isVisible(), this.created, this.area.x, this.area.y, this.area.w, this.area.h,
+                id == null, MCEFUI.isReady());
+        }
+
+        if (id != null)
         {
             try
             {
@@ -94,16 +118,14 @@ public class UIOverlay extends UIElement
 
                 if (graphics != null)
                 {
-                    graphics.guiRenderState.addGuiElement(new net.minecraft.client.renderer.state.gui.BlitRenderState(
-                        net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
-                        net.minecraft.client.gui.render.TextureSetup.singleTexture(texture,
-                            com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR)),
-                        new org.joml.Matrix3x2f(graphics.pose()),
-                        this.area.x, this.area.y, this.area.ex(), this.area.ey(),
-                        0.0F, 1.0F, 0.0F, 1.0F,
-                        0xFFFFFFFF,
-                        graphics.scissorStack.peek()
-                    ));
+                    graphics.blit(id, this.area.x, this.area.y, this.area.ex(), this.area.ey(),
+                        0.0F, 1.0F, 0.0F, 1.0F);
+                }
+                else
+                {
+                    /* No GUI extractor this frame - at least show a backdrop
+                     * so the overlay is visibly active (and eats input). */
+                    context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A75);
                 }
             }
             catch (Throwable e)

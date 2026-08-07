@@ -22,14 +22,9 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
 .menu-item:hover{background:#094872;}
 .menu-divider{height:1px;background:#444;margin:3px 0;}
 /* 整体布局容器 */
-.container{display:grid;grid-template-columns:50px 260px 1fr;grid-template-rows:calc(100vh - 58px - 240px) 240px;height:calc(100vh - 58px);}
-/* 左侧竖向工具栏 */
-.left-toolbar{background:#2c2c30;border-right:1px solid #111;padding:8px 4px;grid-row:1/3;}
-.tool-button{width:42px;height:42px;margin:5px auto;background:#38383c;border-radius:4px;display:grid;place-items:center;cursor:pointer;font-weight:bold;color:#c8ccd4;}
-.tool-button:hover{background:#4a4a50;}
-.tool-button.active{background:#094872;border:1px solid #4096ff;color:#fff;}
+.container{display:grid;grid-template-columns:260px 1fr;grid-template-rows:calc(100vh - 58px - 240px) 240px;height:calc(100vh - 58px);}
 /* 左下角素材箱 */
-.asset-panel{grid-row:2;grid-column:2;background:#242426;border-top:1px solid #111;border-right:1px solid #111;padding:8px;display:flex;flex-direction:column;min-height:0;}
+.asset-panel{grid-row:2;grid-column:1;background:#242426;border-top:1px solid #111;border-right:1px solid #111;padding:8px;display:flex;flex-direction:column;min-height:0;}
 .asset-head{font-size:13px;padding-bottom:6px;border-bottom:1px solid #333;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
 .asset-list{flex:1;overflow-y:auto;min-height:0;}
 .asset-item{padding:5px 8px;font-size:12px;border-radius:3px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
@@ -37,14 +32,16 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
 .asset-item.active{background:#094872;}
 .asset-item .del{opacity:0;cursor:pointer;color:#ff8888;padding:0 4px;}
 .asset-item:hover .del{opacity:1;}
+.asset-group{padding:6px 8px 2px;font-size:11px;color:#ffd27c;letter-spacing:1px;border-top:1px solid #2a2a2e;margin-top:4px;}
+.asset-sub{padding:2px 0 2px 22px;font-size:11px;color:#888;cursor:default;}
 /* 右上预览视口区域 */
-.viewport-wrap{grid-column:3;grid-row:1;display:flex;flex-direction:column;gap:8px;padding:8px;background:transparent;min-height:0;}
+.viewport-wrap{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:8px;padding:8px;background:transparent;min-height:0;}
 .viewport{flex:1;border:1px solid #444;border-radius:4px;display:grid;place-items:center;color:#888;background:transparent;min-height:0;}
 .vp-tools{position:absolute;top:12px;right:16px;display:flex;gap:4px;z-index:5;}
 .vp-tools button{background:rgba(30,30,36,.85);border:1px solid #555;color:#c8ccd4;width:28px;height:28px;border-radius:3px;cursor:pointer;font-size:13px;}
 .vp-tools button:hover{background:#094872;}
 /* 底部时间轴 */
-.timeline-wrap{grid-column:3;grid-row:2;background:#242426;border-top:1px solid #111;display:flex;flex-direction:column;min-height:0;}
+.timeline-wrap{grid-column:2;grid-row:2;background:#242426;border-top:1px solid #111;display:flex;flex-direction:column;min-height:0;}
 .timeline-tabs{height:28px;background:#2c2c30;display:flex;border-bottom:1px solid #111;align-items:center;}
 .tab-item{padding:4px 14px;font-size:12px;border-right:1px solid #222;cursor:pointer;}
 .tab-item.active{background:#1e1e1e;border-top:2px solid #4096ff;}
@@ -85,8 +82,8 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
   <span id="projName">BBS 编辑器</span>
   <span class="title-dirty" id="dirtyMark">*</span>
   <span id="filmName" style="color:#889"></span>
-  <div class="title-btn" id="btnSave">保存 (Ctrl+S)</div>
-  <div class="title-btn" id="btnClose">关闭</div>
+  <div class="title-btn" id="btnSave"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M2.5 1a.7.7 0 0 0-.7.7v6.6c0 .387.313.7.7.7h.8a.5.5 0 0 0 .5-.5v-1.8a.5.5 0 0 1 .5-.5h1.4a.5.5 0 0 1 .5.5v1.8a.5.5 0 0 0 .5.5h.8a.7.7 0 0 0 .7-.7V3.395a.7.7 0 0 0-.205-.495L7.1 1.2A.7.7 0 0 0 6.605.995H2.5zm.7 1.7h2.6a.3.3 0 0 1 .3.3v1.2a.3.3 0 0 1-.3.3H3.2a.3.3 0 0 1-.3-.3V3a.3.3 0 0 1 .3-.3z"/></svg> 保存</div>
+  <div class="title-btn" id="btnClose"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M2.146 1.854a.5.5 0 0 0-.708.708L4.293 5 1.438 7.854a.5.5 0 0 0 .708.708L5 5.707l2.854 2.855a.5.5 0 0 0 .708-.708L5.707 5l2.855-2.854a.5.5 0 0 0-.708-.708L5 4.293z"/></svg> 关闭</div>
 </div>
 
 <!-- 顶部主菜单栏 -->
@@ -131,32 +128,19 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
 </div>
 
 <div class="container">
-  <!-- 左侧变换工具竖栏 -->
-  <div class="left-toolbar">
-    <div class="tool-button" data-tool="Q" title="选择/相机 Q">Q</div>
-    <div class="tool-button" data-tool="W" title="平移/自由相机 W">W</div>
-    <div class="tool-button" data-tool="E" title="旋转/轨道相机 E">E</div>
-    <div class="tool-button" data-tool="R" title="缩放/第三人称 R">R</div>
-    <div class="tool-button" data-tool="T" title="演员控制 T">T</div>
-    <div class="tool-button" data-tool="C" title="切片/第一人称 C">C</div>
-    <div class="tool-button" data-tool="S" title="吸附/瞬间关键帧 S">S</div>
-    <div class="tool-button" data-tool="Y" title="动作模板/新建实体 Y">Y</div>
-    <div class="tool-button" data-tool="F" title="录制 F">F</div>
-  </div>
-
   <!-- 左下角素材箱 -->
   <div class="asset-panel" id="assetBox">
-    <div class="asset-head">素材资源箱 <span style="color:#888;font-size:11px">(右键空白新建)</span></div>
+    <div class="asset-head"><span>素材资源箱 <span style="color:#888;font-size:11px">(右键空白新建)</span></span><span id="btnEquip" style="cursor:pointer;color:#7cb8ff;font-size:11px;padding:0 4px;">装备</span></div>
     <div class="asset-list" id="assetList"></div>
   </div>
 
   <!-- 右上预览视口 -->
   <div class="viewport-wrap" style="position:relative">
     <div class="vp-tools">
-      <button id="btnPlay" title="播放/暂停 (空格)">▶</button>
-      <button id="btnToStart" title="回到开头">⏮</button>
-      <button id="btnUndo" title="撤销">↶</button>
-      <button id="btnRedo" title="重做">↷</button>
+      <button id="btnPlay" title="播放/暂停 (空格)" style="font-size:0;line-height:0"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M3.2 1.7a.6.6 0 0 1 .9-.52l4.4 2.6a.6.6 0 0 1 0 1.04L4.1 7.42a.6.6 0 0 1-.9-.52z"/></svg></button>
+      <button id="btnToStart" title="回到开头" style="font-size:0;line-height:0"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M1.2 2h7.6c.11 0 .2.09.2.2v5.6c0 .11-.09.2-.2.2H1.2a.2.2 0 0 1-.2-.2V2.2c0-.11.09-.2.2-.2M2 3v4h6V3zM3 3.5a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1m4 0a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1m-4 2a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1m4 0a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1"/></svg></button>
+      <button id="btnUndo" title="撤销" style="font-size:0;line-height:0"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M3.854 1.854a.5.5 0 0 1 0 .708L2.707 3.707H5.3a3.2 3.2 0 1 1 0 6.4.5.5 0 0 1 0-1 2.2 2.2 0 0 0 0-4.4H2.707l1.147 1.147a.5.5 0 1 1-.708.708l-2-2a.5.5 0 0 1 0-.708l2-2a.5.5 0 0 1 .708 0"/></svg></button>
+      <button id="btnRedo" title="重做" style="font-size:0;line-height:0"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M6.146 1.854a.5.5 0 0 0 0 .708L7.293 3.707H4.7a3.2 3.2 0 1 0 0 6.4.5.5 0 0 0 0-1 2.2 2.2 0 0 1 0-4.4h2.593l-1.147 1.147a.5.5 0 1 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2a.5.5 0 0 0-.708 0"/></svg></button>
     </div>
     <div class="viewport" id="mainViewport"></div>
   </div>
@@ -184,6 +168,8 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
     <div class="ctx-main-item" data-a="newScene">场景</div>
     <div class="ctx-main-item" data-a="newCharacter">角色</div>
     <div class="ctx-main-item" data-a="newEntity">实体</div>
+    <div class="ctx-main-item" data-a="newParticle">粒子</div>
+    <div class="ctx-main-item" data-a="newItem">物品</div>
   </div></div>
   <div class="ctx-main-item has-sub">导入 ▶<div class="ctx-sub">
     <div class="ctx-main-item" data-a="importAsset">导入素材</div>
@@ -201,21 +187,17 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
   <div class="ctx-main-item" data-a="toggleControl">演员控制</div>
 </div>
 
+
 <script>
 var state = null;
 var lastCursor = -1;
 var selectedClip = -1;
+var selectedReplay = -1;
 
 /* ---------- JSQuery 桥（JS -> Java） ---------- */
-function sendAction(payload, cb){
-  if (window.javaQuery) {
-    window.javaQuery({request: JSON.stringify(payload)}, function(ok, result){
-      if (!ok && result) notify('操作失败: ' + result, true);
-      if (cb) cb(ok, result);
-    });
-  } else {
-    notify('桥未就绪', true);
-  }
+function sendAction(payload){
+  /* console 通道: Java 侧通过 onConsoleMessage 拦截 BBS_ACTION: 前缀 */
+  console.log('BBS_ACTION:' + JSON.stringify(payload));
 }
 
 function notify(msg, isError){
@@ -234,7 +216,7 @@ function sync(){
   document.getElementById('projName').textContent = state.project || 'BBS 编辑器';
   document.getElementById('filmName').textContent = state.film || '';
   document.getElementById('dirtyMark').classList.toggle('show', !!state.dirty);
-  document.getElementById('btnPlay').textContent = state.running ? '⏸' : '▶';
+  document.getElementById('btnPlay').innerHTML = state.running ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M2.5 1.5a.7.7 0 0 1 .7.7v5.6a.7.7 0 0 1-1.4 0V2.2a.7.7 0 0 1 .7-.7m5 0a.7.7 0 0 1 .7.7v5.6a.7.7 0 0 1-1.4 0V2.2a.7.7 0 0 1 .7-.7"/></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 10 10"><path d="M3.2 1.7a.6.6 0 0 1 .9-.52l4.4 2.6a.6.6 0 0 1 0 1.04L4.1 7.42a.6.6 0 0 1-.9-.52z"/></svg>';
   document.getElementById('tickInfo').textContent = state.cursor + ' / ' + (state.duration || 0);
 
   renderAssets();
@@ -249,23 +231,54 @@ function renderAssets(){
   (state.scenes || []).forEach(function(sc){
     var d = document.createElement('div');
     d.className = 'asset-item' + (sc.id === state.scene ? ' active' : '');
-    d.textContent = '🎬 ' + sc.name;
+    d.innerHTML = '<span style="margin-right:6px;color:#7cb8ff">'+ICONS.camera+'</span>'+sc.name;
     d.onclick = function(){ sendAction({a:'openScene', id:sc.id}); };
     box.appendChild(d);
   });
   (state.replays || []).forEach(function(rp){
     var d = document.createElement('div');
-    d.className = 'asset-item';
+    d.className = 'asset-item' + (rp.index === selectedReplay ? ' active' : '');
     var span = document.createElement('span');
-    span.textContent = (rp.enabled ? '👤 ' : '🚫 ') + rp.label;
+    var icon = document.createElement('span');
+    icon.style.marginRight = '4px';
+    icon.innerHTML = rp.enabled ? ICONS.play : '<span style="opacity:.4">'+ICONS.pause+'</span>';
+    icon.onclick = function(e){ e.stopPropagation(); sendAction({a:'toggleReplay', index:rp.index}); };
+    var lbl = document.createElement('span');
+    lbl.textContent = rp.label;
+    span.appendChild(icon); span.appendChild(lbl);
     var del = document.createElement('span');
     del.className = 'del';
     del.textContent = '✕';
     del.onclick = function(e){ e.stopPropagation(); sendAction({a:'deleteReplay', index:rp.index}); };
     d.appendChild(span); d.appendChild(del);
-    d.onclick = function(){ sendAction({a:'toggleReplay', index:rp.index}); };
+    d.onclick = function(){ selectedReplay = rp.index; renderAssets(); };
     box.appendChild(d);
   });
+  /* Sequences: containers that reference scenes (never characters) */
+  var seqs = state.sequences || [];
+  if (seqs.length) {
+    var gh = document.createElement('div');
+    gh.className = 'asset-group';
+    gh.textContent = '序列';
+    box.appendChild(gh);
+    seqs.forEach(function(seq){
+      var d = document.createElement('div');
+      d.className = 'asset-item seq';
+      d.innerHTML = '<span style="margin-right:6px;color:#ffd27c">'+ICONS.film+'</span>'+seq.name;
+      (seq.refs || []).forEach(function(rf){
+        var sub = document.createElement('div');
+        sub.className = 'asset-sub';
+        var nm = (state.scenes||[]).filter(function(s){return s.id===rf.id;})[0];
+        sub.textContent = '↳ ' + (rf.type==='scene'?'场景: ':'') + (nm? nm.name : rf.id);
+        d.appendChild(sub);
+      });
+      box.appendChild(d);
+    });
+  }
+}
+function sceneNameById(id){
+  var s=(state.scenes||[]).filter(function(x){return x.id===id;})[0];
+  return s? s.name : id;
 }
 
 /* ---------- 时间轴 ---------- */
@@ -332,8 +345,9 @@ function showCtx(id, x, y){
   m.style.top = y + 'px';
 }
 
-document.addEventListener('click', function(){
-  document.querySelectorAll('.context-menu').forEach(function(m){ m.style.display = 'none'; });
+document.addEventListener('click', function(e){
+  if (e.target.closest('#equipModal')) return;
+  document.querySelectorAll('.context-menu').forEach(function(m){ if (m.id !== 'equipModal') m.style.display = 'none'; });
 });
 document.addEventListener('contextmenu', function(e){
   if (!e.target.closest('.asset-panel') && !e.target.closest('.clip-block') && !e.target.closest('.context-menu')) {
@@ -364,14 +378,6 @@ document.addEventListener('click', function(e){
   else sendAction({a:a});
 });
 
-/* ---------- 工具栏 ---------- */
-document.querySelectorAll('.tool-button').forEach(function(btn){
-  btn.onclick = function(){
-    document.querySelectorAll('.tool-button').forEach(function(b){ b.classList.remove('active'); });
-    btn.classList.add('active');
-    sendAction({a:'setTool', tool:btn.getAttribute('data-tool')});
-  };
-});
 
 /* ---------- 顶部操作 ---------- */
 document.getElementById('btnSave').onclick = function(){ sendAction({a:'save'}); notify('已保存'); };
@@ -380,7 +386,15 @@ document.getElementById('btnPlay').onclick = function(){ sendAction({a:'togglePl
 document.getElementById('btnToStart').onclick = function(){ sendAction({a:'setCursor', tick:0}); };
 document.getElementById('btnUndo').onclick = function(){ sendAction({a:'undo'}); };
 document.getElementById('btnRedo').onclick = function(){ sendAction({a:'redo'}); };
-document.getElementById('btnNewSeq').onclick = function(){ notify('序列功能开发中'); };
+document.getElementById('btnNewSeq').onclick = function(){ sendAction({a:'newSequence'}); };
+
+/* 装备到角色：交给 Java 侧弹出真正的 OS 窗口（避免被 HTML 盖住） */
+document.getElementById('btnEquip').onclick = function(){
+  if (selectedReplay < 0) { notify('请先在素材箱选择一个角色', true); return; }
+  var rp = (state.replays||[]).filter(function(r){return r.index===selectedReplay;})[0];
+  if (!rp || !rp.actor) { notify('所选不是角色(演员)，无法装配装备', true); return; }
+  sendAction({a:'openEquip', index: selectedReplay});
+};
 
 /* 时间轴点击跳帧 */
 document.getElementById('tracks').addEventListener('click', function(e){

@@ -32,7 +32,7 @@ repositories {
 loom {
 	splitEnvironmentSourceSets()
 
-	productionNamespace = 'named'
+	productionNamespace = 'official'
 
 	mods {
 		"bbs" {
