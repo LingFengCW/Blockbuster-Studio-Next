@@ -353,9 +353,10 @@ public class UIProjectMenu extends UIBaseMenu
 
         ProjectManager.get().setCurrent(project);
 
-        /* Work picked: open the dashboard and jump straight into the film
-         * editor panel (asset bin + clips). No scene yet means an empty
-         * editor - the user right-clicks the asset bin to create one. */
+        /* Work picked: open the dashboard and land straight in the HTML
+         * editor (作品 / 场景 / 序列). The native "影片" panel is never
+         * shown - with no scene yet the editor simply opens empty and the
+         * user creates one from the asset bin. */
         try
         {
             mchorse.bbs_mod.ui.dashboard.UIDashboard dashboard = mchorse.bbs_mod.BBSModClient.getDashboard();
@@ -364,16 +365,25 @@ public class UIProjectMenu extends UIBaseMenu
 
             mchorse.bbs_mod.ui.film.UIFilmPanel film = dashboard.getPanel(mchorse.bbs_mod.ui.film.UIFilmPanel.class);
 
-            if (film != null)
+            if (film == null)
             {
-                dashboard.setPanel(film);
+                return;
             }
+
+            dashboard.setPanel(film);
 
             mchorse.bbs_mod.projects.SceneManager scenes = mchorse.bbs_mod.projects.SceneManager.get();
 
             if (scenes != null && scenes.getCurrent() != null)
             {
                 mchorse.bbs_mod.ui.scenes.UISceneMenu.openScene(dashboard, scenes.getCurrent());
+            }
+
+            /* Always end up in the HTML editor, even when the work has no
+             * scene yet (openScene() already opened it when one existed). */
+            if (film.ultralightOverlay != null && !film.ultralightOverlay.isVisible())
+            {
+                film.openHtmlEditor();
             }
         }
         catch (Exception e)

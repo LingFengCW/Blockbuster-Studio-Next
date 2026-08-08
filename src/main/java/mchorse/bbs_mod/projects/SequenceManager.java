@@ -298,28 +298,7 @@ public class SequenceManager
 
         try
         {
-            MapType data = new MapType();
-
-            data.putString("type", "sequence");
-            data.putString("id", sequence.id);
-            data.putString("name", sequence.name);
-            data.putLong("createdAt", sequence.createdAt);
-
-            ListType refs = new ListType();
-
-            for (Sequence.SequenceRef ref : sequence.refs)
-            {
-                MapType entry = new MapType();
-
-                entry.putString("type", ref.type);
-                entry.putString("id", ref.id);
-                entry.putLong("in", ref.in);
-                entry.putLong("out", ref.out);
-
-                refs.add(entry);
-            }
-
-            data.put("refs", refs);
+            MapType data = this.exportSequenceData(sequence);
 
             File folder = mchorse.bbs_mod.BBSMod.getExportFolder();
             File file = new File(folder, this.sanitize(sequence.name) + ".seqbbs");
@@ -335,6 +314,43 @@ public class SequenceManager
 
             return null;
         }
+    }
+
+    /**
+     * Serialize a sequence (descriptor + reference list) into a document.
+     * Shared by the file exporter and the backpack.
+     */
+    public MapType exportSequenceData(Sequence sequence)
+    {
+        MapType data = new MapType();
+
+        if (sequence == null)
+        {
+            return data;
+        }
+
+        data.putString("type", "sequence");
+        data.putString("id", sequence.id);
+        data.putString("name", sequence.name);
+        data.putLong("createdAt", sequence.createdAt);
+
+        ListType refs = new ListType();
+
+        for (Sequence.SequenceRef ref : sequence.refs)
+        {
+            MapType entry = new MapType();
+
+            entry.putString("type", ref.type);
+            entry.putString("id", ref.id);
+            entry.putLong("in", ref.in);
+            entry.putLong("out", ref.out);
+
+            refs.add(entry);
+        }
+
+        data.put("refs", refs);
+
+        return data;
     }
 
     /** Import a previously exported sequence document back into the project. */
@@ -354,11 +370,38 @@ public class SequenceManager
                 return null;
             }
 
+            return this.importSequenceData(map, file.getName().replace(".seqbbs", ""));
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+
+            return null;
+        }
+    }
+
+    /**
+     * Create a new sequence in this project from a sequence document.
+     *
+     * References to scenes are kept as-is: a scene that does not exist in
+     * this project simply renders as a dead link in the editor, which the
+     * user can repoint - that is far less surprising than silently dropping
+     * the clip.
+     */
+    public Sequence importSequenceData(MapType map, String fallbackName)
+    {
+        if (map == null)
+        {
+            return null;
+        }
+
+        try
+        {
             String name = map.getString("name");
 
             if (name.isEmpty())
             {
-                name = file.getName().replace(".seqbbs", "");
+                name = fallbackName == null || fallbackName.isEmpty() ? "Sequence" : fallbackName;
             }
 
             Sequence sequence = this.create(name);

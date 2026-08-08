@@ -34,6 +34,8 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
 .asset-item:hover .del{opacity:1;}
 .asset-group{padding:6px 8px 2px;font-size:11px;color:#ffd27c;letter-spacing:1px;border-top:1px solid #2a2a2e;margin-top:4px;}
 .asset-sub{padding:2px 0 2px 22px;font-size:11px;color:#888;cursor:default;}
+.asset-root{padding:4px 8px;font-size:13px;font-weight:bold;color:#cfe3ff;border-bottom:1px solid #333;margin-bottom:6px;cursor:default;}
+.asset-item.bag{color:#ffd27c;}
 /* 右上预览视口区域 */
 .viewport-wrap{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:8px;padding:8px;background:transparent;min-height:0;}
 .viewport{flex:1;border:1px solid #444;border-radius:4px;display:grid;place-items:center;color:#888;background:transparent;min-height:0;}
@@ -176,6 +178,7 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
   </div></div>
   <div class="ctx-divider"></div>
   <div class="ctx-main-item" data-a="save">保存作品</div>
+  <div class="ctx-main-item" data-a="toBackpackForm">导出全部素材到背包</div>
   <div class="ctx-main-item" data-a="closeEditor">关闭编辑器</div>
 </div>
 
@@ -187,12 +190,32 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
   <div class="ctx-main-item" data-a="toggleControl">演员控制</div>
 </div>
 
+<!-- 素材项右键菜单（放入背包） -->
+<div class="context-menu" id="itemCtx">
+  <div class="ctx-main-item" data-a="toBackpack">放入背包</div>
+</div>
+
+<!-- 背包项右键菜单 -->
+<div class="context-menu" id="bagCtx">
+  <div class="ctx-main-item" data-a="fromBackpack">导入到本作品</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-main-item" data-a="deleteBackpackItem">从背包删除</div>
+</div>
+
 
 <script>
 var state = null;
 var lastCursor = -1;
 var selectedClip = -1;
 var selectedReplay = -1;
+var itemTarget = null;   /* {type, id} of the asset item right-clicked */
+var bpTarget = null;      /* name of the backpack item right-clicked */
+
+/* Inline glyphs for the asset tree. (The page referenced ICONS.* before it
+ * was ever defined, which crashed renderAssets - defined here now.) */
+var ICONS = {
+  work: '🗂', camera: '🎬', film: '🎞', play: '▶', pause: '⏸', bag: '🎒', box: '📦'
+};
 
 /* ---------- JSQuery 桥（JS -> Java） ---------- */
 function sendAction(payload){
@@ -225,16 +248,70 @@ function sync(){
 }
 
 /* ---------- 素材箱 ---------- */
+/* ---------- 素材箱（作品 > 场景 / 序列 树 + 全局背包） ---------- */
+function assetGroup(title){
+  var g = document.createElement('div');
+  g.className = 'asset-group';
+  g.textContent = title;
+  return g;
+}
+function assetHint(text){
+  var h = document.createElement('div');
+  h.className = 'asset-sub';
+  h.style.opacity = '.55';
+  h.textContent = text;
+  return h;
+}
+function assetItem(type, id, icon, name, active, onClick){
+  var d = document.createElement('div');
+  d.className = 'asset-item' + (active ? ' active' : '');
+  d.innerHTML = '<span style="margin-right:6px">'+icon+'</span>'+name;
+  if (onClick) d.onclick = onClick;
+  d.oncontextmenu = function(e){ e.preventDefault(); itemTarget = {type:type, id:id}; showCtx('itemCtx', e.clientX, e.clientY); };
+  return d;
+}
+
 function renderAssets(){
   var box = document.getElementById('assetList');
   box.innerHTML = '';
+  if (!state) return;
+
+  /* 作品（根节点） */
+  var root = document.createElement('div');
+  root.className = 'asset-root';
+  root.innerHTML = '<span style="margin-right:6px">'+ICONS.work+'</span>'+(state.project || '作品');
+  box.appendChild(root);
+
+  /* 场景 */
+  box.appendChild(assetGroup('场景'));
   (state.scenes || []).forEach(function(sc){
-    var d = document.createElement('div');
-    d.className = 'asset-item' + (sc.id === state.scene ? ' active' : '');
-    d.innerHTML = '<span style="margin-right:6px;color:#7cb8ff">'+ICONS.camera+'</span>'+sc.name;
-    d.onclick = function(){ sendAction({a:'openScene', id:sc.id}); };
+    box.appendChild(assetItem('scene', sc.id, ICONS.camera, sc.name, sc.id === state.scene,
+      function(){ sendAction({a:'openScene', id:sc.id}); }));
+  });
+  if (!(state.scenes || []).length) box.appendChild(assetHint('（暂无场景，右键空白处新建）'));
+
+  /* 序列（可嵌套子序列） */
+  box.appendChild(assetGroup('序列'));
+  (state.sequences || []).forEach(function(seq){
+    var d = assetItem('sequence', seq.id, ICONS.film, seq.name, false, null);
+    (seq.refs || []).forEach(function(rf){
+      var sub = document.createElement('div');
+      sub.className = 'asset-sub';
+      if (rf.type === 'sequence'){
+        var sn = (state.sequences || []).filter(function(s){ return s.id === rf.id; })[0];
+        sub.textContent = '↳ 子序列: ' + (sn ? sn.name : rf.id);
+      } else {
+        var nm = (state.scenes || []).filter(function(s){ return s.id === rf.id; })[0];
+        sub.textContent = '↳ 场景: ' + (nm ? nm.name : rf.id);
+      }
+      d.appendChild(sub);
+    });
     box.appendChild(d);
   });
+  if (!(state.sequences || []).length) box.appendChild(assetHint('（暂无序列）'));
+
+  /* 角色（演员） */
+  box.appendChild(assetGroup('角色'));
   (state.replays || []).forEach(function(rp){
     var d = document.createElement('div');
     d.className = 'asset-item' + (rp.index === selectedReplay ? ' active' : '');
@@ -252,29 +329,22 @@ function renderAssets(){
     del.onclick = function(e){ e.stopPropagation(); sendAction({a:'deleteReplay', index:rp.index}); };
     d.appendChild(span); d.appendChild(del);
     d.onclick = function(){ selectedReplay = rp.index; renderAssets(); };
+    d.oncontextmenu = function(e){ e.preventDefault(); };
     box.appendChild(d);
   });
-  /* Sequences: containers that reference scenes (never characters) */
-  var seqs = state.sequences || [];
-  if (seqs.length) {
-    var gh = document.createElement('div');
-    gh.className = 'asset-group';
-    gh.textContent = '序列';
-    box.appendChild(gh);
-    seqs.forEach(function(seq){
-      var d = document.createElement('div');
-      d.className = 'asset-item seq';
-      d.innerHTML = '<span style="margin-right:6px;color:#ffd27c">'+ICONS.film+'</span>'+seq.name;
-      (seq.refs || []).forEach(function(rf){
-        var sub = document.createElement('div');
-        sub.className = 'asset-sub';
-        var nm = (state.scenes||[]).filter(function(s){return s.id===rf.id;})[0];
-        sub.textContent = '↳ ' + (rf.type==='scene'?'场景: ':'') + (nm? nm.name : rf.id);
-        d.appendChild(sub);
-      });
-      box.appendChild(d);
-    });
-  }
+
+  /* 全局背包（跨作品素材库） */
+  box.appendChild(assetGroup(ICONS.bag + ' 全局背包（跨作品素材）'));
+  (state.backpack || []).forEach(function(bp){
+    var icon = bp.type === 'sequence' ? ICONS.film : (bp.type === 'scene' ? ICONS.camera : ICONS.box);
+    var d = document.createElement('div');
+    d.className = 'asset-item bag';
+    d.innerHTML = '<span style="margin-right:6px">'+icon+'</span>'+(bp.label || bp.name);
+    d.oncontextmenu = function(e){ e.preventDefault(); bpTarget = bp.name; showCtx('bagCtx', e.clientX, e.clientY); };
+    d.ondblclick = function(){ sendAction({a:'fromBackpack', name:bp.name}); notify('已尝试把「'+(bp.label||bp.name)+'」导入本作品'); };
+    box.appendChild(d);
+  });
+  if (!(state.backpack || []).length) box.appendChild(assetHint('（背包为空。右键素材选「放入背包」）'));
 }
 function sceneNameById(id){
   var s=(state.scenes||[]).filter(function(x){return x.id===id;})[0];
@@ -375,6 +445,10 @@ document.addEventListener('click', function(e){
     sendAction({a:'clipOp', op:op, index:idx});
   }
   else if (a === 'importAsset') notify('请在文件资源管理器中把素材放入作品目录（projects）');
+  else if (a === 'toBackpack') { if (itemTarget){ sendAction({a:'toBackpack', type:itemTarget.type, id:itemTarget.id}); notify('已放入背包'); } }
+  else if (a === 'toBackpackForm') { sendAction({a:'toBackpack', type:'form'}); notify('已导出全部素材到背包'); }
+  else if (a === 'fromBackpack') { if (bpTarget){ sendAction({a:'fromBackpack', name:bpTarget}); notify('已导入「'+bpTarget+'」到本作品'); } }
+  else if (a === 'deleteBackpackItem') { if (bpTarget){ sendAction({a:'deleteBackpackItem', name:bpTarget}); notify('已从背包删除'); } }
   else sendAction({a:a});
 });
 

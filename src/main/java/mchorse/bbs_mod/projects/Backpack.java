@@ -43,6 +43,33 @@ public class Backpack
     public static final String META_FILE = "meta.json";
     public static final String ASSETS_DIR = "assets";
 
+    /** Generic document file used by scene / sequence backpack items. */
+    public static final String DOCUMENT_FILE = "document.json";
+
+    /* Item types. "form" is the legacy form-category item, the other two
+     * hold a whole scene or a reusable sequence. */
+    public static final String TYPE_FORM = "form";
+    public static final String TYPE_SCENE = "scene";
+    public static final String TYPE_SEQUENCE = "sequence";
+
+    /**
+     * One backpack item: the folder name (unique key), its type and the
+     * human readable label stored at export time.
+     */
+    public static class Entry
+    {
+        public final String name;
+        public final String type;
+        public final String label;
+
+        public Entry(String name, String type, String label)
+        {
+            this.name = name;
+            this.type = type;
+            this.label = label == null || label.isEmpty() ? name : label;
+        }
+    }
+
     private static final Logger LOGGER = Logger.getLogger(Backpack.class.getName());
 
     /* Asset roots that a form may reference, and the file extensions we try
@@ -57,32 +84,220 @@ public class Backpack
     }
 
     /**
-     * List every backpack item (directory that holds a form category file).
+     * List every backpack item (directory that holds either a form category
+     * or a generic scene / sequence document).
      */
     public static List<String> getItems()
     {
         List<String> items = new ArrayList<>();
+
+        for (Entry entry : getEntries())
+        {
+            items.add(entry.name);
+        }
+
+        return items;
+    }
+
+    /**
+     * List every backpack item together with its type and label, so a UI can
+     * tell a scene apart from a sequence or a form category.
+     */
+    public static List<Entry> getEntries()
+    {
+        List<Entry> entries = new ArrayList<>();
         Path root = getRoot();
 
         if (!Files.isDirectory(root))
         {
-            return items;
+            return entries;
         }
 
         try (Stream<Path> dirs = Files.list(root))
         {
             dirs.filter(Files::isDirectory)
-                .filter(dir -> Files.exists(dir.resolve(CATEGORY_FILE)))
-                .map(dir -> dir.getFileName().toString())
-                .sorted()
-                .forEach(items::add);
+                .filter(dir -> Files.exists(dir.resolve(CATEGORY_FILE)) || Files.exists(dir.resolve(DOCUMENT_FILE)))
+                .sorted(Comparator.comparing(dir -> dir.getFileName().toString()))
+                .forEach(dir ->
+                {
+                    String name = dir.getFileName().toString();
+                    MapType meta = readMeta(dir);
+                    String type = meta.getString("type", "");
+
+                    if (type.isEmpty())
+                    {
+                        /* Items written before typed documents existed are
+                         * always form categories. */
+                        type = TYPE_FORM;
+                    }
+
+                    entries.add(new Entry(name, type, meta.getString("label", name)));
+                });
         }
         catch (IOException e)
         {
             LOGGER.warning("Failed to list backpack items: " + e.getMessage());
         }
 
-        return items;
+        return entries;
+    }
+
+    /** Type of one backpack item ({@link #TYPE_FORM} when unknown). */
+    public static String typeOf(String itemName)
+    {
+        Path dir = getRoot().resolve(itemName);
+
+        if (!Files.isDirectory(dir))
+        {
+            return "";
+        }
+
+        String type = readMeta(dir).getString("type", "");
+
+        return type.isEmpty() ? TYPE_FORM : type;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Generic documents (scene / sequence)                                */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Store any exported document (a scene with its film payload, or a
+     * sequence with its reference list) as a backpack item, bundling every
+     * project asset the document references.
+     *
+     * @return human readable errors; empty means success.
+     */
+    public static List<String> exportDocument(BBSProject project, String label, String type, MapType document)
+    {
+        List<String> errors = new ArrayList<>();
+
+        if (project == null || document == null)
+        {
+            errors.add("Nothing to put into the backpack.");
+
+            return errors;
+        }
+
+        String safe = sanitize(label);
+
+        try
+        {
+            Path itemDir = resolveItemDir(safe, project.id);
+
+            Files.createDirectories(itemDir);
+            Files.write(itemDir.resolve(DOCUMENT_FILE), DataStorageUtils.writeToBytes(document));
+
+            MapType meta = new MapType();
+
+            meta.putString("projectId", project.id);
+            meta.putString("type", type);
+            meta.putString("label", label);
+
+            Files.write(itemDir.resolve(META_FILE), DataStorageUtils.writeToBytes(meta));
+
+            /* Bundle every asset the document points at. */
+            Path settings = project.getDirectory().resolve("settings");
+            Set<String> strings = new HashSet<>();
+            Set<String> assets = new HashSet<>();
+
+            collectStrings(document, strings);
+
+            for (String s : strings)
+            {
+                resolveAsset(s, settings, assets);
+            }
+
+            for (String rel : assets)
+            {
+                Path source = settings.resolve(rel);
+
+                if (Files.isRegularFile(source))
+                {
+                    Path dest = itemDir.resolve(ASSETS_DIR).resolve(rel);
+
+                    Files.createDirectories(dest.getParent());
+                    Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            errors.add("Failed to put '" + label + "' into the backpack: " + e.getMessage());
+            LOGGER.warning(errors.get(errors.size() - 1));
+        }
+
+        return errors;
+    }
+
+    /** Read back the document of a scene / sequence backpack item. */
+    public static MapType readDocument(String itemName)
+    {
+        Path file = getRoot().resolve(itemName).resolve(DOCUMENT_FILE);
+
+        if (!Files.isRegularFile(file))
+        {
+            return null;
+        }
+
+        try
+        {
+            BaseType data = DataStorageUtils.readFromBytes(Files.readAllBytes(file));
+
+            return data instanceof MapType map ? map : null;
+        }
+        catch (IOException e)
+        {
+            LOGGER.warning("Failed to read backpack document " + file + ": " + e.getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * Copy the assets bundled with a backpack item back into a project, so
+     * the imported scene / sequence resolves its models and textures.
+     */
+    public static List<String> restoreAssets(BBSProject project, String itemName)
+    {
+        List<String> errors = new ArrayList<>();
+
+        if (project == null)
+        {
+            return errors;
+        }
+
+        Path assetsSrc = getRoot().resolve(itemName).resolve(ASSETS_DIR);
+
+        if (!Files.isDirectory(assetsSrc))
+        {
+            return errors;
+        }
+
+        Path settings = project.getDirectory().resolve("settings");
+
+        try
+        {
+            Files.createDirectories(settings);
+        }
+        catch (IOException e)
+        {
+            errors.add("Failed to create the settings directory: " + e.getMessage());
+
+            return errors;
+        }
+
+        copyRecursively(assetsSrc, settings, errors);
+
+        return errors;
+    }
+
+    /** Filesystem-safe item name. */
+    public static String sanitize(String name)
+    {
+        String safe = name == null ? "" : name.replaceAll("[\\\\/:*?\"<>|\\r\\n]", "_").trim();
+
+        return safe.isEmpty() ? "item" : safe;
     }
 
     /**
@@ -304,21 +519,26 @@ public class Backpack
 
     private static String readProjectId(Path itemDir)
     {
+        return readMeta(itemDir).getString("projectId", "");
+    }
+
+    /** Meta of one item; an empty map when it is missing or unreadable. */
+    private static MapType readMeta(Path itemDir)
+    {
         Path meta = itemDir.resolve(META_FILE);
 
         if (!Files.isRegularFile(meta))
         {
-            return "";
+            return new MapType();
         }
 
         try
         {
-            byte[] bytes = Files.readAllBytes(meta);
-            BaseType data = DataStorageUtils.readFromBytes(bytes);
+            BaseType data = DataStorageUtils.readFromBytes(Files.readAllBytes(meta));
 
             if (data instanceof MapType map)
             {
-                return map.getString("projectId", "");
+                return map;
             }
         }
         catch (IOException e)
@@ -326,7 +546,7 @@ public class Backpack
             LOGGER.warning("Failed to read backpack meta " + meta + ": " + e.getMessage());
         }
 
-        return "";
+        return new MapType();
     }
 
     /* ------------------------------------------------------------------ */

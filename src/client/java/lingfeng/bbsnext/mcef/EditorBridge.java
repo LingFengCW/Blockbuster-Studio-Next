@@ -5,6 +5,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.projects.Backpack;
+import mchorse.bbs_mod.projects.BackpackService;
 import mchorse.bbs_mod.projects.BBSProject;
 import mchorse.bbs_mod.projects.ProjectManager;
 import mchorse.bbs_mod.projects.Scene;
@@ -115,6 +117,21 @@ public class EditorBridge
         }
 
         root.add("sequences", seqArr);
+
+        /* Backpack (global cross-work asset library) */
+        JsonArray bpArr = new JsonArray();
+
+        for (Backpack.Entry entry : Backpack.getEntries())
+        {
+            JsonObject o = new JsonObject();
+
+            o.addProperty("name", entry.name);
+            o.addProperty("type", entry.type);
+            o.addProperty("label", entry.label);
+            bpArr.add(o);
+        }
+
+        root.add("backpack", bpArr);
 
         /* Replays (characters) */
         JsonArray replayArr = new JsonArray();
@@ -264,8 +281,54 @@ public class EditorBridge
                 clipOp(panel, req.has("op") ? req.get("op").getAsString() : "",
                     req.has("index") ? req.get("index").getAsInt() : -1);
                 break;
+            case "toBackpack":
+                return toBackpack(panel,
+                    req.has("type") ? req.get("type").getAsString() : "",
+                    req.has("id") ? req.get("id").getAsString() : "");
+            case "fromBackpack":
+                return fromBackpack(panel, req.has("name") ? req.get("name").getAsString() : "");
+            case "deleteBackpackItem":
+                BackpackService.remove(req.has("name") ? req.get("name").getAsString() : "");
+                panel.assetBin.refresh();
+                break;
             default:
                 return "{\"ok\":false,\"error\":\"unknown action " + action + "\"}";
+        }
+
+        return "{\"ok\":true}";
+    }
+
+    /* -------- backpack (cross-work asset library) -------- */
+
+    /**
+     * Put an asset of the current work into the global backpack. Scenes go
+     * in with their whole film payload, sequences drag the scenes they
+     * reference along, so the item is usable in any other work.
+     */
+    private static String toBackpack(UIFilmPanel panel, String type, String id)
+    {
+        java.util.List<String> errors = BackpackService.put(type, id);
+
+        panel.assetBin.refresh();
+
+        if (!errors.isEmpty())
+        {
+            return "{\"ok\":false,\"error\":" + GSON.toJson(errors.get(0)) + "}";
+        }
+
+        return "{\"ok\":true}";
+    }
+
+    /** Take one backpack item into the current work (never overwrites). */
+    private static String fromBackpack(UIFilmPanel panel, String name)
+    {
+        java.util.List<String> errors = BackpackService.take(name);
+
+        panel.assetBin.refresh();
+
+        if (!errors.isEmpty())
+        {
+            return "{\"ok\":false,\"error\":" + GSON.toJson(errors.get(0)) + "}";
         }
 
         return "{\"ok\":true}";
