@@ -11,8 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.texture.AbstractTexture;
-import net.minecraft.resources.Identifier;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import org.cef.CefSettings.LogSeverity;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
@@ -51,12 +50,9 @@ public class MCEFUI
     private static EditorBridge bridge;
     private static boolean initialized;
 
-    /* The browser frame is drawn via MCEF's own native GpuTexture, exposed
-     * through a vanilla AbstractTexture wrapper registered in the
-     * TextureManager. MCEF keeps that texture updated every paint, so we just
-     * blit it each frame - no GL readback, no pixel copying. */
-    private static AbstractTexture browserTex;
-    private static Identifier browserTexId;
+    /* The browser frame lives in MCEF's own native GpuTextureView; we draw it
+     * directly via GuiGraphics.blit(GpuTextureView, ...) - no TextureManager
+     * wrapper, no GL readback. */
 
     /* Browser viewport offset on screen, in GUI (scaled) units. The overlay
      * is positioned at (area.x, area.y); the browser's internal (0,0) maps to
@@ -163,19 +159,6 @@ public class MCEFUI
 
             installJsQuery(browser.getCefBrowser());
 
-            /* Register MCEF's native browser texture as a vanilla texture so
-             * it can be drawn through GuiGraphics.blit(Identifier, ...). MCEF
-             * uploads each paint frame into its own GpuTexture; we only expose
-             * that view here. MCEF's onPaint path does NOT call the
-             * CustomCefBrowserOsr paint listeners, so capturing pixels from a
-             * listener is futile - we use the texture MCEF already maintains. */
-            if (browserTex == null)
-            {
-                browserTex = new MCEFTexture(browser);
-                browserTexId = Identifier.fromNamespaceAndPath("bbs_mod", "mcefbrowser");
-                Minecraft.getInstance().getTextureManager().register(browserTexId, browserTex);
-            }
-
             /* No delayed reload: the console channel (BBS_ACTION:) is the
              * primary JS->Java path and does not depend on navigation-time
              * bridge injection, so the editor paints instantly. The JSQuery
@@ -250,20 +233,6 @@ public class MCEFUI
             }
 
             browser = null;
-        }
-
-        if (browserTexId != null)
-        {
-            try
-            {
-                Minecraft.getInstance().getTextureManager().release(browserTexId);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            browserTex = null;
-            browserTexId = null;
         }
     }
 
@@ -481,37 +450,23 @@ public class MCEFUI
 
     /* -------- rendering -------- */
 
-    /**
-     * Returns the vanilla {@link Identifier} of the browser's current frame.
-     *
-     * The frame lives in MCEF's native {@code GpuTexture} (updated on every
-     * CEF paint, exposed via {@link MCEFTexture#getTextureView()}). We blit
-     * that texture through the supported {@code GuiGraphics.blit(Identifier,
-     * ...)} path on MC 26.2. Returns null until MCEF has produced its first
-     * paint (its GpuTexture is created lazily inside onPaint), at which point
-     * the caller should show a dark backdrop instead.
-     */
-    public static Identifier renderTextureId()
+    /** Direct handle to MCEF's current browser frame texture, or null until
+     *  the first paint. Draw it with
+     *  {@code GuiGraphics.blit(GpuTextureView, GpuSampler, ...)}. */
+    public static GpuTextureView getTextureView()
     {
-        if (browser == null || browserTexId == null)
+        if (browser == null)
         {
             return null;
         }
 
         try
         {
-            /* getTextureView() is null until MCEF's first onPaint allocates
-             * the GpuTexture. Guard so we never blit an empty texture. */
-            if (browser.getTextureView() != null)
-            {
-                return browserTexId;
-            }
-
-            return null;
+            return browser.getTextureView();
         }
         catch (Throwable t)
         {
-            BBSMod.LOGGER.error("[MCEF] renderTextureId failed", t);
+            BBSMod.LOGGER.error("[MCEF] getTextureView failed", t);
 
             return null;
         }

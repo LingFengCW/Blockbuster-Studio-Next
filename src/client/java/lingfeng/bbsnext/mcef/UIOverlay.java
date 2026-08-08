@@ -6,6 +6,10 @@ import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.colors.Colors;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.textures.GpuSampler;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 /**
  * Full-screen overlay that renders the MCEF browser texture onto the screen
@@ -100,17 +104,17 @@ public class UIOverlay extends UIElement
         /* The browser frame is bridged to a vanilla texture Identifier
          * (GlTextureBridge) and drawn via the supported blit() path. A raw
          * GpuTextureView cannot be blitted directly on MC 26.2. */
-        net.minecraft.resources.Identifier id = MCEFUI.renderTextureId();
+        GpuTextureView view = MCEFUI.getTextureView();
 
         if (this.dbgFrames < 6)
         {
             this.dbgFrames++;
-            BBSMod.LOGGER.info("[MCEF-DBG] render#{} visible={} created={} area=({},{},{},{}) idNull={} ready={}",
+            BBSMod.LOGGER.info("[MCEF-DBG] render#{} visible={} created={} area=({},{},{},{}) viewNull={} ready={}",
                 this.dbgFrames, this.isVisible(), this.created, this.area.x, this.area.y, this.area.w, this.area.h,
-                id == null, MCEFUI.isReady());
+                view == null, MCEFUI.isReady());
         }
 
-        if (id != null)
+        if (view != null)
         {
             try
             {
@@ -118,7 +122,10 @@ public class UIOverlay extends UIElement
 
                 if (graphics != null)
                 {
-                    graphics.blit(id, this.area.x, this.area.y, this.area.w, this.area.h,
+                    /* Draw MCEF's native GpuTextureView directly (MC 26.2
+                     * supported path - no TextureManager wrapper). */
+                    GpuSampler sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+                    graphics.blit(view, sampler, this.area.x, this.area.y, this.area.w, this.area.h,
                         0.0F, 0.0F, 1.0F, 1.0F);
                 }
                 else
