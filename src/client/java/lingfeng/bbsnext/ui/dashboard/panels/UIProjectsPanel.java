@@ -172,6 +172,7 @@ public class UIProjectsPanel extends UIDashboardPanel
             return;
         }
 
+        film.prepareHtmlEditor();
         this.dashboard.setPanel(film);
 
         SceneManager scenes = SceneManager.get();

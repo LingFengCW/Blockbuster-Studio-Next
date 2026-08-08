@@ -370,6 +370,7 @@ public class UIProjectMenu extends UIBaseMenu
                 return;
             }
 
+            film.prepareHtmlEditor();
             dashboard.setPanel(film);
 
             mchorse.bbs_mod.projects.SceneManager scenes = mchorse.bbs_mod.projects.SceneManager.get();

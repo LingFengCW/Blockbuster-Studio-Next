@@ -108,6 +108,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private final java.util.Map<mchorse.bbs_mod.ui.framework.elements.UIElement, Boolean> nativeVisibility = new java.util.IdentityHashMap<>();
     private Film placeholderRef = null;
 
+    /* Set by openProject() BEFORE dashboard.setPanel(this): opening a work
+     * goes straight into the HTML editor and must never trigger the base
+     * UIDataDashboardPanel<Film> auto "select film" popup. */
+    private boolean openDirectToHtml = false;
+
     public UIIcon duplicateFilm;
 
     /* Main editors */
@@ -438,6 +443,25 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.add(this.ultralightOverlay);
     }
 
+    /** Prepare the panel to open a work straight into the HTML editor.
+     *  MUST be called before dashboard.setPanel(this): it suppresses the
+     *  base class "select film" auto-popup (which fires on the very first
+     *  resize() triggered synchronously by setPanel) by marking the panel
+     *  as already opened and giving it a non-null placeholder film so the
+     *  base render() never draws the "pick a film" arrow either. */
+    public void prepareHtmlEditor()
+    {
+        this.openDirectToHtml = true;
+
+        this.suppressFilmPicker();
+
+        if (this.data == null)
+        {
+            this.placeholderRef = new Film();
+            this.data = this.placeholderRef;
+        }
+    }
+
     /** Show the HTML editor overlay and hide every native (old) editor UI
      *  component, so only the HTML page (作品 / 场景 / 序列) is visible.
      *  Idempotent: calling it while already open is a no-op, which avoids
@@ -507,6 +531,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.placeholderRef = null;
 
+        /* suppressFilmPicker() hid the base "select film" icon (it lives on
+         * the overlay layer, outside nativeVisibility); restore it so the
+         * native editor can still be used after closing the HTML editor. */
+        if (this.openOverlay != null)
+        {
+            this.openOverlay.setVisible(true);
+        }
+
         this.ultralightOverlay.setVisible(false);
     }
 
@@ -534,16 +566,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void resize()
     {
-        boolean html = this.ultralightOverlay != null && this.ultralightOverlay.isVisible();
+        boolean suppress = (this.ultralightOverlay != null && this.ultralightOverlay.isVisible()) || this.openDirectToHtml;
 
-        if (html)
+        if (suppress)
         {
             this.suppressFilmPicker();
         }
 
         super.resize();
 
-        if (html)
+        if (suppress)
         {
             this.suppressFilmPicker();
         }
@@ -975,6 +1007,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void appear()
     {
+        if (this.openDirectToHtml)
+        {
+            this.suppressFilmPicker();
+
+            if (this.data == null)
+            {
+                this.placeholderRef = new Film();
+                this.data = this.placeholderRef;
+            }
+        }
+
         super.appear();
 
         BBSRendering.setCustomSize(true);
@@ -1027,6 +1070,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * without restoring would leave every native child invisible, so the
          * panel came back blank the next time it was opened. */
         this.closeHtmlEditor();
+
+        this.openDirectToHtml = false;
     }
 
     private void disableContext()
