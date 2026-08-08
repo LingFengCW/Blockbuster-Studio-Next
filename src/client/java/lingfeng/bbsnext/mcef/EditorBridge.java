@@ -23,6 +23,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import lingfeng.bbsnext.mcef.ActionEditorDialog;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import net.minecraft.client.Minecraft;
@@ -307,6 +308,9 @@ public class EditorBridge
                 break;
             case "newCharacter":
                 openCharacterDialog(panel);
+                break;
+            case "openActionEditor":
+                openActionEditor(panel, req.has("index") ? req.get("index").getAsInt() : -1);
                 break;
             case "deleteReplay":
                 deleteReplay(panel, req.get("index").getAsInt());
@@ -606,6 +610,7 @@ public class EditorBridge
                 replay.actor.set(r.actor);
                 replay.shadow.set(r.shadow);
                 replay.looping.set(r.looping ? 1 : 0);
+                replay.characterType.set(r.charType);
 
                 panel.replayEditor.setReplay(replay);
                 panel.showPanel(1);
@@ -642,7 +647,7 @@ public class EditorBridge
     /**
      * Create a new Sequence (a higher-level container that can reference
      * scenes but NOT characters/entities), referencing the current scene.
-     * Mirrors UIAssetBin's "new sequence" action.
+     * Pops a real OS window to name it (no more auto-generated junk names).
      */
     private static void newSequence(UIFilmPanel panel)
     {
@@ -653,14 +658,49 @@ public class EditorBridge
             return;
         }
 
-        SequenceManager sequences = SequenceManager.get();
         Scene current = scenes.getCurrent();
 
-        Sequence sequence = sequences.create(current.name + " seq");
-        sequences.addRef(sequence, Sequence.SequenceRef.SCENE, current.id);
-        activeSequenceId = sequence.id;
+        NativeDialog.textInput("新建序列", "序列名称：", current.name + " seq", name ->
+        {
+            if (name == null || name.isEmpty())
+            {
+                return;
+            }
 
-        panel.fillData();
+            Minecraft.getInstance().execute(() ->
+            {
+                SequenceManager sequences = SequenceManager.get();
+                Sequence sequence = sequences.create(name);
+                sequences.addRef(sequence, Sequence.SequenceRef.SCENE, current.id);
+                activeSequenceId = sequence.id;
+
+                panel.fillData();
+            });
+        });
+    }
+
+    /** Open the standalone action-editor window for a character (Replay). */
+    private static void openActionEditor(UIFilmPanel panel, int index)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        Replay replay = null;
+
+        if (index >= 0 && index < film.replays.getList().size())
+        {
+            replay = film.replays.getList().get(index);
+        }
+        else if (!film.replays.getList().isEmpty())
+        {
+            replay = film.replays.getList().get(0);
+        }
+
+        ActionEditorDialog.open(replay);
     }
 
     /**

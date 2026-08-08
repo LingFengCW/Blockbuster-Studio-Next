@@ -296,14 +296,16 @@ public class NativeDialog
     {
         public final String name;
         public final String type; /* MOB, MODEL, PARTICLE, BLOCK */
+        public final String charType; /* keyframe | action */
         public final boolean actor;
         public final boolean shadow;
         public final boolean looping;
 
-        public CharResult(String name, String type, boolean actor, boolean shadow, boolean looping)
+        public CharResult(String name, String type, String charType, boolean actor, boolean shadow, boolean looping)
         {
             this.name = name;
             this.type = type;
+            this.charType = charType;
             this.actor = actor;
             this.shadow = shadow;
             this.looping = looping;
@@ -381,6 +383,48 @@ public class NativeDialog
             form.add(seg);
             form.add(Box.createVerticalStrut(12));
 
+            JLabel ctLbl = new JLabel("角色类型");
+            ctLbl.setForeground(MUTED);
+            ctLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+            form.add(ctLbl);
+
+            String[] cts = {"keyframe", "action"};
+            String[] ctLabels = {"关键帧角色", "纯动作角色"};
+            final String[] selectedCT = {"keyframe"};
+            JPanel ctSeg = new JPanel(new GridLayout(1, cts.length, 6, 0));
+            ctSeg.setOpaque(false);
+            ctSeg.setAlignmentX(Component.LEFT_ALIGNMENT);
+            ctSeg.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+            JButton[] ctBtns = new JButton[cts.length];
+            for (int i = 0; i < cts.length; i++)
+            {
+                final int idx = i;
+                JButton b = new JButton(ctLabels[i]);
+                b.setFocusPainted(false);
+                b.setOpaque(true);
+                b.setBackground(PANEL);
+                b.setForeground(TEXT);
+                b.setBorder(new LineBorder(BORDER, 1, true));
+                b.addActionListener(e ->
+                {
+                    selectedCT[0] = cts[idx];
+                    for (int j = 0; j < ctBtns.length; j++)
+                    {
+                        boolean on = j == idx;
+                        ctBtns[j].setBackground(on ? ACCENT : PANEL);
+                        ctBtns[j].setForeground(on ? Color.WHITE : TEXT);
+                        ctBtns[j].setBorder(new LineBorder(on ? ACCENT.darker() : BORDER, 1, true));
+                    }
+                });
+                ctBtns[i] = b;
+                ctSeg.add(b);
+            }
+            ctBtns[0].setBackground(ACCENT);
+            ctBtns[0].setForeground(Color.WHITE);
+            ctBtns[0].setBorder(new LineBorder(ACCENT.darker(), 1, true));
+            form.add(ctSeg);
+            form.add(Box.createVerticalStrut(12));
+
             JCheckBox actor = new JCheckBox("作为演员 (actor)", false);
             JCheckBox shadow = new JCheckBox("投射阴影 (shadow)", true);
             JCheckBox looping = new JCheckBox("循环 (looping)", false);
@@ -409,7 +453,7 @@ public class NativeDialog
                 closed[0] = true;
                 dlg.dispose();
                 onResult.accept(new CharResult(name.getText().trim(),
-                    selected[0], actor.isSelected(), shadow.isSelected(), looping.isSelected()));
+                    selected[0], selectedCT[0], actor.isSelected(), shadow.isSelected(), looping.isSelected()));
             };
 
             ok.addActionListener(e -> finish.run());
