@@ -334,10 +334,10 @@ public class EditorBridge
                 panel.getController().toggleInstantKeyframes();
                 break;
             case "newEntity":
-                panel.getController().createEntities();
+                openEntityDialog(panel);
                 break;
             case "newParticle":
-                newParticle(panel);
+                openParticleDialog(panel);
                 break;
             case "newItem":
                 openItemDialog(panel);
@@ -421,7 +421,7 @@ public class EditorBridge
     /* -------- tool / clip actions -------- */
 
     /** Create a new particle replay (like the entity panel's PARTICLE type). */
-    private static void newParticle(UIFilmPanel panel)
+    private static void newParticle(UIFilmPanel panel, String name)
     {
         Film film = panel.getData();
 
@@ -432,7 +432,7 @@ public class EditorBridge
 
         Replay replay = film.replays.addReplay();
         replay.form.set(new mchorse.bbs_mod.forms.forms.ParticleForm());
-        replay.label.set("粒子");
+        replay.label.set(name);
         panel.replayEditor.setReplay(replay);
         panel.showPanel(1);
         panel.fillData();
@@ -676,6 +676,56 @@ public class EditorBridge
 
                 panel.fillData();
             });
+        });
+    }
+
+    /** Pop a real OS window to name a new entity, then create it. */
+    private static void openEntityDialog(UIFilmPanel panel)
+    {
+        NativeDialog.textInput("新建实体", "实体名称：", "实体", name ->
+        {
+            if (name == null || name.isEmpty())
+            {
+                return;
+            }
+
+            Minecraft.getInstance().execute(() ->
+            {
+                Film film = panel.getData();
+
+                if (film == null)
+                {
+                    return;
+                }
+
+                panel.getController().createEntities();
+
+                java.util.List<Replay> list = film.replays.getList();
+
+                if (!list.isEmpty())
+                {
+                    Replay replay = list.get(list.size() - 1);
+
+                    replay.label.set(name);
+                    panel.replayEditor.setReplay(replay);
+                    panel.showPanel(1);
+                    panel.fillData();
+                }
+            });
+        });
+    }
+
+    /** Pop a real OS window to name a new particle, then create it. */
+    private static void openParticleDialog(UIFilmPanel panel)
+    {
+        NativeDialog.textInput("新建粒子", "粒子名称：", "粒子", name ->
+        {
+            if (name == null || name.isEmpty())
+            {
+                return;
+            }
+
+            Minecraft.getInstance().execute(() -> newParticle(panel, name));
         });
     }
 
