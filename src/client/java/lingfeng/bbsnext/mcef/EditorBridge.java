@@ -44,6 +44,9 @@ import net.minecraft.world.item.ItemStack;
 public class EditorBridge
 {
     private final UIFilmPanel panel;
+    /** ID of the sequence that click-to-add drops assets into. Set when the
+     *  user selects a sequence in the asset tree (enterSequence). */
+    private static String activeSequenceId = null;
     private static final Gson GSON = new Gson();
 
     public EditorBridge(UIFilmPanel panel)
@@ -154,6 +157,73 @@ public class EditorBridge
         }
 
         root.add("replays", replayArr);
+
+        /* Assets classified by form type for the asset box tree. Replays all
+         * live in film.replays but map to character/entity/particle/item. */
+        JsonArray charsArr = new JsonArray();
+        JsonArray entsArr = new JsonArray();
+        JsonArray partsArr = new JsonArray();
+        JsonArray itemsArr = new JsonArray();
+
+        if (film != null)
+        {
+            int i = 0;
+
+            for (Replay replay : film.replays.getList())
+            {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("index", i);
+                obj.addProperty("label", replay.label.get());
+
+                Form f = replay.form.get();
+                String cat = "entity";
+
+                if (f instanceof MobForm || f instanceof ModelForm)
+                {
+                    cat = "character";
+                }
+                else if (f instanceof ParticleForm)
+                {
+                    cat = "particle";
+                }
+                else if (f instanceof ItemForm)
+                {
+                    cat = "item";
+                }
+                else if (f instanceof BlockForm)
+                {
+                    cat = "entity";
+                }
+
+                obj.addProperty("cat", cat);
+
+                JsonArray bucket = entsArr;
+
+                if ("character".equals(cat))
+                {
+                    bucket = charsArr;
+                }
+                else if ("particle".equals(cat))
+                {
+                    bucket = partsArr;
+                }
+                else if ("item".equals(cat))
+                {
+                    bucket = itemsArr;
+                }
+
+                bucket.add(obj);
+
+                i++;
+            }
+        }
+
+        root.add("characters", charsArr);
+        root.add("entities", entsArr);
+        root.add("particles", partsArr);
+        root.add("items", itemsArr);
+
+        root.addProperty("activeSequence", activeSequenceId == null ? "" : activeSequenceId);
 
         /* Camera timeline clips */
         JsonArray clipArr = new JsonArray();
@@ -291,6 +361,16 @@ public class EditorBridge
                 BackpackService.remove(req.has("name") ? req.get("name").getAsString() : "");
                 panel.assetBin.refresh();
                 break;
+            case "enterSequence":
+                /* Select a sequence as the drop target for click-to-add. */
+                activeSequenceId = req.has("id") ? req.get("id").getAsString() : null;
+                break;
+            case "addToCurrent":
+                /* Click an asset -> it auto-enters the active (or first)
+                 * sequence. Characters map to the native "mcpr" ref type. */
+                return addToCurrent(bridge,
+                    req.has("type") ? req.get("type").getAsString() : "",
+                    req.has("id") ? req.get("id").getAsString() : "");
             default:
                 return "{\"ok\":false,\"error\":\"unknown action " + action + "\"}";
         }
@@ -578,8 +658,61 @@ public class EditorBridge
 
         Sequence sequence = sequences.create(current.name + " seq");
         sequences.addRef(sequence, Sequence.SequenceRef.SCENE, current.id);
+        activeSequenceId = sequence.id;
 
         panel.fillData();
+    }
+
+    /**
+     * Drop an asset into the active (or first) sequence. Characters use the
+     * native "mcpr" ref type; scenes/sequences map to their own types;
+     * entity/particle/item use a custom type string (persisted, visualized by
+     * the editor's ref list).
+     */
+    private static String addToCurrent(EditorBridge bridge, String type, String id)
+    {
+        SequenceManager sequences = SequenceManager.get();
+
+        if (sequences == null)
+        {
+            return "{\"ok\":false,\"error\":\"no sequence manager\"}";
+        }
+
+        Sequence target = null;
+
+        if (bridge.activeSequenceId != null)
+        {
+            target = sequences.getById(bridge.activeSequenceId);
+        }
+
+        if (target == null && !sequences.getSequences().isEmpty())
+        {
+            target = sequences.getSequences().get(0);
+        }
+
+        if (target == null)
+        {
+            return "{\"ok\":false,\"error\":\"no sequence to add into\"}";
+        }
+
+        String refType = type;
+
+        if ("character".equals(type))
+        {
+            refType = Sequence.SequenceRef.MCPR;
+        }
+        else if ("scene".equals(type))
+        {
+            refType = Sequence.SequenceRef.SCENE;
+        }
+        else if ("sequence".equals(type))
+        {
+            refType = Sequence.SequenceRef.SEQUENCE;
+        }
+
+        sequences.addRef(target, refType, id);
+
+        return "{\"ok\":true}";
     }
 
     /** Map the reference UI's left toolbar buttons to real BBS functions. */

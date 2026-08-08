@@ -27,8 +27,13 @@ import org.cef.callback.CefQueryCallback;
 import org.cef.handler.CefDisplayHandlerAdapter;
 import org.cef.handler.CefMessageRouterHandlerAdapter;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Base64;
+import net.fabricmc.loader.api.FabricLoader;
 
 /**
  * MCEF (Minecraft Chromium Embedded Framework) HTML editor integration.
@@ -162,7 +167,7 @@ public class MCEFUI
 
         try
         {
-            browser = mcef.createBrowser(editorPageDataUrl(), true);
+            browser = mcef.createBrowser(editorPageFileUrl(), true);
             browser.resize(scale(width), scale(height));
             browser.setFocus(true);
 
@@ -543,6 +548,59 @@ public class MCEFUI
     }
 
     /* -------- page -------- */
+
+    /** SVG icons bundled with the mod, extracted next to the HTML so the page
+     *  can reference them with plain relative <img src="svg/xxx.svg"> (real
+     *  files, not inlined). Kept in sync with src/.../ultralight/svg/. */
+    private static final String[] SVG_FILES = {
+        "work", "scene", "sequence", "character", "entity", "particle", "item",
+        "backpack", "camera", "play", "pause", "tostart", "undo", "redo",
+        "save", "close", "plus", "trash", "settings", "target"
+    };
+
+    /** Extract the editor HTML and its SVG icons to a real folder on disk and
+     *  load it via file:// so the page can reference external SVG files
+     *  (a data: URL page cannot resolve relative file references, and Chromium
+     *  blocks data: origins from loading file: resources). Falls back to a
+     *  data: URL if extraction fails. */
+    private static String editorPageFileUrl()
+    {
+        try
+        {
+            Path dir = FabricLoader.getInstance().getGameDir().resolve("bbs_editor");
+            Path svgDir = dir.resolve("svg");
+            Files.createDirectories(svgDir);
+
+            try (InputStream in = MCEFUI.class.getResourceAsStream("/assets/bbs/ultralight/editor_ui.html"))
+            {
+                if (in == null)
+                {
+                    return editorPageDataUrl();
+                }
+
+                Files.copy(in, dir.resolve("editor_ui.html"), StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            for (String name : SVG_FILES)
+            {
+                try (InputStream in = MCEFUI.class.getResourceAsStream("/assets/bbs/ultralight/svg/" + name + ".svg"))
+                {
+                    if (in != null)
+                    {
+                        Files.copy(in, svgDir.resolve(name + ".svg"), StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+
+            return dir.resolve("editor_ui.html").toUri().toString();
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.error("[MCEF] failed to extract editor page, falling back to data URL", t);
+
+            return editorPageDataUrl();
+        }
+    }
 
     /** Embed the editor HTML as a data: URL (works offline, no file server). */
     private static String editorPageDataUrl()
