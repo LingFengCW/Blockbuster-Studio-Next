@@ -349,17 +349,12 @@ public class SceneManager
 
         try
         {
-            MapType data = new MapType();
+            MapType data = this.exportSceneData(scene);
 
-            data.putString("type", "scene");
-            data.putString("id", scene.id);
-            data.putString("name", scene.name);
-            data.putString("background", scene.background);
-            data.putLong("createdAt", scene.createdAt);
-
-            Film film = this.loadFilm(scene);
-
-            data.put("film", film.toData());
+            if (data == null)
+            {
+                return null;
+            }
 
             File folder = mchorse.bbs_mod.BBSMod.getExportFolder();
             File file = new File(folder, this.sanitize(scene.name) + ".scenebbs");
@@ -375,6 +370,32 @@ public class SceneManager
 
             return null;
         }
+    }
+
+    /**
+     * Serialize a scene (descriptor + full Film payload) into a document.
+     * Shared by the file exporter and the backpack.
+     */
+    public MapType exportSceneData(Scene scene)
+    {
+        if (scene == null)
+        {
+            return null;
+        }
+
+        MapType data = new MapType();
+
+        data.putString("type", "scene");
+        data.putString("id", scene.id);
+        data.putString("name", scene.name);
+        data.putString("background", scene.background);
+        data.putLong("createdAt", scene.createdAt);
+
+        Film film = this.loadFilm(scene);
+
+        data.put("film", film.toData());
+
+        return data;
     }
 
     /** Import a previously exported scene document back into the project. */
@@ -394,12 +415,36 @@ public class SceneManager
                 return null;
             }
 
+            return this.importSceneData(map, file.getName().replace(".scenebbs", ""));
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+
+            return null;
+        }
+    }
+
+    /**
+     * Create a new scene in this project from a scene document. The scene
+     * always gets a fresh id, so importing the same document twice yields
+     * two independent scenes instead of overwriting one.
+     */
+    public Scene importSceneData(MapType map, String fallbackName)
+    {
+        if (map == null)
+        {
+            return null;
+        }
+
+        try
+        {
             String name = map.getString("name");
             String background = map.getString("background", "");
 
             if (name.isEmpty())
             {
-                name = file.getName().replace(".scenebbs", "");
+                name = fallbackName == null || fallbackName.isEmpty() ? "Scene" : fallbackName;
             }
 
             Scene scene = this.create(name, background);

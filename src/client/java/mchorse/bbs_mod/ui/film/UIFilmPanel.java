@@ -964,10 +964,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.disableContext();
         this.secretPlay.removeFromParent();
 
-        if (this.ultralightOverlay != null)
-        {
-            this.ultralightOverlay.setVisible(false);
-        }
+        /* Restore the native children before hiding the overlay - hiding it
+         * without restoring would leave every native child invisible, so the
+         * panel came back blank the next time it was opened. */
+        this.closeHtmlEditor();
     }
 
     private void disableContext()
