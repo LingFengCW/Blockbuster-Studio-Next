@@ -22,12 +22,6 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
 .menu-top-item:hover .menu-dropdown{display:block;}
 .menu-item{padding:5px 12px;font-size:12px;cursor:pointer;}
 .menu-item:hover{background:#094872;}
-/* 工具栏 */
-.toolbar{height:36px;background:#1f2229;display:flex;align-items:center;gap:4px;padding:0 10px;border-bottom:1px solid #111;}
-.toolbar button{display:flex;align-items:center;gap:5px;background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:5px 11px;font-size:12px;cursor:pointer;}
-.toolbar button:hover{background:#094872;color:#fff;}
-.toolbar .sep{width:1px;height:20px;background:#353a45;margin:0 4px;}
-.toolbar .spacer{flex:1;}
 .menu-divider{height:1px;background:#444;margin:3px 0;}
 /* 布局 */
 .editor{display:flex;flex-direction:column;height:calc(100vh - 58px);}
@@ -132,19 +126,6 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
   <div class="menu-top-item">窗口<div class="menu-dropdown">
     <div class="menu-item" data-a="togglePlay">预览播放</div>
   </div></div>
-</div>
-
-<div class="toolbar">
-  <button id="tbScene"><img class="ico" src="svg/scene.svg"> 新建场景</button>
-  <button id="tbChar"><img class="ico" src="svg/character.svg"> 新建角色</button>
-  <button id="tbEntity"><img class="ico" src="svg/entity.svg"> 新建实体</button>
-  <button id="tbParticle"><img class="ico" src="svg/particle.svg"> 新建粒子</button>
-  <button id="tbItem"><img class="ico" src="svg/item.svg"> 新建物品</button>
-  <button id="tbSeq"><img class="ico" src="svg/sequence.svg"> 新建序列</button>
-  <span class="sep"></span>
-  <button id="tbAction"><img class="ico" src="svg/settings.svg"> 动作编辑器</button>
-  <span class="spacer"></span>
-  <button id="tbEquip"><img class="ico" src="svg/backpack.svg"> 装备</button>
 </div>
 
 <div class="editor">
@@ -358,14 +339,6 @@ btnUndo.onclick = function(){ send('undo'); };
 btnRedo.onclick = function(){ send('redo'); };
 btnNewSeq.onclick = function(){ send('newSequence'); };
 btnEquip.onclick = function(){ if(selectedClip >= 0) send('openEquip', { index: selectedClip }); };
-tbScene.onclick = function(){ send('newScene'); };
-tbChar.onclick = function(){ send('newCharacter'); };
-tbEntity.onclick = function(){ send('newEntity'); };
-tbParticle.onclick = function(){ send('newParticle'); };
-tbItem.onclick = function(){ send('newItem'); };
-tbSeq.onclick = function(){ send('newSequence'); };
-tbAction.onclick = function(){ send('openActionEditor'); };
-tbEquip.onclick = function(){ if(selectedClip >= 0) send('openEquip', { index: selectedClip }); };
 document.querySelectorAll('.menu-item').forEach(function(it){ it.onclick = function(e){ e.stopPropagation(); var a = it.getAttribute('data-a'); if(!a) return; var p = {}; if(it.getAttribute('data-mode') != null) p.mode = parseInt(it.getAttribute('data-mode')); if(it.getAttribute('data-op') != null) p.op = it.getAttribute('data-op'); if(it.getAttribute('data-index') != null) p.index = parseInt(it.getAttribute('data-index')); send(a, p); hideMenus(); }; });
 assetList.addEventListener('contextmenu', function(e){ if(e.target === assetList){ e.preventDefault(); showMenu(assetCtx, e); } });
 
