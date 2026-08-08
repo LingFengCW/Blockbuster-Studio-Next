@@ -7,9 +7,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.colors.Colors;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.textures.GpuSampler;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.systems.RenderSystem;
 
 /**
  * Full-screen overlay that renders the MCEF browser texture onto the screen
@@ -101,9 +98,11 @@ public class UIOverlay extends UIElement
          * actually blitted (area.x/area.y), so clicks map to the right spot. */
         MCEFUI.setViewportOffset(this.area.x, this.area.y);
 
-        /* The browser frame is bridged to a vanilla texture Identifier
-         * (GlTextureBridge) and drawn via the supported blit() path. A raw
-         * GpuTextureView cannot be blitted directly on MC 26.2. */
+        /* The browser frame is composited onto the screen by MCEFUI.renderBrowser,
+         * called from UIScreen.extractRenderState (the only path that reaches the
+         * screen on MC 26.2). Here we only draw a dark backdrop until the first
+         * frame is available, so the overlay is visibly active while MCEF warms
+         * up. No direct blit() - it would never draw. */
         GpuTextureView view = MCEFUI.getTextureView();
 
         if (this.dbgFrames < 6)
@@ -114,33 +113,7 @@ public class UIOverlay extends UIElement
                 view == null, MCEFUI.isReady());
         }
 
-        if (view != null)
-        {
-            try
-            {
-                var graphics = context.batcher.getContext();
-
-                if (graphics != null)
-                {
-                    /* Draw MCEF's native GpuTextureView directly (MC 26.2
-                     * supported path - no TextureManager wrapper). */
-                    GpuSampler sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
-                    graphics.blit(view, sampler, this.area.x, this.area.y, this.area.w, this.area.h,
-                        0.0F, 0.0F, 1.0F, 1.0F);
-                }
-                else
-                {
-                    /* No GUI extractor this frame - at least show a backdrop
-                     * so the overlay is visibly active (and eats input). */
-                    context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A75);
-                }
-            }
-            catch (Throwable e)
-            {
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A75);
-            }
-        }
-        else if (MCEFUI.isReady())
+        if (view == null && MCEFUI.isReady())
         {
             /* Browser exists but has no frame yet - show a dark backdrop. */
             context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A75);

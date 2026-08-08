@@ -12,6 +12,13 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.state.gui.BlitRenderState;
+import org.joml.Matrix3x2f;
 import org.cef.CefSettings.LogSeverity;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
@@ -35,9 +42,11 @@ import java.util.Base64;
  *     ({@link #createBrowser(int, int, EditorBridge)}).
  *   - Events flow in from {@link UIScreen} (which already receives the
  *     native MC 26.2 MouseButtonEvent/KeyEvent/CharacterEvent objects).
- *   - Rendering: CEF's onPaint pixels (BGRA) are captured and uploaded to a
- *     vanilla DynamicTexture, then blitted into the GUI via
- *     GuiGraphics.blit() on MC 26.2 (no GL texture readback).
+ *   - Rendering: MCEF's native GpuTextureView is composited into the GUI by
+ *     {@link #renderBrowser(GuiGraphicsExtractor, UIBaseMenu, int, int)}, which
+ *     adds a BlitRenderState to the live guiRenderState during
+ *     UIScreen.extractRenderState - the only path that reaches the screen on
+ *     MC 26.2 (a direct GuiGraphics.blit(GpuTextureView, ...) does NOT draw).
  *   - Java -> JS: executeJavaScript pushes the editor state as
  *     `window.bbsState`.
  *   - JS -> Java: CEF JSQuery (`window.javaQuery`) routes actions to
@@ -451,8 +460,8 @@ public class MCEFUI
     /* -------- rendering -------- */
 
     /** Direct handle to MCEF's current browser frame texture, or null until
-     *  the first paint. Draw it with
-     *  {@code GuiGraphics.blit(GpuTextureView, GpuSampler, ...)}. */
+     *  the first paint. It is composited onto the screen by
+     *  {@link #renderBrowser(GuiGraphicsExtractor, UIBaseMenu, int, int)}. */
     public static GpuTextureView getTextureView()
     {
         if (browser == null)
@@ -475,6 +484,62 @@ public class MCEFUI
     public static boolean isReady()
     {
         return browser != null;
+    }
+
+    /**
+     * Composite the MCEF browser frame into the GUI render state.
+     *
+     * <p>MC 26.2 draws the whole screen from a deferred {@code GuiRenderState}
+     * built during {@code extractRenderState}. A raw {@code GpuTextureView}
+     * therefore cannot be drawn with a normal {@code GuiGraphics.blit(...)}
+     * inside a render method - that call never reaches the screen and leaves
+     * only the gray fallback backdrop. The only correct path (and exactly
+     * what the official MCEF Modern test mod does) is to add a
+     * {@link BlitRenderState} to {@code guiRenderState} here, in
+     * {@code extractRenderState}. The browser is drawn fullscreen, on top of
+     * every native dashboard element, so the HTML editor owns the whole view.
+     *
+     * @param context the live extractor bound by UIScreen this frame
+     * @param menu    the active base menu (only draws when the HTML editor is open)
+     * @param width   full GUI (scaled) width
+     * @param height  full GUI (scaled) height
+     */
+    public static void renderBrowser(GuiGraphicsExtractor context, UIBaseMenu menu, int width, int height)
+    {
+        if (browser == null || !isActive(menu))
+        {
+            return;
+        }
+
+        GpuTextureView view = getTextureView();
+
+        if (view == null)
+        {
+            return;
+        }
+
+        try
+        {
+            context.guiRenderState.addGuiElement(new BlitRenderState(
+                RenderPipelines.GUI_TEXTURED,
+                TextureSetup.singleTexture(view, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),
+                new Matrix3x2f(context.pose()),
+                0,
+                0,
+                width,
+                height,
+                0.0F,
+                1.0F,
+                0.0F,
+                1.0F,
+                0xFFFFFFFF,
+                context.scissorStack.peek()
+            ));
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.error("[MCEF] renderBrowser failed", t);
+        }
     }
 
     /* -------- page -------- */
