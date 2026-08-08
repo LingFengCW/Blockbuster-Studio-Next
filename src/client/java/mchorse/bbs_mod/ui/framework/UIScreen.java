@@ -261,6 +261,13 @@ public class UIScreen extends Screen implements IFileDropListener
          * of desktop. Draw a BBS border around the whole screen - skipped in
          * fullscreen where there is no border to fake. */
         this.drawWindowFrame(context);
+
+        /* Composite the HTML (MCEF) editor on top of all native dashboard UI
+         * when it is open. This must run inside extractRenderState - after the
+         * native UI has been extracted - so the browser frame is the topmost
+         * GUI element and actually reaches the screen (a normal blit() call
+         * inside render() never does on MC 26.2). */
+        lingfeng.bbsnext.mcef.MCEFUI.renderBrowser(context, this.menu, this.width, this.height);
     }
 
     private void drawWindowFrame(GuiGraphicsExtractor g)

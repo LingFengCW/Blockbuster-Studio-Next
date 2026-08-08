@@ -113,6 +113,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
      * UIDataDashboardPanel<Film> auto "select film" popup. */
     private boolean openDirectToHtml = false;
 
+    /* Remembered visibility of the dashboard chrome (bottom task bar + pinned
+     * icons) so it can be restored when the HTML editor closes. While the HTML
+     * editor is open the native chrome is hidden: it would otherwise sit dead
+     * under the full-screen browser (the browser consumes every input event
+     * while active), so the HTML page fully owns the dashboard. */
+    private boolean chromeTaskBarVisible = true;
+    private boolean chromePinnedVisible = true;
+
     public UIIcon duplicateFilm;
 
     /* Main editors */
@@ -475,6 +483,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.ultralightOverlay.setVisible(true);
 
+        /* Hide the native dashboard chrome (bottom task bar + pinned icons).
+         * The full-screen HTML editor owns all navigation now; leaving the
+         * native chrome visible would just present dead, unclickable buttons
+         * (the browser consumes every input event while it is active). */
+        var dashboardPanels = this.dashboard.getPanels();
+
+        this.chromeTaskBarVisible = dashboardPanels.taskBar.isVisible();
+        this.chromePinnedVisible = dashboardPanels.pinned.isVisible();
+        dashboardPanels.taskBar.setVisible(false);
+        dashboardPanels.pinned.setVisible(false);
+
         /* HTML 编辑器模式：UIFilmPanel 底层仍是"影片(Film)"数据面板，构造时
          * fill(null)，基类会在首次 resize 自动弹出"选影片"面板、并在 data==null
          * 时画指向它的箭头。这里塞一个占位 Film 让 data 非空（仅抑制原生提示，
@@ -523,6 +542,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.nativeVisibility.clear();
+
+        /* Restore the native dashboard chrome that openHtmlEditor() hid. */
+        var dashboardPanels = this.dashboard.getPanels();
+
+        dashboardPanels.taskBar.setVisible(this.chromeTaskBarVisible);
+        dashboardPanels.pinned.setVisible(this.chromePinnedVisible);
 
         if (this.data == this.placeholderRef)
         {
