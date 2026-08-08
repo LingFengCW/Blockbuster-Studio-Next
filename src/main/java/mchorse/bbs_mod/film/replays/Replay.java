@@ -35,6 +35,9 @@ public class Replay extends ValueGroup
 
     public final ValueBoolean actor = new ValueBoolean("actor", false);
     public final ValueBoolean fp = new ValueBoolean("fp", false);
+    /** Character kind: "keyframe" (driven by {@link #keyframes}) or "action"
+     *  (driven by {@link #actions} ActionClips). Exposed in the action editor. */
+    public final ValueString characterType = new ValueString("characterType", "keyframe");
     public final ValueBoolean relative = new ValueBoolean("relative", false);
     public final ValuePoint relativeOffset = new ValuePoint("relativeOffset", new Point(0, 0, 0));
 
@@ -59,6 +62,7 @@ public class Replay extends ValueGroup
 
         this.add(this.actor);
         this.add(this.fp);
+        this.add(this.characterType);
         this.add(this.relative);
         this.add(this.relativeOffset);
 
