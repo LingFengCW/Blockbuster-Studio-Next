@@ -175,7 +175,7 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
     <div class="ctx-main-item" data-a="importAsset">导入素材</div>
   </div></div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="save">保存项目</div>
+  <div class="ctx-main-item" data-a="save">保存作品</div>
   <div class="ctx-main-item" data-a="closeEditor">关闭编辑器</div>
 </div>
 
@@ -374,7 +374,7 @@ document.addEventListener('click', function(e){
     var idx = item.hasAttribute('data-idx') ? parseInt(item.getAttribute('data-idx')) : selectedClip;
     sendAction({a:'clipOp', op:op, index:idx});
   }
-  else if (a === 'importAsset') notify('请在文件资源管理器中把素材放入 projects 目录');
+  else if (a === 'importAsset') notify('请在文件资源管理器中把素材放入作品目录（projects）');
   else sendAction({a:a});
 });
 
