@@ -106,6 +106,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     /* Remembered visibility of the native (old) editor UI components, so we
      * can restore them exactly when the HTML editor closes. */
     private final java.util.Map<mchorse.bbs_mod.ui.framework.elements.UIElement, Boolean> nativeVisibility = new java.util.IdentityHashMap<>();
+    private Film placeholderRef = null;
 
     public UIIcon duplicateFilm;
 
@@ -450,6 +451,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.ultralightOverlay.setVisible(true);
 
+        /* HTML 编辑器模式：UIFilmPanel 底层仍是"影片(Film)"数据面板，构造时
+         * fill(null)，基类会在首次 resize 自动弹出"选影片"面板、并在 data==null
+         * 时画指向它的箭头。这里塞一个占位 Film 让 data 非空（仅抑制原生提示，
+         * 不持久化），并彻底抑制自动选影片弹窗。 */
+        if (this.data == null)
+        {
+            this.placeholderRef = new Film();
+            this.data = this.placeholderRef;
+        }
+
+        this.suppressFilmPicker();
+
         for (var child : this.getChildren())
         {
             if (child instanceof mchorse.bbs_mod.ui.framework.elements.UIElement e && child != this.ultralightOverlay)
@@ -487,7 +500,53 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.nativeVisibility.clear();
 
+        if (this.data == this.placeholderRef)
+        {
+            this.data = null;
+        }
+
+        this.placeholderRef = null;
+
         this.ultralightOverlay.setVisible(false);
+    }
+
+    /** 抑制基类 UIDataDashboardPanel 在首次 resize 时自动弹出的"选影片"面板。
+     *  openOverlay.clickItself() 经 addOverlay 把选择面板弹到 overlay 层，它不在
+     *  getChildren() 内，故 openHtmlEditor 的隐藏循环盖不到，必须在 resize 之前
+     *  把基类的 openedBefore 置真以跳过自动弹出。 */
+    private void suppressFilmPicker()
+    {
+        try
+        {
+            java.lang.reflect.Field f = mchorse.bbs_mod.ui.dashboard.panels.UIDataDashboardPanel.class.getDeclaredField("openedBefore");
+
+            f.setAccessible(true);
+            f.setBoolean(this, true);
+        }
+        catch (Exception ignored) {}
+
+        if (this.openOverlay != null)
+        {
+            this.openOverlay.setVisible(false);
+        }
+    }
+
+    @Override
+    public void resize()
+    {
+        boolean html = this.ultralightOverlay != null && this.ultralightOverlay.isVisible();
+
+        if (html)
+        {
+            this.suppressFilmPicker();
+        }
+
+        super.resize();
+
+        if (html)
+        {
+            this.suppressFilmPicker();
+        }
     }
 
     /** Toggle the HTML (MCEF) editor overlay. */
@@ -1113,6 +1172,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void forceSave()
     {
+        /* HTML 编辑器模式下的占位 Film 不持久化，避免污染作品存档。 */
+        if (this.ultralightOverlay != null && this.ultralightOverlay.isVisible() && this.data == this.placeholderRef)
+        {
+            return;
+        }
+
         super.forceSave();
 
         this.markClean();
