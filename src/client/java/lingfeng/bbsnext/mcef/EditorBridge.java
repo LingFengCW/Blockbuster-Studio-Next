@@ -224,6 +224,33 @@ public class EditorBridge
         root.add("particles", partsArr);
         root.add("items", itemsArr);
 
+        /* Action characters' actions surfaced into the asset box so the user
+         * can drag them onto the path. */
+        JsonArray actionAssets = new JsonArray();
+        if (film != null)
+        {
+            int ci = 0;
+            for (Replay r : film.replays.getList())
+            {
+                if ("action".equals(r.characterType.get()))
+                {
+                    int ai = 0;
+                    for (Clip c : r.actions.get())
+                    {
+                        JsonObject a = new JsonObject();
+                        a.addProperty("charIndex", ci);
+                        a.addProperty("charLabel", r.getName());
+                        a.addProperty("actionIndex", ai);
+                        a.addProperty("title", c.title.get().isEmpty() ? "(未命名动作)" : c.title.get());
+                        actionAssets.add(a);
+                        ai++;
+                    }
+                }
+                ci++;
+            }
+        }
+        root.add("actionAssets", actionAssets);
+
         root.addProperty("activeSequence", activeSequenceId == null ? "" : activeSequenceId);
 
         /* Camera timeline clips */
@@ -310,7 +337,9 @@ public class EditorBridge
                 openCharacterDialog(panel);
                 break;
             case "openActionEditor":
-                openActionEditor(panel, req.has("index") ? req.get("index").getAsInt() : -1);
+                openActionEditor(panel,
+                    req.has("index") ? req.get("index").getAsInt() : -1,
+                    req.has("action") ? req.get("action").getAsInt() : -1);
                 break;
             case "deleteReplay":
                 deleteReplay(panel, req.get("index").getAsInt());
@@ -730,27 +759,30 @@ public class EditorBridge
     }
 
     /** Open the standalone action-editor window for a character (Replay). */
-    private static void openActionEditor(UIFilmPanel panel, int index)
+    private static void openActionEditor(UIFilmPanel panel, int index, int actionIndex)
     {
         Film film = panel.getData();
 
-        if (film == null)
+        if (film == null || film.replays.getList().isEmpty())
         {
             return;
         }
 
-        Replay replay = null;
-
-        if (index >= 0 && index < film.replays.getList().size())
+        if (index < 0 || index >= film.replays.getList().size())
         {
-            replay = film.replays.getList().get(index);
-        }
-        else if (!film.replays.getList().isEmpty())
-        {
-            replay = film.replays.getList().get(0);
+            /* Prefer the first action character, else the first character. */
+            index = 0;
+            for (int i = 0; i < film.replays.getList().size(); i++)
+            {
+                if ("action".equals(film.replays.getList().get(i).characterType.get()))
+                {
+                    index = i;
+                    break;
+                }
+            }
         }
 
-        ActionEditorDialog.open(replay);
+        ActionEditorDialog.open(film.replays.getList(), index, actionIndex);
     }
 
     /**

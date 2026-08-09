@@ -3,10 +3,12 @@ package lingfeng.bbsnext.mcef;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.actions.types.LocomotionActionClip;
+import mchorse.bbs_mod.actions.types.ScriptActionClip;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -16,9 +18,16 @@ import net.minecraft.world.item.ItemStack;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.TransferHandler;
 import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,22 +35,21 @@ import java.util.List;
  * Standalone "动作编辑器" window for a single character (Replay).
  *
  * <p>Opened from the editor toolbar, it pops a real OS window (always on top,
- * non-modal) so it does NOT depend on the Minecraft in-game window. The user
- * can keep the MC viewport interactive (e.g. actor control to drag a walking
- * character's endpoint) while this window edits the character's actions.</p>
+ * non-modal) so it does NOT depend on the Minecraft in-game window.</p>
  *
- * <p>Two character kinds (chosen at creation and toggled here):
+ * <p>Two character kinds:
  * <ul>
  *   <li><b>关键帧角色 (keyframe)</b> - body movement is driven by
  *       {@link Replay#keyframes} keyframe channels; the left list shows each
  *       body channel and the right panel edits its keyframes.</li>
  *   <li><b>纯动作角色 (action)</b> - driven by {@link Replay#actions}
- *       (ActionClips); the left list shows the actions, the right panel edits
- *       each action's timeline (frequency = 每组帧数) and parameters.</li>
+ *       (ActionClips). The left list shows the actions (and, in "路径" mode,
+ *       the walking-path keyframe channels x/y/z/yaw). Actions can be dragged
+ *       from the list straight onto the timeline to set their start tick.</li>
  * </ul>
  *
- * <p>The ▼ next to the character name opens a popup with the character's
- * armor info (from the keyframe channels) and the list of actions.</p>
+ * <p>The top character selector pulls any character into this window (the
+ * "拖进来" step); the ▼ next to the name opens armor info + the action list.</p>
  */
 public class ActionEditorDialog
 {
@@ -54,7 +62,12 @@ public class ActionEditorDialog
     private static final Color BORDER = new Color(0x353a45);
     private static final Color ACCENT = new Color(0x4c8dff);
 
-    private final Replay replay;
+    private final List<Replay> replays;
+    private int replayIndex;
+    private Replay replay;
+
+    /* action-mode sub mode: "action" (list actions) | "path" (list path channels) */
+    private String leftMode = "action";
 
     private JDialog dlg;
     private JLabel nameLabel;
@@ -64,32 +77,42 @@ public class ActionEditorDialog
     private List<Object> backing = new ArrayList<>();
     private JPanel rightPanel;
     private TrackCanvas track;
+    private JPanel modeRow;
 
-    /** Currently selected item (ActionClip or KeyframeChannel<Double>). */
+    /** Currently selected item (ActionClip / ScriptActionClip / KeyframeChannel<Double>). */
     private Object selected = null;
 
-    public ActionEditorDialog(Replay replay)
+    public ActionEditorDialog(List<Replay> replays, int index)
     {
-        this.replay = replay;
+        this.replays = replays;
+        this.replayIndex = index;
+        this.replay = replays.get(index);
     }
 
-    public static void open(Replay replay)
+    public static void open(List<Replay> replays, int index, int actionIndex)
     {
-        if (replay == null)
+        if (replays == null || replays.isEmpty())
         {
             return;
         }
 
-        SwingUtilities.invokeLater(() -> new ActionEditorDialog(replay).build());
+        if (index < 0 || index >= replays.size())
+        {
+            index = 0;
+        }
+
+        final int idx = index;
+        final int act = actionIndex;
+        SwingUtilities.invokeLater(() -> new ActionEditorDialog(replays, idx).build(act));
     }
 
-    private void build()
+    private void build(int actionIndex)
     {
         dlg = new JDialog((Frame) null, "动作编辑器", false);
         dlg.setAlwaysOnTop(true);
         dlg.setResizable(true);
         dlg.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        dlg.setSize(940, 580);
+        dlg.setSize(960, 600);
         dlg.getContentPane().setBackground(BG);
         dlg.setLayout(new BorderLayout(0, 0));
 
@@ -100,10 +123,15 @@ public class ActionEditorDialog
         split.setBackground(BORDER);
         split.setLeftComponent(buildLeft());
         split.setRightComponent(buildRight());
-        split.setDividerLocation(300);
+        split.setDividerLocation(320);
         dlg.add(split, BorderLayout.CENTER);
 
         refresh();
+
+        if (actionIndex >= 0 && actionIndex < replay.actions.get().size())
+        {
+            selectObject(replay.actions.get().get(actionIndex));
+        }
 
         dlg.setLocationRelativeTo(null);
         dlg.toFront();
@@ -120,6 +148,25 @@ public class ActionEditorDialog
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         left.setOpaque(false);
+
+        /* Character selector: pull any character into this window. */
+        String[] names = new String[replays.size()];
+        for (int i = 0; i < replays.size(); i++)
+        {
+            names[i] = (i + 1) + ". " + replays.get(i).getName();
+        }
+        JComboBox<String> charSel = new JComboBox<>(names);
+        charSel.setSelectedIndex(replayIndex);
+        charSel.setBackground(FIELD);
+        charSel.setForeground(TEXT);
+        charSel.setMaximumSize(new Dimension(220, 30));
+        charSel.addActionListener(e ->
+        {
+            replayIndex = charSel.getSelectedIndex();
+            replay = replays.get(replayIndex);
+            refresh();
+        });
+        left.add(charSel);
 
         JButton drop = new JButton("▼");
         drop.setFocusPainted(false);
@@ -165,6 +212,7 @@ public class ActionEditorDialog
         b.addActionListener(e ->
         {
             mc(() -> replay.characterType.set(value));
+            leftMode = "action";
             refresh();
         });
         return b;
@@ -192,10 +240,7 @@ public class ActionEditorDialog
             JMenuItem it = new JMenuItem(clip.title.get().isEmpty() ? "(未命名动作)" : clip.title.get());
             it.setBackground(PANEL);
             it.setForeground(TEXT);
-            it.addActionListener(e ->
-            {
-                selectObject(clip);
-            });
+            it.addActionListener(e -> selectObject(clip));
             menu.add(it);
         }
 
@@ -219,16 +264,32 @@ public class ActionEditorDialog
         left.setBackground(PANEL);
         left.setBorder(new LineBorder(BORDER, 0, true));
 
+        JPanel north = new JPanel(new BorderLayout(0, 6));
+        north.setOpaque(false);
+        north.setBorder(new EmptyBorder(8, 10, 6, 10));
+
         JLabel title = new JLabel("动作");
         title.setForeground(MUTED);
-        title.setBorder(new EmptyBorder(8, 10, 6, 10));
-        left.add(title, BorderLayout.NORTH);
+        north.add(title, BorderLayout.NORTH);
+
+        /* action/路径 toggle (only meaningful for action characters) */
+        modeRow = new JPanel(new GridLayout(1, 2, 6, 0));
+        modeRow.setOpaque(false);
+        JButton mAct = modeBtn("动作", "action");
+        JButton mPath = modeBtn("路径", "path");
+        modeRow.add(mAct);
+        modeRow.add(mPath);
+        north.add(modeRow, BorderLayout.SOUTH);
+
+        left.add(north, BorderLayout.NORTH);
 
         list = new JList<>(listModel);
         list.setBackground(FIELD);
         list.setForeground(TEXT);
         list.setSelectionBackground(ACCENT);
         list.setFixedCellHeight(26);
+        list.setDragEnabled(true);
+        list.setTransferHandler(new ActionListTransferHandler());
         list.addMouseListener(new MouseAdapter()
         {
             @Override
@@ -263,11 +324,31 @@ public class ActionEditorDialog
         return left;
     }
 
+    private JButton modeBtn(String label, String value)
+    {
+        JButton b = new JButton(label);
+        b.setFocusPainted(false);
+        b.setOpaque(true);
+        b.setBorder(new LineBorder(BORDER, 1, true));
+        b.addActionListener(e ->
+        {
+            leftMode = value;
+            refresh();
+        });
+        return b;
+    }
+
     private void onNew()
     {
         if (!"action".equals(replay.characterType.get()))
         {
             JOptionPane.showMessageDialog(dlg, "关键帧角色请直接选中左侧身体通道，在右侧添加关键帧。", "提示", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        if ("path".equals(leftMode))
+        {
+            JOptionPane.showMessageDialog(dlg, "路径关键帧请在右侧直接添加帧（x / z / yaw 等）。", "提示", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
@@ -283,7 +364,8 @@ public class ActionEditorDialog
             {"放置方块", "place_block", null},
             {"聊天", "chat", null},
             {"命令", "command", null},
-            {"丢物品", "drop_item", null}
+            {"丢物品", "drop_item", null},
+            {"脚本动作", "script", null}
         };
         for (String[] o : opts)
         {
@@ -326,6 +408,12 @@ public class ActionEditorDialog
             selected = null;
             refresh();
         }
+        else if (selected instanceof ScriptActionClip)
+        {
+            mc(() -> replay.actions.remove((Clip) selected));
+            selected = null;
+            refresh();
+        }
         else if (selected instanceof KeyframeChannel)
         {
             mc(() -> ((KeyframeChannel<?>) selected).getKeyframes().clear());
@@ -345,6 +433,7 @@ public class ActionEditorDialog
         track = new TrackCanvas();
         track.setPreferredSize(new Dimension(Integer.MAX_VALUE, 90));
         track.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        track.setTransferHandler(new TrackDropHandler());
 
         JScrollPane scroller = new JScrollPane(rightPanel);
         scroller.setBackground(PANEL);
@@ -363,7 +452,67 @@ public class ActionEditorDialog
     {
         rightPanel.removeAll();
 
-        if (selected instanceof ActionClip ac)
+        if (selected instanceof ScriptActionClip sac)
+        {
+            rightPanel.add(headerLabel("脚本动作 · 自定义参数"));
+            rightPanel.add(muted("每个数字可被外部工具/社区读取，可单独导出为文件分享。"));
+            rightPanel.add(Box.createVerticalStrut(8));
+
+            JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+            addRow.setOpaque(false);
+            JButton addP = new JButton("+ 添加数字");
+            styleSmallBtn(addP);
+            addP.addActionListener(e -> mc(() ->
+            {
+                sac.params.add(new ValueFloat(String.valueOf(sac.params.getAllTyped().size()), 0F));
+                refreshRight();
+            }));
+            addRow.add(addP);
+            rightPanel.add(addRow);
+            rightPanel.add(Box.createVerticalStrut(6));
+
+            int pi = 0;
+            for (ValueFloat v : sac.params.getList())
+            {
+                final int idx = pi++;
+                JPanel row = new JPanel(new BorderLayout(8, 0));
+                row.setOpaque(false);
+                row.add(muted("参数 " + idx), BorderLayout.WEST);
+                JSpinner sp = new JSpinner(new SpinnerNumberModel(v.get().doubleValue(), -1e9, 1e9, 0.1));
+                styleSpinner(sp);
+                sp.addChangeListener(e -> mc(() -> v.set(((Double) sp.getValue()).floatValue())));
+                row.add(sp, BorderLayout.CENTER);
+                JButton del = new JButton("删除");
+                styleSmallBtn(del);
+                del.addActionListener(e -> mc(() ->
+                {
+                    sac.params.getAllTyped().remove(idx);
+                    refreshRight();
+                }));
+                row.add(del, BorderLayout.EAST);
+                rightPanel.add(row);
+            }
+
+            rightPanel.add(Box.createVerticalStrut(10));
+            JButton export = new JButton("导出为文件 (.json)");
+            styleSmallBtn(export);
+            export.addActionListener(e ->
+            {
+                File out = sac.exportScript(Minecraft.getInstance().gameDirectory);
+                if (out != null)
+                {
+                    JOptionPane.showMessageDialog(dlg, "已导出：\n" + out.getAbsolutePath(), "导出成功", JOptionPane.INFORMATION_MESSAGE);
+                }
+                else
+                {
+                    JOptionPane.showMessageDialog(dlg, "导出失败（无法写入文件）。", "导出失败", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+            rightPanel.add(export);
+
+            track.setData(List.of(new double[]{0, 0.5}, new double[]{1, 0.5}));
+        }
+        else if (selected instanceof ActionClip ac)
         {
             rightPanel.add(headerLabel("动作时间轴"));
             rightPanel.add(track);
@@ -385,6 +534,12 @@ public class ActionEditorDialog
                 row.add(muted("(走路/奔跑/空闲)"));
                 rightPanel.add(row);
                 rightPanel.add(numberRow("步长 (每步方块)", (int) (loc.step.get() * 10), v -> mc(() -> loc.step.set(v / 10F))));
+            }
+
+            if (!(ac instanceof ScriptActionClip))
+            {
+                rightPanel.add(Box.createVerticalStrut(6));
+                rightPanel.add(muted("提示：从左侧列表把动作拖到上方时间轴，即可设置它的起始帧。"));
             }
 
             track.setData(List.of(new double[]{0, 0.5}, new double[]{1, 0.5}));
@@ -443,6 +598,7 @@ public class ActionEditorDialog
         else
         {
             rightPanel.add(headerLabel("请从左侧选择一个动作或身体通道"));
+            rightPanel.add(muted("动作角色：选「动作」模式拖动作进时间轴，或切「路径」模式编辑行走路径关键帧。"));
         }
 
         rightPanel.revalidate();
@@ -462,17 +618,32 @@ public class ActionEditorDialog
             typeBtns[i].setBorder(new LineBorder(on ? ACCENT.darker() : BORDER, 1, true));
         }
         nameLabel.setText(replay.getName());
+        modeRow.setVisible(action);
 
         listModel.clear();
         backing.clear();
 
         if (action)
         {
-            for (Clip clip : replay.actions.get())
+            if ("path".equals(leftMode))
             {
-                String t = clip.title.get();
-                listModel.addElement((t.isEmpty() ? "(未命名动作)" : t) + "  [" + clip.tick.get() + "→" + (clip.tick.get() + clip.duration.get()) + "]");
-                backing.add(clip);
+                /* Walking-path keyframe channels. */
+                List<KeyframeChannel<Double>> path = java.util.Arrays.asList(
+                    replay.keyframes.x, replay.keyframes.y, replay.keyframes.z, replay.keyframes.yaw);
+                for (KeyframeChannel<Double> ch : path)
+                {
+                    listModel.addElement(ch.getId() + "  (" + ch.getKeyframes().size() + " 帧)");
+                    backing.add(ch);
+                }
+            }
+            else
+            {
+                for (Clip clip : replay.actions.get())
+                {
+                    String t = clip.title.get();
+                    listModel.addElement((t.isEmpty() ? "(未命名动作)" : t) + "  [" + clip.tick.get() + "→" + (clip.tick.get() + clip.duration.get()) + "]");
+                    backing.add(clip);
+                }
             }
         }
         else
@@ -499,7 +670,6 @@ public class ActionEditorDialog
 
     private static Class<?> typeArg(KeyframeChannel<?> ch)
     {
-        /* KeyframeChannel<Double> reports Double for the animatable channels. */
         try
         {
             return ch.getKeyframes().isEmpty() ? Double.class : ch.getKeyframes().get(0).getValue().getClass();
@@ -507,6 +677,77 @@ public class ActionEditorDialog
         catch (Throwable t)
         {
             return Double.class;
+        }
+    }
+
+    /* ---------------- drag & drop (list -> timeline) ---------------- */
+
+    private class ActionListTransferHandler extends TransferHandler
+    {
+        @Override
+        protected Transferable createTransferable(JComponent c)
+        {
+            int i = list.getSelectedIndex();
+            if (i < 0 || i >= backing.size() || !(backing.get(i) instanceof ActionClip))
+            {
+                return null;
+            }
+            return new StringSelection("act:" + i);
+        }
+
+        @Override
+        public int getSourceActions(JComponent c)
+        {
+            return COPY;
+        }
+    }
+
+    private class TrackDropHandler extends TransferHandler
+    {
+        @Override
+        public boolean canImport(TransferSupport support)
+        {
+            return support.isDataFlavorSupported(DataFlavor.stringFlavor)
+                && "action".equals(replay.characterType.get())
+                && !"path".equals(leftMode);
+        }
+
+        @Override
+        public boolean importData(TransferSupport support)
+        {
+            if (!canImport(support))
+            {
+                return false;
+            }
+
+            try
+            {
+                String data = (String) support.getTransferable().getTransferData(DataFlavor.stringFlavor);
+                if (data == null || !data.startsWith("act:"))
+                {
+                    return false;
+                }
+
+                int i = Integer.parseInt(data.substring(4));
+                if (i < 0 || i >= backing.size() || !(backing.get(i) instanceof ActionClip ac))
+                {
+                    return false;
+                }
+
+                int maxTick = track.getMaxTick();
+                int x = support.getDropLocation().getDropPoint().x;
+                int tick = (int) Math.round(((double) x / Math.max(1, track.getWidth())) * maxTick);
+                tick = Math.max(0, Math.min(tick, maxTick));
+
+                int finalTick = tick;
+                mc(() -> ac.tick.set(finalTick));
+                selectObject(ac);
+                return true;
+            }
+            catch (UnsupportedFlavorException | IOException ex)
+            {
+                return false;
+            }
         }
     }
 
@@ -578,7 +819,7 @@ public class ActionEditorDialog
         b.setBackground(PANEL);
         b.setForeground(TEXT);
         b.setBorder(new LineBorder(BORDER, 1, true));
-        b.setPreferredSize(new Dimension(96, 28));
+        b.setPreferredSize(new Dimension(120, 28));
     }
 
     private void mc(Runnable r)
@@ -591,11 +832,17 @@ public class ActionEditorDialog
     private static class TrackCanvas extends JPanel
     {
         private List<double[]> marks = new ArrayList<>();
+        private int maxTick = 300;
 
         void setData(List<double[]> m)
         {
             this.marks = m == null ? new ArrayList<>() : m;
             repaint();
+        }
+
+        int getMaxTick()
+        {
+            return maxTick;
         }
 
         @Override

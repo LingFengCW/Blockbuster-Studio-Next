@@ -23,6 +23,12 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
 .menu-item{padding:5px 12px;font-size:12px;cursor:pointer;}
 .menu-item:hover{background:#094872;}
 .menu-divider{height:1px;background:#444;margin:3px 0;}
+/* 顶部细工具栏（仅动作编辑器按钮，保持简洁） */
+.toolbar-slim{height:30px;background:#1f2229;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #111;}
+.toolbar-slim button{display:flex;align-items:center;gap:5px;background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:4px 12px;font-size:12px;cursor:pointer;}
+.toolbar-slim button:hover{background:#094872;color:#fff;}
+.toolbar-slim .sep{width:1px;height:18px;background:#353a45;margin:0 4px;}
+.toolbar-slim .hint{color:#666;font-size:11px;}
 /* 布局 */
 .editor{display:flex;flex-direction:column;height:calc(100vh - 58px);}
 .mid{display:flex;flex:1;min-height:0;}
@@ -128,6 +134,12 @@ body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13p
   </div></div>
 </div>
 
+<div class="toolbar-slim">
+  <button id="tbAction"><img class="ico" src="svg/settings.svg"> 动作编辑器</button>
+  <span class="sep"></span>
+  <span class="hint">新建功能在「右键素材箱空白处 / 角色右键」里</span>
+</div>
+
 <div class="editor">
   <div class="mid">
     <div class="asset-panel" id="assetBox">
@@ -209,6 +221,7 @@ var ICON = {
 var itemTarget = null;   /* {type, id} of the asset item right-clicked */
 var bagTarget = null;    /* name of the backpack item right-clicked */
 var selectedClip = -1;
+var selectedChar = -1;   /* index of the character selected in the asset box */
 
 function send(a, p){ p = p || {}; p.a = a; console.log('BBS_ACTION:' + JSON.stringify(p)); }
 function toast(msg, err){ var t = document.createElement('div'); t.className = 'toast' + (err ? ' error' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); }
@@ -264,13 +277,20 @@ function renderAssets(s){
     addItem('sequence', seq.id, seq.name + (s.activeSequence === seq.id ? '  ◀' : ''), function(){ send('enterSequence', { id: seq.id }); }, seq.refs, s.activeSequence === seq.id);
   });
   addGroup('角色');
-  (s.characters || []).forEach(function(c){ addItem('character', String(c.index), c.label, function(){ send('addToCurrent', { type:'character', id:String(c.index) }); }); });
+  (s.characters || []).forEach(function(c){ addItem('character', String(c.index), c.label, function(){ selectedChar = c.index; send('addToCurrent', { type:'character', id:String(c.index) }); }); });
   addGroup('实体');
   (s.entities || []).forEach(function(c){ addItem('entity', String(c.index), c.label, function(){ send('addToCurrent', { type:'entity', id:String(c.index) }); }); });
   addGroup('粒子');
   (s.particles || []).forEach(function(c){ addItem('particle', String(c.index), c.label, function(){ send('addToCurrent', { type:'particle', id:String(c.index) }); }); });
   addGroup('物品');
   (s.items || []).forEach(function(c){ addItem('item', String(c.index), c.label, function(){ send('addToCurrent', { type:'item', id:String(c.index) }); }); });
+  addGroup('角色动作');
+  (s.actionAssets || []).forEach(function(a){
+    addItem('item', String(a.charIndex) + ':' + String(a.actionIndex), a.charLabel + ' › ' + a.title, function(){
+      selectedChar = a.charIndex;
+      send('openActionEditor', { index: a.charIndex, action: a.actionIndex });
+    });
+  });
   addGroup('全局背包');
   (s.backpack || []).forEach(function(b){ addBagItem(b); });
 }
@@ -339,6 +359,7 @@ btnUndo.onclick = function(){ send('undo'); };
 btnRedo.onclick = function(){ send('redo'); };
 btnNewSeq.onclick = function(){ send('newSequence'); };
 btnEquip.onclick = function(){ if(selectedClip >= 0) send('openEquip', { index: selectedClip }); };
+tbAction.onclick = function(){ send('openActionEditor', { index: selectedChar }); };
 document.querySelectorAll('.menu-item').forEach(function(it){ it.onclick = function(e){ e.stopPropagation(); var a = it.getAttribute('data-a'); if(!a) return; var p = {}; if(it.getAttribute('data-mode') != null) p.mode = parseInt(it.getAttribute('data-mode')); if(it.getAttribute('data-op') != null) p.op = it.getAttribute('data-op'); if(it.getAttribute('data-index') != null) p.index = parseInt(it.getAttribute('data-index')); send(a, p); hideMenus(); }; });
 assetList.addEventListener('contextmenu', function(e){ if(e.target === assetList){ e.preventDefault(); showMenu(assetCtx, e); } });
 
