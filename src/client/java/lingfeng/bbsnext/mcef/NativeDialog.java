@@ -390,7 +390,7 @@ public class NativeDialog
 
             String[] cts = {"keyframe", "action"};
             String[] ctLabels = {"关键帧角色", "纯动作角色"};
-            final String[] selectedCT = {"keyframe"};
+            final String[] selectedCT = {"action"};
             JPanel ctSeg = new JPanel(new GridLayout(1, cts.length, 6, 0));
             ctSeg.setOpaque(false);
             ctSeg.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -419,9 +419,9 @@ public class NativeDialog
                 ctBtns[i] = b;
                 ctSeg.add(b);
             }
-            ctBtns[0].setBackground(ACCENT);
-            ctBtns[0].setForeground(Color.WHITE);
-            ctBtns[0].setBorder(new LineBorder(ACCENT.darker(), 1, true));
+            ctBtns[1].setBackground(ACCENT);
+            ctBtns[1].setForeground(Color.WHITE);
+            ctBtns[1].setBorder(new LineBorder(ACCENT.darker(), 1, true));
             form.add(ctSeg);
             form.add(Box.createVerticalStrut(12));
 
