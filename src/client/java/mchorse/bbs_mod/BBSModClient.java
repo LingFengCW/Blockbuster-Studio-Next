@@ -967,7 +967,7 @@ public class BBSModClient implements ClientModInitializer
         {
             /* MC 26.2: onInitializeClient runs before Minecraft.options is
              * initialized. Fall back to an empty string; L10n.reload() will
-             * only load en_us until reloadLanguage() is called later with
+             * only load en_gb until reloadLanguage() is called later with
              * the proper client language code from the options callback. */
             Minecraft mc = Minecraft.getInstance();
 
