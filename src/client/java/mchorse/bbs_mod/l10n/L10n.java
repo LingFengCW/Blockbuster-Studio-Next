@@ -29,7 +29,7 @@ import java.util.function.Function;
 
 public class L10n
 {
-    public static final String DEFAULT_LANGUAGE = "en_us";
+    public static final String DEFAULT_LANGUAGE = "en_gb";
 
     private Map<String, LangKey> strings = new HashMap<>();
     private Set<Function<String, List<Link>>> langFiles = new LinkedHashSet<>();
