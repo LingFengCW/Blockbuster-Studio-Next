@@ -298,56 +298,56 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
   <span id="projName">BBS 编辑器</span>
   <span class="title-dirty" id="dirtyMark">*</span>
   <span id="filmName" style="color:#aab2bf"></span>
-  <div class="title-btn" id="btnSave"><img class="ico" src="svg/save.svg"> 保存</div>
-  <div class="title-btn" id="enterPreviewBtn" style="display:none"><img class="ico" src="svg/world.svg"> 进入预览世界</div>
-  <div class="title-btn warn" id="exitPreviewBtn" style="display:none"><img class="ico" src="svg/world.svg"> 退出预览世界</div>
-  <div class="title-btn" id="btnClose"><img class="ico" src="svg/close.svg"> 关闭</div>
+  <div class="title-btn" id="btnSave" data-i18n="menu.save"><img class="ico" src="svg/save.svg"> S('menu.save')</div>
+  <div class="title-btn" id="enterPreviewBtn" style="display:none" data-i18n="preview.enter"><img class="ico" src="svg/world.svg"> 进入预览世界</div>
+  <div class="title-btn warn" id="exitPreviewBtn" style="display:none" data-i18n="preview.exit"><img class="ico" src="svg/world.svg"> 退出预览世界</div>
+  <div class="title-btn" id="btnClose" data-i18n="menu.close"><img class="ico" src="svg/close.svg"> 关闭</div>
 </div>
 
 <div class="main-menu">
-  <div class="menu-top-item">文件<div class="menu-dropdown">
-    <div class="menu-item" data-a="save">保存</div>
-    <div class="menu-item" data-a="newScene">新建场景</div>
-    <div class="menu-item" data-a="newCharacter">新建角色</div>
-    <div class="menu-item" data-a="newEntity">新建实体</div>
+  <div class="menu-top-item" data-i18n="menu.file">文件<div class="menu-dropdown">
+    <div class="menu-item" data-a="save" data-i18n="menu.save">S('menu.save')</div>
+    <div class="menu-item" data-a="newScene" data-i18n="menu.newScene">S('menu.newScene')</div>
+    <div class="menu-item" data-a="newCharacter" data-i18n="menu.newCharacter">S('menu.newCharacter')</div>
+    <div class="menu-item" data-a="newEntity" data-i18n="menu.newEntity">新建实体</div>
     <div class="menu-divider"></div>
-    <div class="menu-item" data-a="closeEditor">退出编辑器</div>
+    <div class="menu-item" data-a="closeEditor" data-i18n="menu.exitEditor">S('menu.exit')</div>
   </div></div>
-  <div class="menu-top-item">编辑<div class="menu-dropdown">
-    <div class="menu-item" data-a="undo">撤销</div>
-    <div class="menu-item" data-a="redo">重做</div>
+  <div class="menu-top-item" data-i18n="menu.edit">编辑<div class="menu-dropdown">
+    <div class="menu-item" data-a="undo" data-i18n="menu.undo">撤销</div>
+    <div class="menu-item" data-a="redo" data-i18n="menu.redo">重做</div>
   </div></div>
-  <div class="menu-top-item">视图<div class="menu-dropdown">
-    <div class="menu-item" data-a="setCameraMode" data-mode="0">跟随相机</div>
-    <div class="menu-item" data-a="setCameraMode" data-mode="1">自由相机</div>
-    <div class="menu-item" data-a="setCameraMode" data-mode="2">轨道相机</div>
-    <div class="menu-item" data-a="setCameraMode" data-mode="4">第三人称</div>
+  <div class="menu-top-item" data-i18n="menu.view">视图<div class="menu-dropdown">
+    <div class="menu-item" data-a="setCameraMode" data-mode="0" data-i18n="menu.camFollow">跟随相机</div>
+    <div class="menu-item" data-a="setCameraMode" data-mode="1" data-i18n="menu.camFree">自由相机</div>
+    <div class="menu-item" data-a="setCameraMode" data-mode="2" data-i18n="menu.camOrbit">轨道相机</div>
+    <div class="menu-item" data-a="setCameraMode" data-mode="4" data-i18n="menu.camThird">第三人称</div>
   </div></div>
-  <div class="menu-top-item">轨道<div class="menu-dropdown">
-    <div class="menu-item" data-a="toggleControl">演员控制</div>
-    <div class="menu-item" data-a="clipOp" data-op="delete" data-index="-1">删除选中剪辑</div>
+  <div class="menu-top-item" data-i18n="menu.track">轨道<div class="menu-dropdown">
+    <div class="menu-item" data-a="toggleControl" data-i18n="ctx.actorControl">演员控制</div>
+    <div class="menu-item" data-a="clipOp" data-op="delete" data-index="-1" data-i18n="menu.delSelectedClip">删除选中剪辑</div>
   </div></div>
-  <div class="menu-top-item">录制<div class="menu-dropdown">
-    <div class="menu-item" data-a="toggleRecord">开始/停止录制</div>
+  <div class="menu-top-item" data-i18n="menu.record">录制<div class="menu-dropdown">
+    <div class="menu-item" data-a="toggleRecord" data-i18n="menu.toggleRecord">开始/停止录制</div>
   </div></div>
-  <div class="menu-top-item">窗口<div class="menu-dropdown">
-    <div class="menu-item" data-a="togglePlay">预览播放</div>
+  <div class="menu-top-item" data-i18n="menu.window">窗口<div class="menu-dropdown">
+    <div class="menu-item" data-a="togglePlay" data-i18n="menu.previewPlay">预览播放</div>
   </div></div>
 </div>
 
 <div class="toolbar-slim">
-  <button id="btnPlay" title="播放/暂停 (空格)"><img class="ico" src="svg/play.svg"> 播放</button>
-  <button id="btnToStart" class="flip" title="回到开头"><img class="ico" src="svg/tostart.svg"></button>
-  <button id="btnUndo" title="撤销"><img class="ico" src="svg/undo.svg"></button>
-  <button id="btnRedo" title="重做"><img class="ico" src="svg/redo.svg"></button>
+  <button id="btnPlay" title="播放/暂停 (空格)" data-i18n="tb.play" data-i18n-title="tb.playTitle"><img class="ico" src="svg/play.svg"> 播放</button>
+  <button id="btnToStart" class="flip" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/tostart.svg"></button>
+  <button id="btnUndo" title="撤销" data-i18n-title="menu.undo"><img class="ico" src="svg/undo.svg"></button>
+  <button id="btnRedo" title="重做" data-i18n-title="menu.redo"><img class="ico" src="svg/redo.svg"></button>
   <span class="sep"></span>
-  <button id="tbAction"><img class="ico" src="svg/settings.svg"> 动作编辑器</button>
+  <button id="tbAction" data-i18n="tb.actionEditor"><img class="ico" src="svg/settings.svg"> 动作编辑器</button>
   <span class="sep"></span>
-  <span class="hint">新建功能在「右键素材箱空白处 / 角色右键」里</span>
+  <span class="hint" data-i18n="tb.hint">新建功能在「右键素材箱空白处 / 角色右键」里</span>
 </div>
 
   <div class="ae-dock" id="aeDock">
-    <div class="ae-dock-head"><span>动作编辑器（大窗模式）</span><button id="aeDockMax" class="kf-add" type="button">最大化</button></div>
+    <div class="ae-dock-head"><span data-i18n="ae.dockTitle">动作编辑器（大窗模式）</span><button id="aeDockMax" class="kf-add" type="button" data-i18n="ae.max">最大化</button></div>
     <div class="ae-dock-body">
       <div class="ad-left" id="aeDockLeft"></div>
       <div class="ad-right" id="aeDockRight"></div>
@@ -358,7 +358,7 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
   <div class="editor">
     <div class="mid">
     <div class="asset-panel" id="assetBox">
-      <div class="asset-head"><span id="btnCollapse" title="折叠/展开素材箱">⟨</span><span>素材资源箱 <span style="color:#888;font-size:11px">(右键空白新建)</span></span><span id="btnEquip" style="cursor:pointer;color:#7cb8ff;font-size:11px;padding:0 4px;">装备</span></div>
+      <div class="asset-head"><span id="btnCollapse" title="折叠/展开素材箱" data-i18n-title="bin.collapse">⟨</span><span><span data-i18n="bin.title">素材资源箱</span> <span style="color:#888;font-size:11px">(<span data-i18n="bin.createHint">右键空白新建</span>)</span></span><span id="btnEquip" data-i18n="bin.equip" style="cursor:pointer;color:#7cb8ff;font-size:11px;padding:0 4px;">装备</span></div>
       <div class="asset-detail" id="assetDetail"></div>
       <div class="asset-list" id="assetList"></div>
     </div>
@@ -368,20 +368,20 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
     <div class="right">
       <div class="viewport-wrap">
         <div class="vp-toolbar">
-          <button id="vpPlay" title="播放/暂停"><img class="ico" src="svg/play.svg"> 播放</button>
-          <button id="vpToStart" title="回到开头"><img class="ico" src="svg/tostart.svg"></button>
-          <button id="vpToEnd" title="跳到结尾"><img class="ico" src="svg/tostart.svg" style="transform:scaleX(-1)"></button>
-          <button id="vpShot" title="截图"><img class="ico" src="svg/camera.svg"></button>
+          <button id="vpPlay" title="播放/暂停" data-i18n="vp.play" data-i18n-title="vp.playTitle"><img class="ico" src="svg/play.svg"> 播放</button>
+          <button id="vpToStart" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/tostart.svg"></button>
+          <button id="vpToEnd" title="跳到结尾" data-i18n-title="tl.toEnd"><img class="ico" src="svg/tostart.svg" style="transform:scaleX(-1)"></button>
+          <button id="vpShot" title="截图" data-i18n-title="tb.screenshot"><img class="ico" src="svg/camera.svg"></button>
           <span style="width:1px;height:18px;background:#353a45;margin:0 4px;"></span>
-          <button id="clipNone" class="active" title="剪切蒙版：无">无剪切</button>
-          <button id="clipRect" title="剪切蒙版：矩形">矩形</button>
-          <button id="clipCircle" title="剪切蒙版：圆形">圆形</button>
+          <button id="clipNone" class="active" title="剪切蒙版：无" data-i18n="clip.none" data-i18n-title="clip.noneTitle">无剪切</button>
+          <button id="clipRect" title="剪切蒙版：矩形" data-i18n="clip.rect" data-i18n-title="clip.rectTitle">矩形</button>
+          <button id="clipCircle" title="剪切蒙版：圆形" data-i18n="clip.circle" data-i18n-title="clip.circleTitle">圆形</button>
         </div>
         <img id="vpImg" class="vp-img" alt="实时预览">
         <canvas id="vpMask" class="vp-mask"></canvas>
         <div id="vpGrid" class="vp-grid"></div>
-        <div id="worldLoad" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(20,24,30,.92);color:#9fd3ff;border:1px solid #2b6fb0;border-radius:4px;padding:6px 14px;font-size:12px;"><span class="bbs-spinner"></span>正在加载预览世界…</div>
-        <div id="vpPh" class="vp-ph">实时预览：进入或加载一个世界后，这里会显示 Minecraft 的 3D 画面。</div>
+        <div id="worldLoad" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(20,24,30,.92);color:#9fd3ff;border:1px solid #2b6fb0;border-radius:4px;padding:6px 14px;font-size:12px;" data-i18n="preview.loading"><span class="bbs-spinner"></span>正在加载预览世界…</div>
+        <div id="vpPh" class="vp-ph" data-i18n="preview.empty">实时预览：进入或加载一个世界后，这里会显示 Minecraft 的 3D 画面。</div>
         <div class="viewport" id="mainViewport"></div>
       </div>
 
@@ -389,23 +389,23 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
 
       <div class="timeline-wrap">
         <div class="tl-toolbar">
-          <button id="tlNewSeq" title="新建序列"><img class="ico" src="svg/plus.svg"> ＋序列</button>
-          <button id="tlRenameSeq" title="重命名当前序列"><img class="ico" src="svg/rename.svg"> 重命名</button>
-          <button id="tlDelSeq" title="删除当前序列"><img class="ico" src="svg/trash.svg"> 删除</button>
+          <button id="tlNewSeq" title="新建序列" data-i18n="tl.newSeq" data-i18n-title="tl.newSeqTitle"><img class="ico" src="svg/plus.svg"> ＋序列</button>
+          <button id="tlRenameSeq" title="重命名当前序列" data-i18n="tl.rename" data-i18n-title="tl.renameTitle"><img class="ico" src="svg/rename.svg"> 重命名</button>
+          <button id="tlDelSeq" title="删除当前序列" data-i18n="tl.delete" data-i18n-title="tl.deleteTitle"><img class="ico" src="svg/trash.svg"> 删除</button>
           <span style="width:1px;height:18px;background:#353a45;margin:0 4px;"></span>
-          <button id="tlZoomIn" title="放大时间轴">放大</button>
-          <button id="tlZoomOut" title="缩小时间轴">缩小</button>
-      <button id="tlSnap" class="active" title="吸附开关">吸附</button>
+          <button id="tlZoomIn" title="放大时间轴" data-i18n="tl.zoomIn" data-i18n-title="tl.zoomInTitle">放大</button>
+          <button id="tlZoomOut" title="缩小时间轴" data-i18n="tl.zoomOut" data-i18n-title="tl.zoomOutTitle">缩小</button>
+      <button id="tlSnap" class="active" title="吸附开关" data-i18n="tl.snap" data-i18n-title="tl.snapTitle">吸附</button>
           <span style="width:1px;height:18px;background:#353a45;margin:0 4px;"></span>
-          <span style="font-size:11px;color:#aaa">整体关键帧</span>
-          <button id="tlKfAllL" class="kf-add" type="button" title="所有关键帧左移 1 帧">◀</button>
-          <button id="tlKfAllR" class="kf-add" type="button" title="所有关键帧右移 1 帧">▶</button>
-          <input id="tlKfAllN" type="number" value="1" style="width:48px" title="偏移帧数">
-          <button id="tlKfAllApply" class="kf-add" type="button" title="按输入帧数偏移所有关键帧">偏移</button>
+          <span style="font-size:11px;color:#aaa" data-i18n="tl.allKeyframes">整体关键帧</span>
+          <button id="tlKfAllL" class="kf-add" type="button" title="所有关键帧左移 1 帧" data-i18n-title="tl.shiftLeft">◀</button>
+          <button id="tlKfAllR" class="kf-add" type="button" title="所有关键帧右移 1 帧" data-i18n-title="tl.shiftRight">▶</button>
+          <input id="tlKfAllN" type="number" value="1" style="width:48px" title="偏移帧数" data-i18n-title="tl.offsetFrames">
+          <button id="tlKfAllApply" class="kf-add" type="button" title="按输入帧数偏移所有关键帧" data-i18n="tl.offset" data-i18n-title="tl.offsetTitle">偏移</button>
       </div>
         <div class="timeline-tabs">
           <div class="tab-item active" id="tabFilm">主序列</div>
-          <div class="tab-add" id="btnNewSeq" title="新建序列">+ 序列</div>
+          <div class="tab-add" id="btnNewSeq" title="新建序列" data-i18n="tl.tabNew" data-i18n-title="tl.newSeqTitle">+ 序列</div>
           <div style="margin-left:auto;padding:0 10px;font-size:11px;color:#9aa0aa"><span id="tickInfo">0 / 0</span></div>
         </div>
         <div class="timeline-body">
@@ -428,132 +428,132 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
 </div>
 
 <div class="context-menu" id="assetCtx">
-  <div class="ctx-main-item has-sub">新建项
+  <div class="ctx-main-item has-sub" data-i18n="ctx.newItem">新建项
     <div class="ctx-sub">
-      <div class="ctx-main-item" data-a="newScene"><img class="ico" src="svg/scene.svg"> 场景</div>
-      <div class="ctx-main-item" data-a="newCharacter"><img class="ico" src="svg/character.svg"> 角色</div>
-      <div class="ctx-main-item" data-a="newEntity"><img class="ico" src="svg/entity.svg"> 实体</div>
-      <div class="ctx-main-item" data-a="newParticle"><img class="ico" src="svg/particle.svg"> 粒子</div>
-      <div class="ctx-main-item" data-a="newItem"><img class="ico" src="svg/item.svg"> 物品</div>
-      <div class="ctx-main-item" data-a="newCamera"><img class="ico" src="svg/camera.svg"> 相机</div>
+      <div class="ctx-main-item" data-a="newScene" data-i18n="ctx.scene"><img class="ico" src="svg/scene.svg"> 场景</div>
+      <div class="ctx-main-item" data-a="newCharacter" data-i18n="ctx.character"><img class="ico" src="svg/character.svg"> 角色</div>
+      <div class="ctx-main-item" data-a="newEntity" data-i18n="ctx.entity"><img class="ico" src="svg/entity.svg"> 实体</div>
+      <div class="ctx-main-item" data-a="newParticle" data-i18n="ctx.particle"><img class="ico" src="svg/particle.svg"> 粒子</div>
+      <div class="ctx-main-item" data-a="newItem" data-i18n="ctx.item"><img class="ico" src="svg/item.svg"> 物品</div>
+      <div class="ctx-main-item" data-a="newCamera" data-i18n="ctx.camera"><img class="ico" src="svg/camera.svg"> 相机</div>
     </div>
   </div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="save"><img class="ico" src="svg/save.svg"> 保存作品</div>
-  <div class="ctx-main-item" data-a="closeEditor"><img class="ico" src="svg/close.svg"> 关闭编辑器</div>
+  <div class="ctx-main-item" data-a="save" data-i18n="ctx.saveWork"><img class="ico" src="svg/save.svg"> 保存作品</div>
+  <div class="ctx-main-item" data-a="closeEditor" data-i18n="ctx.closeEditor"><img class="ico" src="svg/close.svg"> 关闭编辑器</div>
 </div>
 
 <div class="context-menu" id="clipCtx">
-  <div class="ctx-main-item" data-a="clipOp" data-op="split">在播放头拆分</div>
+  <div class="ctx-main-item" data-a="clipOp" data-op="split" data-i18n="ctx.splitAtPlayhead">在播放头拆分</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="clipOp" data-op="delete">删除剪辑块</div>
-  <div class="ctx-main-item" data-a="toggleControl">演员控制</div>
+  <div class="ctx-main-item" data-a="clipOp" data-op="delete" data-i18n="ctx.deleteClip">删除剪辑块</div>
+  <div class="ctx-main-item" data-a="toggleControl" data-i18n="ctx.actorControl">演员控制</div>
 </div>
 
 <div class="context-menu" id="charCtx">
-  <div class="ctx-main-item has-sub">角色类型
+  <div class="ctx-main-item has-sub" data-i18n="ctx.charType">角色类型
     <div class="ctx-sub">
-      <div class="ctx-main-item" data-a="setCharacterType" data-type="keyframe"><img class="ico" src="svg/target.svg"> 关键帧角色</div>
-      <div class="ctx-main-item" data-a="setCharacterType" data-type="action"><img class="ico" src="svg/character.svg"> 动作角色</div>
-      <div class="ctx-main-item" data-a="setCharacterType" data-type="playback">回放角色</div>
+      <div class="ctx-main-item" data-a="setCharacterType" data-type="keyframe" data-i18n="ctx.keyframeChar"><img class="ico" src="svg/target.svg"> 关键帧角色</div>
+      <div class="ctx-main-item" data-a="setCharacterType" data-type="action" data-i18n="ctx.actionChar"><img class="ico" src="svg/character.svg"> 动作角色</div>
+      <div class="ctx-main-item" data-a="setCharacterType" data-type="playback" data-i18n="ctx.playbackChar">回放角色</div>
     </div>
   </div>
-  <div class="ctx-main-item has-sub">移动方式
+  <div class="ctx-main-item has-sub" data-i18n="ctx.moveMode">移动方式
     <div class="ctx-sub">
-      <div class="ctx-main-item" data-a="openActionEditor"><img class="ico" src="svg/target.svg"> 关键帧路径（手动调）</div>
-      <div class="ctx-main-item" data-a="recordCharacter"><img class="ico" src="svg/camera.svg"> 录制路径（世界内，写回角色）</div>
+      <div class="ctx-main-item" data-a="openActionEditor" data-i18n="ctx.keyframePath"><img class="ico" src="svg/target.svg"> 关键帧路径（手动调）</div>
+      <div class="ctx-main-item" data-a="recordCharacter" data-i18n="ctx.recordPath"><img class="ico" src="svg/camera.svg"> 录制路径（世界内，写回角色）</div>
     </div>
   </div>
-  <div class="ctx-main-item has-sub">动作
+  <div class="ctx-main-item has-sub" data-i18n="ctx.action">动作
     <div class="ctx-sub">
-      <div class="ctx-main-item" data-a="openActionEditor"><img class="ico" src="svg/settings.svg"> 打开动作编辑器</div>
-      <div class="ctx-main-item" data-a="newAction"><img class="ico" src="svg/plus.svg"> 新建动作（MC 预设）</div>
-      <div class="ctx-main-item" data-a="recordToAction"><img class="ico" src="svg/target.svg"> 用录制创建动作</div>
+      <div class="ctx-main-item" data-a="openActionEditor" data-i18n="ctx.openActionEditor"><img class="ico" src="svg/settings.svg"> 打开动作编辑器</div>
+      <div class="ctx-main-item" data-a="newAction" data-i18n="ctx.newAction"><img class="ico" src="svg/plus.svg"> 新建动作（MC 预设）</div>
+      <div class="ctx-main-item" data-a="recordToAction" data-i18n="ctx.recordToAction"><img class="ico" src="svg/target.svg"> 用录制创建动作</div>
     </div>
   </div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="openEquip"><img class="ico" src="svg/item.svg"> 装配装备</div>
-  <div class="ctx-main-item" data-a="toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
-  <div class="ctx-main-item" data-a="deleteReplay"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="openEquip" data-i18n="ctx.equip"><img class="ico" src="svg/item.svg"> 装配装备</div>
+  <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
 </div>
 
 <!-- 角色右下角 ▾ 展开面板（Phase F，与 charCtx 同批动作） -->
 <div class="context-menu" id="charPanel">
-  <div class="ctx-main-item" data-a="setCharacterType" data-type="keyframe"><img class="ico" src="svg/target.svg"> 设为关键帧角色</div>
-  <div class="ctx-main-item" data-a="setCharacterType" data-type="action"><img class="ico" src="svg/character.svg"> 设为动作角色</div>
+  <div class="ctx-main-item" data-a="setCharacterType" data-type="keyframe" data-i18n="ctx.setKeyframeChar"><img class="ico" src="svg/target.svg"> 设为关键帧角色</div>
+  <div class="ctx-main-item" data-a="setCharacterType" data-type="action" data-i18n="ctx.setActionChar"><img class="ico" src="svg/character.svg"> 设为动作角色</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="openActionEditor"><img class="ico" src="svg/settings.svg"> 动作编辑器</div>
-  <div class="ctx-main-item" data-a="newAction"><img class="ico" src="svg/plus.svg"> 新建动作（MC 预设）</div>
-  <div class="ctx-main-item" data-a="recordToAction"><img class="ico" src="svg/target.svg"> 用录制创建动作</div>
-  <div class="ctx-main-item" data-a="recordCharacter"><img class="ico" src="svg/camera.svg"> 录制路径（世界内，写回角色）</div>
+  <div class="ctx-main-item" data-a="openActionEditor" data-i18n="ae.title"><img class="ico" src="svg/settings.svg"> 动作编辑器</div>
+  <div class="ctx-main-item" data-a="newAction" data-i18n="ctx.newAction"><img class="ico" src="svg/plus.svg"> 新建动作（MC 预设）</div>
+  <div class="ctx-main-item" data-a="recordToAction" data-i18n="ctx.recordToAction"><img class="ico" src="svg/target.svg"> 用录制创建动作</div>
+  <div class="ctx-main-item" data-a="recordCharacter" data-i18n="ctx.recordPath"><img class="ico" src="svg/camera.svg"> 录制路径（世界内，写回角色）</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="openEquip"><img class="ico" src="svg/item.svg"> 装配装备</div>
-  <div class="ctx-main-item" data-a="toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
-  <div class="ctx-main-item" data-a="deleteReplay"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="openEquip" data-i18n="ctx.equip"><img class="ico" src="svg/item.svg"> 装配装备</div>
+  <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
 </div>
 
 <div class="context-menu" id="camCtx">
-  <div class="ctx-main-item" data-a="clipOp" data-op="select"><img class="ico" src="svg/target.svg"> 在轨道上选中</div>
-  <div class="ctx-main-item" data-a="renameCamera"><img class="ico" src="svg/rename.svg"> 重命名相机</div>
-  <div class="ctx-main-item" data-a="recordCamera"><img class="ico" src="svg/camera.svg"> 录制坐标（进世界走）</div>
+  <div class="ctx-main-item" data-a="clipOp" data-op="select" data-i18n="ctx.selectOnTrack"><img class="ico" src="svg/target.svg"> 在轨道上选中</div>
+  <div class="ctx-main-item" data-a="renameCamera" data-i18n="ctx.renameCamera"><img class="ico" src="svg/rename.svg"> 重命名相机</div>
+  <div class="ctx-main-item" data-a="recordCamera" data-i18n="ctx.recordCoord"><img class="ico" src="svg/camera.svg"> 录制坐标（进世界走）</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="exportCameraFile"><img class="ico" src="svg/save.svg"> 导出为文件（.cambbs）</div>
-  <div class="ctx-main-item" data-a="toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包（跨作品）</div>
+  <div class="ctx-main-item" data-a="exportCameraFile" data-i18n="ctx.exportCamera"><img class="ico" src="svg/save.svg"> 导出为文件（.cambbs）</div>
+  <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpackCross"><img class="ico" src="svg/backpack.svg"> 放入背包（跨作品）</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteCamera"><img class="ico" src="svg/trash.svg"> 删除相机</div>
+  <div class="ctx-main-item" data-a="deleteCamera" data-i18n="ctx.deleteCamera"><img class="ico" src="svg/trash.svg"> 删除相机</div>
 </div>
 
 <div class="context-menu" id="camGroupCtx">
-  <div class="ctx-main-item" data-a="renameCameraGroup"><img class="ico" src="svg/rename.svg"> 重命名相机组</div>
+  <div class="ctx-main-item" data-a="renameCameraGroup" data-i18n="ctx.renameCameraGroup"><img class="ico" src="svg/rename.svg"> 重命名相机组</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="exportCameraGroupFile"><img class="ico" src="svg/save.svg"> 导出为文件（.camgrp）</div>
-  <div class="ctx-main-item" data-a="toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包（跨作品）</div>
+  <div class="ctx-main-item" data-a="exportCameraGroupFile" data-i18n="ctx.exportCameraGroup"><img class="ico" src="svg/save.svg"> 导出为文件（.camgrp）</div>
+  <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpackCross"><img class="ico" src="svg/backpack.svg"> 放入背包（跨作品）</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteCameraGroup"><img class="ico" src="svg/trash.svg"> 删除相机组</div>
+  <div class="ctx-main-item" data-a="deleteCameraGroup" data-i18n="ctx.deleteCameraGroup"><img class="ico" src="svg/trash.svg"> 删除相机组</div>
 </div>
 
 <div class="context-menu" id="clipGroupCtx">
-  <div class="ctx-main-item" id="grpCamItem" data-a="createCameraGroup"><img class="ico" src="svg/camera.svg"> 打包成相机组</div>
-  <div class="ctx-main-item ctx-disabled" id="grpWarn" style="display:none"><img class="ico" src="svg/trash.svg"> 所选含非相机，无法建相机组</div>
+  <div class="ctx-main-item" id="grpCamItem" data-a="createCameraGroup" data-i18n="ctx.packCameraGroup"><img class="ico" src="svg/camera.svg"> 打包成相机组</div>
+  <div class="ctx-main-item ctx-disabled" id="grpWarn" style="display:none" data-i18n="ctx.warnNotCamera"><img class="ico" src="svg/trash.svg"> 所选含非相机，无法建相机组</div>
 </div>
 
 <div class="context-menu" id="itemCtx">
-  <div class="ctx-main-item" data-a="toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
-  <div class="ctx-main-item" data-a="deleteReplay"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
 </div>
 
 <!-- 时间轴已上轨轨道的右键菜单（F3.2：移除轨道 / 删除角色） -->
 <div class="context-menu" id="trackCtx">
-  <div class="ctx-main-item" data-a="unplaceActor"><img class="ico" src="svg/target.svg"> 移除轨道（保留角色）</div>
-  <div class="ctx-main-item" data-a="deleteReplay"><img class="ico" src="svg/trash.svg"> 删除角色</div>
+  <div class="ctx-main-item" data-a="unplaceActor" data-i18n="ctx.removeTrack"><img class="ico" src="svg/target.svg"> 移除轨道（保留角色）</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.deleteReplay"><img class="ico" src="svg/trash.svg"> 删除角色</div>
 </div>
 
 <div class="context-menu" id="bagCtx">
-  <div class="ctx-main-item" data-a="fromBackpack"><img class="ico" src="svg/scene.svg"> 导入到本作品</div>
+  <div class="ctx-main-item" data-a="fromBackpack" data-i18n="ctx.importBackpack"><img class="ico" src="svg/scene.svg"> 导入到本作品</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteBackpackItem"><img class="ico" src="svg/trash.svg"> 从背包删除</div>
+  <div class="ctx-main-item" data-a="deleteBackpackItem" data-i18n="ctx.deleteBackpackItem"><img class="ico" src="svg/trash.svg"> 从背包删除</div>
 </div>
 
 <div class="context-menu" id="sceneCtx">
-  <div class="ctx-main-item" data-a="openScene"><img class="ico" src="svg/scene.svg"> 打开场景</div>
+  <div class="ctx-main-item" data-a="openScene" data-i18n="ctx.openScene"><img class="ico" src="svg/scene.svg"> 打开场景</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteScene"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="deleteScene" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
 </div>
 
 <div class="context-menu" id="seqCtx">
-  <div class="ctx-main-item" data-a="enterSequence"><img class="ico" src="svg/sequence.svg"> 进入序列</div>
+  <div class="ctx-main-item" data-a="enterSequence" data-i18n="ctx.enterSequence"><img class="ico" src="svg/sequence.svg"> 进入序列</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteSequence"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="deleteSequence" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
 </div>
 
 <!-- HTML 原生弹窗（替代被 MCEF 遮挡的 Swing 命名窗口） -->
 <div class="modal-mask" id="modalMask">
   <div class="modal">
-    <div class="modal-title" id="modalTitle">新建</div>
+    <div class="modal-title" id="modalTitle" data-i18n="dlg.new">新建</div>
     <div class="modal-body" id="modalBody"></div>
     <div class="modal-actions">
-      <button class="btn" id="modalCancel">取消</button>
-      <button class="btn ok" id="modalOk">确定</button>
+      <button class="btn" id="modalCancel" data-i18n="dlg.cancel">S('dlg.cancel')</button>
+      <button class="btn ok" id="modalOk" data-i18n="dlg.ok">确定</button>
     </div>
   </div>
 </div>
@@ -562,26 +562,26 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
 <div class="modal-mask" id="actionEditor">
   <div class="ae">
     <div class="ae-head">
-      <span class="ae-title">动作编辑器</span>
+      <span class="ae-title" data-i18n="ae.title">动作编辑器</span>
       <select id="aeChar" class="ae-sel"></select>
       <div class="modal-seg" id="aeTypeSeg">
-        <button type="button" data-t="keyframe">关键帧角色</button>
-        <button type="button" data-t="action">动作角色</button>
+        <button type="button" data-t="keyframe" data-i18n="ctx.keyframeChar">关键帧角色</button>
+        <button type="button" data-t="action" data-i18n="ctx.actionChar">动作角色</button>
       </div>
-      <button class="btn" id="aeComposeBtn" title="把当前动作轨道上的多个子动作组合成一个可复用的动作组">组合动作组</button>
+      <button class="btn" id="aeComposeBtn" title="把当前动作轨道上的多个子动作组合成一个可复用的动作组" data-i18n="ae.compose">组合动作组</button>
       <div class="ae-group-wrap">
-        <button class="btn" id="aeGroupBtn" title="已合成的动作组：选中即加入当前角色时间轴，也可拖到下方时间轴">▾ 动作组</button>
+        <button class="btn" id="aeGroupBtn" title="已合成的动作组：选中即加入当前角色时间轴，也可拖到下方时间轴" data-i18n="ae.group">▾ 动作组</button>
         <div class="ae-group-menu" id="aeGroupMenu"></div>
       </div>
       <span class="ae-spacer"></span>
-      <button class="btn" id="aeClose">关闭</button>
+      <button class="btn" id="aeClose" data-i18n="dlg.close">关闭</button>
     </div>
     <div class="ae-body">
       <div class="ae-left" id="aeLeft"></div>
       <div class="ae-right" id="aeRight"></div>
     </div>
     <div class="ae-timeline-wrap">
-      <div class="ae-timeline-title">时间轴（动作轨道 + 材质轨道：拖动块改起始帧，拖材质块右端 ▮ 改时长）</div>
+      <div class="ae-timeline-title" data-i18n="ae.timelineTitle">时间轴（动作轨道 + 材质轨道：拖动块改起始帧，拖材质块右端 ▮ 改时长）</div>
       <div class="ae-timeline" id="aeTimeline"></div>
     </div>
   </div>
@@ -591,10 +591,10 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
 <div class="modal-mask" id="equipModal">
   <div class="ae eq">
     <div class="ae-head">
-      <span class="ae-title">装配装备</span>
+      <span class="ae-title" data-i18n="ctx.equip">装配装备</span>
       <span class="eq-label" id="eqLabel"></span>
       <span class="ae-spacer"></span>
-      <button class="btn" id="eqClose">关闭</button>
+      <button class="btn" id="eqClose" data-i18n="dlg.close">关闭</button>
     </div>
     <div class="eq-body" id="eqBody"></div>
   </div>
@@ -603,29 +603,29 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
 <!-- 重命名：HTML 页内模态（替代被 MCEF 全屏遮挡、独占全屏下永远弹不出的 Swing 文本输入窗口） -->
 <div class="modal-mask" id="renameModal">
   <div class="modal">
-    <div class="modal-title" id="renameTitle">重命名</div>
+    <div class="modal-title" id="renameTitle" data-i18n="dlg.rename">重命名</div>
     <div class="modal-body" id="renameBody">
       <div class="modal-field">
-        <label id="renameLabel">名称</label>
-        <input id="renameInput" type="text" class="modal-input" placeholder="输入新名称">
+        <label id="renameLabel" data-i18n="form.nameLabel">名称</label>
+        <input id="renameInput" type="text" class="modal-input" placeholder="输入新名称" data-i18n-ph="rename.ph">
       </div>
     </div>
   <div class="modal-actions">
-    <button class="btn" id="renameCancel">取消</button>
-    <button class="btn ok" id="renameOk">确定</button>
+    <button class="btn" id="renameCancel" data-i18n="dlg.cancel">S('dlg.cancel')</button>
+    <button class="btn ok" id="renameOk" data-i18n="dlg.ok">确定</button>
   </div>
 </div>
 
 <!-- 二次确认弹窗（删除序列等破坏性操作） -->
 <div class="modal-mask" id="confirmModal">
   <div class="modal">
-    <div class="modal-title" id="confirmTitle">确认</div>
+    <div class="modal-title" id="confirmTitle" data-i18n="dlg.confirm">确认</div>
     <div class="modal-body">
       <div class="modal-field"><span id="confirmMsg"></span></div>
     </div>
     <div class="modal-actions">
-      <button class="btn" id="confirmCancel">取消</button>
-      <button class="btn ok" id="confirmOk">确定</button>
+      <button class="btn" id="confirmCancel" data-i18n="dlg.cancel">S('dlg.cancel')</button>
+      <button class="btn ok" id="confirmOk" data-i18n="dlg.ok">确定</button>
     </div>
   </div>
 </div>
@@ -653,6 +653,30 @@ var preFocusLeftW = null;   /* B4: width to restore after unfocusing a character
 
 function send(a, p){ p = p || {}; p.a = a; console.log('BBS_ACTION:' + JSON.stringify(p)); }
 
+/* ----- state-injected i18n -----
+   Labels come from window.bbsState.strings (built by EditorStrings on the Java
+   side and pushed with the state). S(k) returns the translated string, or the
+   key itself as a final fallback so a missing entry never blanks the UI.
+   applyStaticI18n() rewrites every [data-i18n] element (and title/placeholder
+   variants) once per render, so a language switch re-paints the whole chrome
+   without a page reload. */
+function S(k){ var s = window.bbsState && window.bbsState.strings; return (s && s[k] != null) ? s[k] : k; }
+
+function applyStaticI18n(){
+  var nodes = document.querySelectorAll('[data-i18n]');
+  for (var i = 0; i < nodes.length; i++){
+    var el = nodes[i];
+    var key = el.getAttribute('data-i18n');
+    var texts = [];
+    for (var c = 0; c < el.childNodes.length; c++){ if (el.childNodes[c].nodeType === 3) texts.push(el.childNodes[c]); }
+    if (texts.length === 1) texts[0].nodeValue = S(key);
+  }
+  var tt = document.querySelectorAll('[data-i18n-title]');
+  for (var j = 0; j < tt.length; j++){ tt[j].setAttribute('title', S(tt[j].getAttribute('data-i18n-title'))); }
+  var ph = document.querySelectorAll('[data-i18n-ph]');
+  for (var p = 0; p < ph.length; p++){ ph[p].setAttribute('placeholder', S(ph[p].getAttribute('data-i18n-ph'))); }
+}
+
 /* ----- HTML 原生弹窗（替代被 MCEF 全屏覆盖挡住的 Swing 命名窗口） ----- */
 function isCreateAction(a){
   return a === 'newScene' || a === 'newCamera' || a === 'newSequence' ||
@@ -662,13 +686,13 @@ function isCreateAction(a){
    新建动作统一走这里。弹窗本身就在编辑器页面内，全屏/窗口化都能正常弹出，
    不会像系统级 Swing 窗口那样被独占全屏压住，也不存在坐标错位问题。 */
 var CREATE_META = {
-  newScene:    { title:'新建场景', action:'createScene',    fields:['name','world'] },
-  newCamera:   { title:'新建相机', action:'createCamera',   fields:['name'] },
-  newSequence: { title:'新建序列', action:'createSequence', fields:['name'] },
-  newEntity:   { title:'新建实体', action:'createEntity',   fields:['name'] },
-  newParticle: { title:'新建粒子', action:'createParticle', fields:['name'] },
-  newItem:     { title:'新建物品', action:'createItem',     fields:['id'] },
-  newCharacter:{ title:'新建角色', action:'createCharacter',fields:['name','type','charType','model'] }
+  newScene:    { title:'create.scene', action:'createScene',    fields:['name','world'] },
+  newCamera:   { title:'create.camera', action:'createCamera',   fields:['name'] },
+  newSequence: { title:'create.sequence', action:'createSequence', fields:['name'] },
+  newEntity:   { title:'create.entity', action:'createEntity',   fields:['name'] },
+  newParticle: { title:'create.particle', action:'createParticle', fields:['name'] },
+  newItem:     { title:'create.item', action:'createItem',     fields:['id'] },
+  newCharacter:{ title:'create.character', action:'createCharacter',fields:['name','type','charType','model'] }
 };
 function modalField(label, html){
   var f = document.createElement('div'); f.className = 'modal-field';
@@ -680,11 +704,11 @@ function modalField(label, html){
 function openCreateModal(type){
   var m = CREATE_META[type]; if(!m) return;
   hideMenus();
-  document.getElementById('modalTitle').textContent = m.title;
+  document.getElementById('modalTitle').textContent = S(m.title);
   var body = document.getElementById('modalBody'); body.innerHTML = '';
   var refs = {};
   if(m.fields.indexOf('name') >= 0){
-    body.appendChild(modalField('名称（留空自动命名）', '<input id="mName" type="text" placeholder="可选">'));
+    body.appendChild(modalField(S('form.name'), '<input id="mName" type="text" placeholder="' + S('form.namePh') + '">'));
     refs.name = 'mName';
   }
   if(m.fields.indexOf('world') >= 0){
@@ -693,17 +717,17 @@ function openCreateModal(type){
     /* 只有一个真实世界时默认选中，免去手动操作 */
     var defW = (realW.length === 1) ? realW[0] : '';
     var fieldWrap = document.createElement('div'); fieldWrap.className = 'modal-field';
-    var wlab = document.createElement('label'); wlab.textContent = '背景世界（角色在此世界中活动）'; fieldWrap.appendChild(wlab);
+    var wlab = document.createElement('label'); wlab.textContent = S('form.world'); fieldWrap.appendChild(wlab);
     var dd = document.createElement('div'); dd.className = 'dd';
     var hiW = document.createElement('input'); hiW.type = 'hidden'; hiW.id = 'mWorld'; hiW.value = defW;
     var btnW = document.createElement('button'); btnW.type = 'button'; btnW.className = 'dd-btn';
-    var lblW = document.createElement('span'); lblW.className = 'dd-label'; lblW.textContent = defW ? defW : '（无 / 空白世界）';
+    var lblW = document.createElement('span'); lblW.className = 'dd-label'; lblW.textContent = defW ? defW : S('form.noWorld');
     var caretW = document.createElement('span'); caretW.className = 'dd-caret'; caretW.textContent = '▾';
     btnW.appendChild(lblW); btnW.appendChild(caretW);
     var popW = document.createElement('div'); popW.className = 'dd-pop';
     var chooseW = function(v, el){
       hiW.value = v;
-      lblW.textContent = v ? v : '（无 / 空白世界）';
+      lblW.textContent = v ? v : S('form.noWorld');
       popW.querySelectorAll('.dd-opt').forEach(function(x){ x.classList.remove('sel'); });
       if(el) el.classList.add('sel');
       popW.classList.remove('open'); dd.classList.remove('open');
@@ -716,7 +740,7 @@ function openCreateModal(type){
       o.onclick = function(){ chooseW(v, o); };
       return o;
     };
-    popW.appendChild(mkOpt('', '（无 / 空白世界）', defW === ''));
+    popW.appendChild(mkOpt('', S('form.noWorld'), defW === ''));
     realW.forEach(function(w){ popW.appendChild(mkOpt(w, w, defW === w)); });
     btnW.onclick = function(e){
       e.stopPropagation();
@@ -734,12 +758,12 @@ function openCreateModal(type){
     refs.world = 'mWorld';
   }
   if(m.fields.indexOf('id') >= 0){
-    body.appendChild(modalField('物品 ID（如 minecraft:stone）', '<input id="mId" type="text" placeholder="minecraft:stone">'));
+    body.appendChild(modalField(S('form.itemId'), '<input id="mId" type="text" placeholder="minecraft:stone">'));
     refs.id = 'mId';
   }
   if(m.fields.indexOf('type') >= 0){
     var seg = document.createElement('div'); seg.className = 'modal-seg';
-    var TYPE_LABEL = { MOB:'生物', MODEL:'模型', PARTICLE:'粒子', BLOCK:'方块' };
+    var TYPE_LABEL = { MOB:S('type.mob'), MODEL:S('type.model'), PARTICLE:S('type.particle'), BLOCK:S('type.block') };
     ['MOB','MODEL','PARTICLE','BLOCK'].forEach(function(t, i){
       var b = document.createElement('button'); b.type = 'button'; b.textContent = TYPE_LABEL[t]; b.dataset.v = t;
       if(i === 0) b.className = 'on';
@@ -747,31 +771,31 @@ function openCreateModal(type){
       seg.appendChild(b);
     });
     var ft = document.createElement('div'); ft.className = 'modal-field';
-    var lt = document.createElement('label'); lt.textContent = '角色形态（生物/模型/粒子/方块）'; ft.appendChild(lt); ft.appendChild(seg);
+    var lt = document.createElement('label'); lt.textContent = S('form.type'); ft.appendChild(lt); ft.appendChild(seg);
     body.appendChild(ft);
     refs.seg = seg;
   }
   if(m.fields.indexOf('charType') >= 0){
     var seg2 = document.createElement('div'); seg2.className = 'modal-seg';
-    [['keyframe','关键帧角色'],['action','动作角色'],['playback','回放角色']].forEach(function(p, i){
+    [['keyframe', S('ctx.keyframeChar')],['action', S('ctx.actionChar')],['playback', S('ctx.playbackChar')]].forEach(function(p, i){
       var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1]; b.dataset.v = p[0];
       if(i === 0) b.className = 'on';
       b.onclick = function(){ seg2.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); };
       seg2.appendChild(b);
     });
     var f2 = document.createElement('div'); f2.className = 'modal-field';
-    var l2 = document.createElement('label'); l2.textContent = '角色类型'; f2.appendChild(l2); f2.appendChild(seg2);
+    var l2 = document.createElement('label'); l2.textContent = S('ctx.charType'); f2.appendChild(l2); f2.appendChild(seg2);
     body.appendChild(f2);
     refs.seg2 = seg2;
   }
   if(m.fields.indexOf('model') >= 0){
     var ms2 = (window.bbsState && window.bbsState.models) ? window.bbsState.models : [];
     var fieldWrapM = document.createElement('div'); fieldWrapM.className = 'modal-field';
-    var mlab = document.createElement('label'); mlab.textContent = '角色模型（游戏内注册的角色 / 玩家）'; fieldWrapM.appendChild(mlab);
+    var mlab = document.createElement('label'); mlab.textContent = S('form.model'); fieldWrapM.appendChild(mlab);
 
     /* 模式：单选 / 自定义表达式 / 模型组 */
     var segM = document.createElement('div'); segM.className = 'modal-seg';
-    [['single','单选'],['expr','自定义表达式'],['group','模型组']].forEach(function(p, i){
+    [['single', S('form.modeSingle')],['expr', S('form.modeExpr')],['group', S('form.modeGroup')]].forEach(function(p, i){
       var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1]; b.dataset.v = p[0];
       if(i === 0) b.className = 'on';
       b.onclick = function(){ segM.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); syncModelUI(); };
@@ -782,7 +806,7 @@ function openCreateModal(type){
     var ddM = document.createElement('div'); ddM.className = 'dd';
     var hiM = document.createElement('input'); hiM.type = 'hidden'; hiM.id = 'mModel'; hiM.value = ms2.length ? ms2[0].id : '';
     var btnM = document.createElement('button'); btnM.type = 'button'; btnM.className = 'dd-btn';
-    var lblM = document.createElement('span'); lblM.className = 'dd-label'; lblM.textContent = ms2.length ? ms2[0].name : '（无可用模型）';
+    var lblM = document.createElement('span'); lblM.className = 'dd-label'; lblM.textContent = ms2.length ? ms2[0].name : S('form.noModel');
     var caretM = document.createElement('span'); caretM.className = 'dd-caret'; caretM.textContent = '▾';
     btnM.appendChild(lblM); btnM.appendChild(caretM);
     var popM = document.createElement('div'); popM.className = 'dd-pop';
@@ -805,7 +829,7 @@ function openCreateModal(type){
       var s1 = document.createElement('span'); s1.textContent = o.name;
       var s2 = document.createElement('span'); s2.className = 'dd-tick'; s2.textContent = '✓'; s2.style.visibility = 'hidden';
       row.appendChild(s1); row.appendChild(s2);
-      row.onclick = function(){ var on = !grpState[o.id]; grpState[o.id] = on; s2.style.visibility = on ? 'visible' : 'hidden'; row.classList.toggle('sel', on); var n = Object.keys(grpState).filter(function(k){ return grpState[k]; }).length; grpCount.textContent = '已选 ' + n + ' 个'; };
+      row.onclick = function(){ var on = !grpState[o.id]; grpState[o.id] = on; s2.style.visibility = on ? 'visible' : 'hidden'; row.classList.toggle('sel', on); var n = Object.keys(grpState).filter(function(k){ return grpState[k]; }).length; grpCount.textContent = S('form.selected') + ' ' + n + ' ' + S('form.unit'); };
       grpWrap.appendChild(row);
     });
     fieldWrapM.appendChild(grpWrap);
@@ -867,7 +891,7 @@ function pushMetrics(){
 }
 function toast(msg, err){ var t = document.createElement('div'); t.className = 'toast' + (err ? ' error' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); }
 /* D: 播放时选中「非实时（client=false）」动作组的占位提示文案（待 chun-ux 提供最终版本后替换） */
-var NON_CLIENT_GROUP_TOAST = '此动作组需进入预览世界才会播放';
+var NON_CLIENT_GROUP_TOAST = 'toast.nonClientGroup';
 /* A2: 带上限的 tick 输入框（上限参考时间轴总时长），超限自动回弹 */
 function tickInput(value, dur){
   var i = document.createElement('input'); i.type = 'number'; i.min = '0'; i.step = '1';
@@ -940,40 +964,40 @@ function replayIndexById(id){ var rs = (window.bbsState && window.bbsState.repla
 
 function renderAssets(s){
   assetList.innerHTML = '';
-  addRoot('作品：' + (s.project || ''));
-  addGroup('场景');
+  addRoot(S('bin.work') + (s.project || ''));
+  addGroup(S('bin.scenes'));
   (s.scenes || []).forEach(function(sc){
     addItem('scene', sc.id, sc.name, function(){ send('openScene', { id: sc.id }); });
-    if(sc.background){ var sub = document.createElement('div'); sub.className = 'asset-sub'; sub.textContent = '世界：' + sc.background; assetList.appendChild(sub); }
+    if(sc.background){ var sub = document.createElement('div'); sub.className = 'asset-sub'; sub.textContent = S('bin.worldOf') + sc.background; assetList.appendChild(sub); }
   });
-  addGroup('序列');
+  addGroup(S('bin.sequence'));
   (s.sequences || []).forEach(function(seq){
     addItem('sequence', seq.id, seq.name + (s.activeSequence === seq.id ? '  ◀' : ''), function(){ send('enterSequence', { id: seq.id }); }, seq.refs, s.activeSequence === seq.id);
   });
   /* F0: every asset now carries a stable replay id (c.id). The action-editor
    * subsystem still keys on the replay's list index, so we resolve it by id.
    * Library items are unplaced replays, so both id and index stay in sync. */
-  addGroup('角色');
+  addGroup(S('bin.character'));
   (s.characters || []).forEach(function(c){ var ri = replayIndexById(c.id); addItem('character', c.id, c.label, function(){ selectedChar = ri; send('addToCurrent', { type:'character', id:c.id }); send('focusCharacter', { id: c.id }); }, null, false, false, ri); });
-  addGroup('实体');
+  addGroup(S('bin.entity'));
   (s.entities || []).forEach(function(c){ addItem('entity', c.id, c.label, function(){ send('addToCurrent', { type:'entity', id:c.id }); }, null, false, false, replayIndexById(c.id)); });
-  addGroup('粒子');
+  addGroup(S('bin.particle'));
   (s.particles || []).forEach(function(c){ addItem('particle', c.id, c.label, function(){ send('addToCurrent', { type:'particle', id:c.id }); }, null, false, false, replayIndexById(c.id)); });
-  addGroup('物品', function(){ openCreateModal('newItem'); });
+  addGroup(S('bin.item'), function(){ openCreateModal('newItem'); });
   (s.items || []).forEach(function(c){ addItem('item', c.id, c.label, function(){ send('addToCurrent', { type:'item', id:c.id }); }, null, false, false, replayIndexById(c.id)); });
-  addGroup('相机', function(){
-    if((s.cameras || []).length === 0){ toast('先用「右键素材箱空白处 › 新建项 › 相机」创建相机'); }
+  addGroup(S('bin.camera'), function(){
+    if((s.cameras || []).length === 0){ toast(S('bin.hintCreateCamera')); }
   });
   (s.cameras || []).forEach(function(cam){
-    var rec = cam.recording ? ' ●录制中' : '';
+    var rec = cam.recording ? ' ●' + S('cam.recording') : '';
     addItem('camera', String(cam.id), (cam.title || cam.type) + rec, function(){ selectedClip = cam.index; send('clipOp', { op:'select', index: cam.index }); }, null, false, false, cam.index);
   });
-  addGroup('相机组');
+  addGroup(S('bin.cameraGroup'));
   (s.cameraGroups || []).forEach(function(g){
-    addItem('cameragroup', g.id, g.name + '（' + g.count + ' 台相机）', function(){ send('addToCurrent', { type:'cameragroup', id: g.id }); });
+    addItem('cameragroup', g.id, g.name + '（' + g.count + S('bin.camCount') + '）', function(){ send('addToCurrent', { type:'cameragroup', id: g.id }); });
   });
-  addGroup('角色动作', function(){
-    if(selectedChar == null || selectedChar < 0){ toast('请先在「角色」分组里点选一个动作角色'); return; }
+  addGroup(S('bin.charActions'), function(){
+    if(selectedChar == null || selectedChar < 0){ toast(S('bin.hintSelectChar')); return; }
     send('newAction', { index: selectedChar });
   });
   (s.actionAssets || []).forEach(function(a){
@@ -982,7 +1006,7 @@ function renderAssets(s){
       send('openActionEditor', { index: a.charIndex, action: a.actionIndex });
     });
   });
-  addGroup('全局背包');
+  addGroup(S('bin.backpack'));
   (s.backpack || []).forEach(function(b){ addBagItem(b); });
 }
 
@@ -1007,7 +1031,7 @@ function renderTimeline(s){
       t.onclick = (function(id){ return function(){ send('enterSequence', { id: id }); }; })(seq.id);
       timelineTabs.insertBefore(t, btnNewSeq);
     });
-    if (tabFilm) tabFilm.textContent = (s.scene || '主序列');
+    if (tabFilm) tabFilm.textContent = (s.scene || S('tl.tabMain'));
     if (tabFilm) tabFilm.classList.toggle('active', !s.activeSequence);
     if (tabFilm && !tabFilm.onclick)
     {
@@ -1149,7 +1173,7 @@ function renderRename(s){
     var key = r.kind + ':' + r.target;
     if(renameShownFor !== key){
       renameShownFor = key;
-      document.getElementById('renameTitle').textContent = (r.kind === 'sequence' ? '重命名序列' : r.kind === 'cameragroup' ? '重命名相机组' : '重命名相机');
+      document.getElementById('renameTitle').textContent = (r.kind === 'sequence' ? S('dlg.renameSeq') : r.kind === 'cameragroup' ? S('dlg.renameCameraGroup') : S('dlg.renameCamera'));
       var inp = document.getElementById('renameInput');
       inp.value = (r.current || '');
       box.classList.add('show');
@@ -1163,6 +1187,7 @@ function renderRename(s){
 
 function renderAll(){
   var s = window.bbsState;
+  applyStaticI18n();
   renderRename(s);
   if(!s) return;
   /* 不再自动进世界：编辑器打开即保留 UI；仅在用户点击场景（openScene）
@@ -1200,10 +1225,10 @@ function renderCameraStatus(s){
   }
   if(!s.cameraStatus || (!s.cameraStatus.lost && !s.cameraStatus.overlap)){ el.style.display = 'none'; return; }
   var msg, bg;
-  if(s.cameraStatus.currentLost){ msg = '⚠ 相机丢失：当前帧没有相机覆盖，无法播放'; bg = '#a31f1f'; }
-  else if(s.cameraStatus.currentOverlap){ msg = '⚠ 相机重叠：当前帧被多个相机覆盖'; bg = '#9a6b00'; }
-  else if(s.cameraStatus.lost){ msg = '⚠ 相机丢失：时间轴存在无相机的区段'; bg = '#7a1f1f'; }
-  else { msg = '⚠ 相机重叠：时间轴存在多相机重叠的区段'; bg = '#9a6b00'; }
+  if(s.cameraStatus.currentLost){ msg = S('cam.warnLostNow'); bg = '#a31f1f'; }
+  else if(s.cameraStatus.currentOverlap){ msg = S('cam.warnOverlapNow'); bg = '#9a6b00'; }
+  else if(s.cameraStatus.lost){ msg = S('cam.warnLost'); bg = '#7a1f1f'; }
+  else { msg = S('cam.warnOverlap'); bg = '#9a6b00'; }
   el.textContent = msg;
   el.style.background = bg;
   el.style.color = '#fff';
@@ -1214,9 +1239,9 @@ function renderCameraStatus(s){
 function renderUpdate(s){
   var t = document.getElementById('upToast');
   if(!s.update){ t.classList.remove('show'); return; }
-  document.getElementById('upTitle').textContent = '发现新版本 ' + s.update.version;
-  document.getElementById('upSub').textContent = (s.update.releaseName || '') + (s.update.staged ? '（已下载，待安装）' : '（点击下载并安装）');
-  document.getElementById('upBtn').textContent = s.update.staged ? '安装更新' : '下载并更新';
+  document.getElementById('upTitle').textContent = S('up.found') + s.update.version;
+  document.getElementById('upSub').textContent = (s.update.releaseName || '') + (s.update.staged ? S('up.staged') : S('up.download'));
+  document.getElementById('upBtn').textContent = s.update.staged ? S('up.btnStaged') : S('up.btnDownload');
   t.classList.add('show');
 }
 window.__onState = renderAll;
@@ -1259,10 +1284,10 @@ function wireAeGroup(){
 function confirmComposeGroup(){
   var ae = (window.bbsState && window.bbsState.actionEditor) || {};
   var acts = ae.actions || [];
-  if(acts.length === 0){ toast('没有可组合的动作，请先添加动作到时间轴', true); return; }
+  if(acts.length === 0){ toast(S('toast.noActionToCompose'), true); return; }
   var list = acts.map(function(a){ return '· ' + escapeHtml(a.title); }).join('<br>');
-  var msg = '将把当前时间轴上的 <b>' + acts.length + '</b> 个动作组合成一个可复用动作组：<br>' + list + '<br><br>确定组合？';
-  confirmDialog('组合动作组', msg, function(){ send('composeActionGroup', {}); }, true);
+  var msg = S('ae.composeConfirm1') + acts.length + S('ae.composeConfirm2') + list + S('ae.composeConfirm3');
+  confirmDialog(S('ae.compose'), msg, function(){ send('composeActionGroup', {}); }, true);
 }
 /* A1: 动作组下拉改为 body 级弹层，避免被 .ae 的 overflow:hidden 裁剪 */
 function openAeGroupMenuPopup(e){
@@ -1277,21 +1302,21 @@ function openAeGroupMenuPopup(e){
   popup.style.left = x + 'px'; popup.style.top = y + 'px';
   if(groups.length === 0){
     var empty = document.createElement('div'); empty.className = 'ae-group-empty';
-    empty.textContent = '暂无动作组，先用「组合动作组」生成'; popup.appendChild(empty);
+    empty.textContent = S('toast.noActionGroup'); popup.appendChild(empty);
   } else {
     groups.forEach(function(g){
       var it = document.createElement('div'); it.className = 'ctx-main-item'; it.style.justifyContent = 'space-between';
       var span = document.createElement('span'); span.textContent = g.title; it.appendChild(span);
       /* D: client=false 的组在预览中不播放，给出徽标 */
       if(g.client === false){
-        var badge = document.createElement('span'); badge.textContent = '⚠ 需进入预览世界才播放'; badge.className = 'grp-noclient';
+        var badge = document.createElement('span'); badge.textContent = S('ae.noclientBadge'); badge.className = 'grp-noclient';
         it.appendChild(badge);
       }
       it.onclick = function(ev){
         ev.stopPropagation(); popup.remove();
         send('addActionGroup', { id: g.id });
         /* D: 播放时选中非实时组，提示不播放 */
-        if(running && g.client === false){ toast(NON_CLIENT_GROUP_TOAST, true); }
+        if(running && g.client === false){ toast(S(NON_CLIENT_GROUP_TOAST), true); }
       };
       popup.appendChild(it);
     });
@@ -1306,12 +1331,12 @@ function renderAeGroupMenu(menu){
   var groups = (ae && ae.actionGroups) || [];
   if(groups.length === 0){
     var empty = document.createElement('div'); empty.className = 'ae-group-empty';
-    empty.textContent = '暂无动作组，先用「组合动作组」生成';
+    empty.textContent = S('toast.noActionGroup');
     menu.appendChild(empty); return;
   }
   groups.forEach(function(g){
     var it = document.createElement('div'); it.className = 'ae-group-item';
-    it.innerHTML = '<span>' + escapeHtml(g.title) + '</span><span class="cnt">' + g.count + ' 个子动作</span>';
+    it.innerHTML = '<span>' + escapeHtml(g.title) + '</span><span class="cnt">' + g.count + S('ae.subActions') + '</span>';
     it.onclick = function(e){ e.stopPropagation(); send('addActionGroup', { id: g.id }); menu.classList.remove('show'); };
     it.addEventListener('mousedown', function(e){ if(e.button !== 0) return; startCustomDrag(e, 'group', g.id); });
     menu.appendChild(it);
@@ -1324,13 +1349,13 @@ function renderAeLeft(rootEl, ae){
   rootEl.innerHTML = '';
   var isAction = ae.characterType === 'action';
   if(isAction && ae.leftMode !== 'path'){
-    var plus = document.createElement('button'); plus.className = 'btn'; plus.style.margin = '2px 0 8px'; plus.textContent = '+ 新建动作';
+    var plus = document.createElement('button'); plus.className = 'btn'; plus.style.margin = '2px 0 8px'; plus.textContent = S('ae.newActionBtn');
     plus.onclick = openAeNewMenu;
     rootEl.appendChild(plus);
   }
   if(isAction){
     var modeRow = document.createElement('div'); modeRow.className = 'ae-modeRow';
-    [['action','动作'],['path','路径']].forEach(function(p){
+    [['action', S('ae.laneAction')],['path', S('ae.modePath')]].forEach(function(p){
       var b = document.createElement('button'); b.className = 'modal-seg'; b.type = 'button'; b.textContent = p[1];
       b.classList.toggle('on', ae.leftMode === p[0]);
       b.onclick = function(){ send('aeSetLeftMode', { mode: p[0] }); };
@@ -1339,15 +1364,15 @@ function renderAeLeft(rootEl, ae){
     rootEl.appendChild(modeRow);
   }
   if(isAction && ae.leftMode === 'path'){
-    var hint = document.createElement('div'); hint.className = 'ae-hint'; hint.textContent = '行走路径关键帧通道（x / y / z / yaw）';
+    var hint = document.createElement('div'); hint.className = 'ae-hint'; hint.textContent = S('ae.pathChannels');
     rootEl.appendChild(hint);
     (ae.channels || []).forEach(function(ch){ rootEl.appendChild(aeChannelItem(ch, ae)); });
   } else if(isAction){
-    var ah = document.createElement('div'); ah.className = 'ae-hint'; ah.textContent = '动作列表（拖到下方时间轴设置起始帧）';
+    var ah = document.createElement('div'); ah.className = 'ae-hint'; ah.textContent = S('ae.actionList');
     rootEl.appendChild(ah);
     (ae.actions || []).forEach(function(a){ rootEl.appendChild(aeActionItem(a, ae)); });
   } else {
-    var kh = document.createElement('div'); kh.className = 'ae-hint'; kh.textContent = '关键帧身体通道（选中后编辑关键帧）';
+    var kh = document.createElement('div'); kh.className = 'ae-hint'; kh.textContent = S('ae.bodyChannels');
     rootEl.appendChild(kh);
     (ae.channels || []).forEach(function(ch){ rootEl.appendChild(aeChannelItem(ch, ae)); });
   }
@@ -1359,7 +1384,7 @@ function renderEquip(s){
   if(!s.equip){ m.classList.remove('show'); return; }
   var eq = s.equip;
   m.classList.add('show');
-  document.getElementById('eqLabel').textContent = eq.label ? ('角色：' + eq.label) : '角色';
+  document.getElementById('eqLabel').textContent = eq.label ? (S('equip.charPrefix') + eq.label) : S('equip.char');
   var body = document.getElementById('eqBody');
   body.innerHTML = '';
   var idx = eq.replayIndex;
@@ -1368,11 +1393,11 @@ function renderEquip(s){
     var name = document.createElement('span'); name.className = 'eq-name'; name.textContent = slot.name;
     var input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'minecraft:item（留空=清除）';
+    input.placeholder = S('ae.mat.itemPh');
     input.value = slot.itemId || '';
-    var setBtn = document.createElement('button'); setBtn.className = 'btn'; setBtn.textContent = '装配';
+    var setBtn = document.createElement('button'); setBtn.className = 'btn'; setBtn.textContent = S('equip.set');
     setBtn.onclick = function(){ send('equip', { index: idx, slot: slot.key, item: input.value.trim() }); };
-    var clrBtn = document.createElement('button'); clrBtn.className = 'btn'; clrBtn.textContent = '清除';
+    var clrBtn = document.createElement('button'); clrBtn.className = 'btn'; clrBtn.textContent = S('equip.clear');
     clrBtn.onclick = function(){ input.value = ''; send('equip', { index: idx, slot: slot.key, item: '' }); };
     row.appendChild(name); row.appendChild(input); row.appendChild(setBtn); row.appendChild(clrBtn);
     body.appendChild(row);
@@ -1451,62 +1476,62 @@ function aeRenderAction(right, a, ae){
 
   var tIn = document.createElement('input'); tIn.type = 'text'; tIn.value = a.title;
   tIn.onchange = function(){ send('aeSetTitle', { ai: a.index, value: this.value }); };
-  right.appendChild(field('名称', tIn));
+  right.appendChild(field(S('ae.f.name'), tIn));
 
   var dIn = numInput(a.duration, 1, null);
   dIn.onchange = function(){ send('aeSetDuration', { ai: a.index, value: parseInt(this.value) || 1 }); };
-  right.appendChild(field('时长 (duration)', dIn));
+  right.appendChild(field(S('ae.f.duration'), dIn));
 
   var fIn = numInput(a.frequency, 0, null);
   fIn.onchange = function(){ send('aeSetFrequency', { ai: a.index, value: parseInt(this.value) || 0 }); };
-  right.appendChild(field('每组帧数 (frequency)', fIn));
+  right.appendChild(field(S('ae.f.frequency'), fIn));
 
   var dur = ae.timelineMax || 0;
   var tkIn = tickInput(a.tick, dur);
   tkIn.onchange = function(){ var v = parseInt(this.value) || 0; if(dur && v > dur) v = dur; this.value = v; send('aeSetTick', { ai: a.index, value: v }); };
-  right.appendChild(field('起始帧 (tick)', tkIn));
+  right.appendChild(field(S('ae.f.tick'), tkIn));
 
   /* B4 扩展字段：图层 / 启用 / 淡入 / 淡出（仅暴露数据模型已有字段） */
   var layIn = numInput(a.layer, 0, null);
   layIn.onchange = function(){ send('aeSetLayer', { ai: a.index, value: parseInt(this.value) || 0 }); };
-  right.appendChild(field('图层 (layer)', layIn));
+  right.appendChild(field(S('ae.f.layer'), layIn));
 
-  right.appendChild(toggleInline('启用', a.enabled, function(v){ send('aeSetEnabled', { ai: a.index, value: v }); }));
+  right.appendChild(toggleInline(S('ae.f.enabled'), a.enabled, function(v){ send('aeSetEnabled', { ai: a.index, value: v }); }));
 
   var biIn = numInput(a.blendIn, 0, 0.1);
   biIn.onchange = function(){ send('aeSetBlendIn', { ai: a.index, value: parseFloat(this.value) || 0 }); };
-  right.appendChild(field('淡入 (blendIn)', biIn));
+  right.appendChild(field(S('ae.f.blendIn'), biIn));
 
   var boIn = numInput(a.blendOut, 0, 0.1);
   boIn.onchange = function(){ send('aeSetBlendOut', { ai: a.index, value: parseFloat(this.value) || 0 }); };
-  right.appendChild(field('淡出 (blendOut)', boIn));
+  right.appendChild(field(S('ae.f.blendOut'), boIn));
 
   if(a.kind === 'locomotion'){
     var seg = document.createElement('div'); seg.className = 'modal-seg';
-    [['walk','走路'],['run','奔跑'],['idle','空闲']].forEach(function(p){
+    [['walk', S('ae.loc.walk')],['run', S('ae.loc.run')],['idle', S('ae.loc.idle')]].forEach(function(p){
       var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1];
       b.classList.toggle('on', a.mode === p[0]);
       b.onclick = function(){ send('aeSetMode', { ai: a.index, value: p[0] }); };
       seg.appendChild(b);
     });
-    right.appendChild(field('移动模式 (mode)', null));
+    right.appendChild(field(S('ae.f.mode'), null));
     right.lastChild.appendChild(seg);
     var stepIn = numInput(a.step, 0, 0.1);
     stepIn.onchange = function(){ send('aeSetStep', { ai: a.index, value: parseFloat(this.value) || 0 }); };
-    right.appendChild(field('步长 (每步方块)', stepIn));
+    right.appendChild(field(S('ae.f.step'), stepIn));
   }
 
-  var del = document.createElement('button'); del.className = 'btn'; del.textContent = '删除此动作'; del.style.marginTop = '6px';
+  var del = document.createElement('button'); del.className = 'btn'; del.textContent = S('ae.f.deleteAction'); del.style.marginTop = '6px';
   del.onclick = function(){ send('aeDeleteAction', { ai: a.index }); };
   right.appendChild(del);
 
   if(a.kind === 'script'){
     right.appendChild(document.createElement('hr'));
     var sh = document.createElement('div'); sh.className = 'ae-hint';
-    sh.textContent = '脚本在播放时运行，通过 bbs 接口操控这个角色。';
+    sh.textContent = S('ae.scriptHint');
     right.appendChild(sh);
     var ta = document.createElement('textarea'); ta.id = 'aeScript'; ta.value = (a.script || '');
-    right.appendChild(field('脚本源码', ta));
+    right.appendChild(field(S('ae.scriptSrc'), ta));
     var save = document.createElement('button'); save.className = 'btn ok'; save.style.background = '#4c8dff'; save.style.color = '#fff'; save.textContent = '保存脚本';
     save.onclick = function(){ send('aeSaveScript', { ai: a.index, value: ta.value }); };
     right.appendChild(save);
@@ -1516,14 +1541,14 @@ function aeRenderAction(right, a, ae){
 
     right.appendChild(document.createElement('hr'));
     var ph = document.createElement('div'); ph.className = 'ae-hint';
-    ph.textContent = '自定义参数（数字，可被外部工具读取 / 导出分享）';
+    ph.textContent = S('ae.paramsHint');
     right.appendChild(ph);
     var plist = document.createElement('div'); plist.className = 'ae-params';
     (a.params || []).forEach(function(p){
       var row = document.createElement('div'); row.className = 'ae-param';
       var inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.value = p.value;
       inp.onchange = function(){ send('aeSetParam', { ai: a.index, pi: p.index, value: parseFloat(this.value) || 0 }); };
-      var delp = document.createElement('button'); delp.className = 'btn'; delp.textContent = '删除'; delp.style.padding = '4px 10px';
+      var delp = document.createElement('button'); delp.className = 'btn'; delp.textContent = S('ctx.delete'); delp.style.padding = '4px 10px';
       delp.onclick = function(){ send('aeDelParam', { ai: a.index, pi: p.index }); };
       row.appendChild(inp); row.appendChild(delp);
       plist.appendChild(row);
@@ -1558,72 +1583,72 @@ function aeRenderMaterial(right, mc, ae){
   }
 
   var hint = document.createElement('div'); hint.className = 'ae-hint';
-  hint.textContent = '材质片段：在时间轴上拖动可改起始帧，拖右端 ▮ 可改时长。播放时在其区间内覆盖角色外观。';
+  hint.textContent = S('ae.matHint');
   right.appendChild(hint);
 
   var seg = document.createElement('div'); seg.className = 'modal-seg';
-  [['model', '模型 / Morph'], ['skin', '皮肤 / 贴图'], ['equip', '装备 / 物品']].forEach(function(p){
+  [['model', S('ae.mat.model')], ['skin', S('ae.mat.skin')], ['equip', S('ae.mat.equip')]].forEach(function(p){
     var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1];
     b.classList.toggle('on', mc.type === p[0]);
     b.onclick = function(){ send('aeSetMaterialType', { mi: mc.index, value: p[0] }); };
     seg.appendChild(b);
   });
-  right.appendChild(field('类型', null)); right.lastChild.appendChild(seg);
+  right.appendChild(field(S('ae.f.type'), null)); right.lastChild.appendChild(seg);
 
   if(mc.type === 'equip'){
     var itemIn = document.createElement('input'); itemIn.type = 'text';
-    itemIn.placeholder = 'minecraft:diamond_sword（留空=清除）'; itemIn.value = mc.item || '';
+    itemIn.placeholder = S('ae.mat.itemPh'); itemIn.value = mc.item || '';
     itemIn.onchange = function(){ send('aeSetMaterialItem', { mi: mc.index, value: this.value.trim() }); };
-    right.appendChild(field('物品 ID (item)', itemIn));
+    right.appendChild(field(S('ae.mat.itemId'), itemIn));
 
     var slotSel = document.createElement('select');
-    [['mainHand', '主手'], ['offHand', '副手'], ['armorHead', '头盔'], ['armorChest', '胸甲'], ['armorLegs', '护腿'], ['armorFeet', '靴子']].forEach(function(p){
+    [['mainHand', S('ae.slotMainHand')], ['offHand', S('ae.slotOffHand')], ['armorHead', S('ae.slotHead')], ['armorChest', S('ae.slotChest')], ['armorLegs', S('ae.slotLegs')], ['armorFeet', S('ae.slotFeet')]].forEach(function(p){
       var o = document.createElement('option'); o.value = p[0]; o.textContent = p[1]; slotSel.appendChild(o);
     });
     slotSel.value = mc.slot || 'mainHand';
     slotSel.onchange = function(){ send('aeSetMaterialSlot', { mi: mc.index, value: this.value }); };
-    right.appendChild(field('装备槽 (slot)', slotSel));
+    right.appendChild(field(S('ae.mat.slot'), slotSel));
   } else {
     var tIn = document.createElement('input'); tIn.type = 'text';
-    tIn.placeholder = mc.type === 'skin' ? 'assets 贴图路径，如 skins/steve' : '模型/Morph id，支持 MODEL:/PARTICLE:/group: 前缀';
+    tIn.placeholder = mc.type === 'skin' ? S('ae.mat.skinPh') : S('ae.mat.targetPh');
     tIn.value = mc.target || '';
     tIn.onchange = function(){ send('aeSetMaterialTarget', { mi: mc.index, value: this.value.trim() }); };
-    right.appendChild(field(mc.type === 'skin' ? '贴图目标 (target)' : '模型目标 (target)', tIn));
+    right.appendChild(field(mc.type === 'skin' ? S('ae.mat.skinTarget') : S('ae.mat.modelTarget'), tIn));
   }
 
   var dur = ae.timelineMax || 0;
   var tkIn = tickInput(mc.tick, dur);
   tkIn.onchange = function(){ var v = parseInt(this.value) || 0; if(dur && v > dur) v = dur; this.value = v; send('aeSetMaterialTick', { mi: mc.index, value: v }); };
-  right.appendChild(field('起始帧 (tick)', tkIn));
+  right.appendChild(field(S('ae.f.tick'), tkIn));
 
   var duIn = numInput(mc.duration, 1, null);
   duIn.onchange = function(){ send('aeSetMaterialDuration', { mi: mc.index, value: parseInt(this.value) || 1 }); };
-  right.appendChild(field('时长 (duration)', duIn));
+  right.appendChild(field(S('ae.f.duration'), duIn));
 
-  right.appendChild(toggleInline('启用', mc.enabled, function(v){ send('aeToggleMaterialEnabled', { mi: mc.index, value: v }); }));
+  right.appendChild(toggleInline(S('ae.f.enabled'), mc.enabled, function(v){ send('aeToggleMaterialEnabled', { mi: mc.index, value: v }); }));
 
-  var del = document.createElement('button'); del.className = 'btn'; del.textContent = '删除此材质'; del.style.marginTop = '6px';
+  var del = document.createElement('button'); del.className = 'btn'; del.textContent = S('ae.f.deleteMaterial'); del.style.marginTop = '6px';
   del.onclick = function(){ send('aeDeleteMaterial', { mi: mc.index }); };
   right.appendChild(del);
 }
 
 function aeRenderChannel(right, ch, ae){
   var h = document.createElement('div'); h.className = 'ae-hint';
-  h.textContent = '关键帧通道：' + ch.id + '（共 ' + (ch.keyframes ? ch.keyframes.length : 0) + ' 帧）';
+  h.textContent = S('ae.channelHead') + ch.id + '（共 ' + (ch.keyframes ? ch.keyframes.length : 0) + S('ae.frames') + '）';
   right.appendChild(h);
   var row = document.createElement('div'); row.className = 'ae-row';
-  row.appendChild(label('帧'));
+  row.appendChild(label(S('ae.frame')));
   var dur = ae.timelineMax || 0;
   var tick = tickInput(0, dur); tick.style.width = '90px';
   row.appendChild(tick);
-  row.appendChild(label('值'));
+  row.appendChild(label(S('ae.value')));
   var val = document.createElement('input'); val.type = 'number'; val.step = '0.1'; val.value = '0'; val.style.width = '100px';
   row.appendChild(val);
-  var add = document.createElement('button'); add.className = 'kf-add'; add.textContent = '◆ 添加关键帧';
+  var add = document.createElement('button'); add.className = 'kf-add'; add.textContent = S('ae.addKeyframe');
   add.onclick = function(){ var v = parseInt(tick.value) || 0; if(dur && v > dur) v = dur; send('aeAddKeyframe', { channel: ch.id, tick: v, value: parseFloat(val.value) || 0 }); };
   row.appendChild(add);
-  var punch = document.createElement('button'); punch.className = 'kf-add'; punch.textContent = '◆ 播放头打帧';
-  punch.title = '在当前播放位置打一个关键帧';
+  var punch = document.createElement('button'); punch.className = 'kf-add'; punch.textContent = S('ae.punchKeyframe');
+  punch.title = S('ae.punchKeyframeTitle');
   punch.onclick = function(){ var s = window.bbsState || {}; send('aeAddKeyframe', { channel: ch.id, tick: (s.cursor || 0), value: parseFloat(val.value) || 0 }); };
   row.appendChild(punch);
   right.appendChild(row);
@@ -1633,17 +1658,17 @@ function aeRenderChannel(right, ch, ae){
   (ch.keyframes || []).forEach(function(k){
     var kr = document.createElement('div'); kr.className = 'ae-param';
     var lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.style.flex = '1';
-    lbl.textContent = '帧 ' + k.tick + ' = ' + k.value;
+    lbl.textContent = S('ae.frame') + ' ' + k.tick + ' = ' + k.value;
     var vinp = document.createElement('input'); vinp.type = 'number'; vinp.step = '0.1'; vinp.value = k.value; vinp.style.width = '100px';
     vinp.onchange = function(){ send('aeSetKeyframeValue', { channel: ch.id, index: k.index, value: parseFloat(this.value) || 0 }); };
-    var del = document.createElement('button'); del.className = 'btn'; del.textContent = '删除'; del.style.padding = '4px 10px';
+    var del = document.createElement('button'); del.className = 'btn'; del.textContent = S('ctx.delete'); del.style.padding = '4px 10px';
     del.onclick = function(){ send('aeDelKeyframe', { channel: ch.id, index: k.index }); };
     kr.appendChild(lbl); kr.appendChild(vinp); kr.appendChild(del);
     kr.onclick = function(){ window.selKf = { channel: ch.id, index: k.index }; document.querySelectorAll('.ae-param.kf-sel').forEach(function(x){ x.classList.remove('kf-sel'); }); kr.classList.add('kf-sel'); };
     list.appendChild(kr);
   });
   if(!(ch.keyframes && ch.keyframes.length)){
-    var e = document.createElement('div'); e.className = 'ae-hint'; e.textContent = '暂无关键帧';
+    var e = document.createElement('div'); e.className = 'ae-hint'; e.textContent = S('ae.noKeyframes');
     list.appendChild(e);
   }
   right.appendChild(list);
@@ -1665,7 +1690,7 @@ function renderAeTracks(ae, tl){
 
   /* ---- Action lane ---- */
   var al = document.createElement('div'); al.className = 'ae-lane';
-  var ah = document.createElement('div'); ah.className = 'ae-lane-head'; ah.textContent = '动作';
+  var ah = document.createElement('div'); ah.className = 'ae-lane-head'; ah.textContent = S('ae.laneAction');
   al.appendChild(ah);
   var ab = document.createElement('div'); ab.className = 'ae-lane-body';
   ab.ondragover = function(e){ if(e.dataTransfer.types.indexOf('text/plain') >= 0) e.preventDefault(); };
@@ -1680,8 +1705,8 @@ function renderAeTracks(ae, tl){
       send('addActionGroup', { id: gid, tick: tick });
       var g = ((window.bbsState && window.bbsState.actionEditor && window.bbsState.actionEditor.actionGroups) || []).filter(function(x){ return x.id === gid; })[0];
       var running = !!(window.bbsState && window.bbsState.running);
-      if(running && g && g.client === false){ toast(NON_CLIENT_GROUP_TOAST, true); }
-      else { toast('已加入动作组 @ tick ' + tick); }
+      if(running && g && g.client === false){ toast(S(NON_CLIENT_GROUP_TOAST), true); }
+      else { toast(S('toast.addedGroup') + tick); }
       return;
     }
     if(raw.indexOf('act:') !== 0) return;
@@ -1690,7 +1715,7 @@ function renderAeTracks(ae, tl){
     var rect = ab.getBoundingClientRect();
     var tick = Math.max(0, Math.round(((e.clientX - rect.left) / Math.max(1, rect.width)) * max));
     send('aeSetTick', { ai: ai, value: tick });
-    toast('已设置起始帧：动作 #' + ai + ' @ tick ' + tick);
+    toast(S('toast.setStartAction') + ai + S('toast.atTick') + tick);
   };
   (ae.actions || []).forEach(function(a){ ab.appendChild(aeActionBlock(a, ae, max)); });
   if(ae.selectedChannel && ae.channels){
@@ -1710,8 +1735,8 @@ function renderAeTracks(ae, tl){
   /* ---- Material lane ---- */
   var ml = document.createElement('div'); ml.className = 'ae-lane';
   var mh = document.createElement('div'); mh.className = 'ae-lane-head';
-  var mhTxt = document.createElement('span'); mhTxt.textContent = '材质'; mh.appendChild(mhTxt);
-  var addBtn = document.createElement('button'); addBtn.className = 'kf-add'; addBtn.type = 'button'; addBtn.textContent = '+ 添加';
+  var mhTxt = document.createElement('span'); mhTxt.textContent = S('ae.laneMaterial'); mh.appendChild(mhTxt);
+  var addBtn = document.createElement('button'); addBtn.className = 'kf-add'; addBtn.type = 'button'; addBtn.textContent = S('ae.addMaterial');
   addBtn.onclick = function(e){ e.stopPropagation(); openAeMaterialMenu(e); };
   mh.appendChild(addBtn);
   ml.appendChild(mh);
@@ -1726,7 +1751,7 @@ function renderAeTracks(ae, tl){
     var rect = mb.getBoundingClientRect();
     var tick = Math.max(0, Math.round(((e.clientX - rect.left) / Math.max(1, rect.width)) * max));
     send('aeSetMaterialTick', { mi: mi, value: tick });
-    toast('已设置起始帧：材质 #' + mi + ' @ tick ' + tick);
+    toast(S('toast.setStartMaterial') + mi + S('toast.atTick') + tick);
   };
   (ae.materials || []).forEach(function(mc){ mb.appendChild(aeMaterialBlock(mc, ae, max)); });
   ml.appendChild(mb); tl.appendChild(ml);
@@ -1752,8 +1777,8 @@ function aeMaterialBlock(mc, ae, max){
   blk.style.left = ((mc.tick / max) * 100) + '%';
   blk.style.width = (Math.max(3, (mc.duration / max) * 100)) + '%';
   blk.style.opacity = mc.enabled ? '1' : '0.45';
-  var label = (typeCls === 'skin' ? '皮肤' : (typeCls === 'equip' ? '装备' : '模型')) + '：' + (mc.target || mc.item || '');
-  blk.title = label + '  [' + mc.tick + '→' + (mc.tick + mc.duration) + ']' + (mc.enabled ? '' : '（已禁用）');
+  var label = (typeCls === 'skin' ? S('ae.mat.skin') : (typeCls === 'equip' ? S('ae.mat.equip') : S('ae.mat.model'))) + '：' + (mc.target || mc.item || '');
+  blk.title = label + '  [' + mc.tick + '→' + (mc.tick + mc.duration) + ']' + (mc.enabled ? '' : S('ae.disabled'));
   blk.textContent = label;
   blk.onclick = function(e){ e.stopPropagation(); send('aeSelectMaterial', { mi: mc.index }); };
   blk.draggable = true;
@@ -1789,7 +1814,7 @@ function startMatResize(e, blk, mc, max){
 }
 
 function openAeMaterialMenu(e){
-  var items = [['模型 / Morph', 'model'], ['皮肤 / 贴图', 'skin'], ['装备 / 物品', 'equip']];
+  var items = [[S('ae.mat.model'), 'model'], [S('ae.mat.skin'), 'skin'], [S('ae.mat.equip'), 'equip']];
   var popup = document.createElement('div'); popup.className = 'context-menu'; popup.style.display = 'block';
   var x = (e && e.clientX) ? e.clientX : 330, y = (e && e.clientY) ? e.clientY : 120;
   popup.style.left = x + 'px'; popup.style.top = y + 'px';
@@ -1954,13 +1979,13 @@ function confirmDialog(title, msg, onYes, html){
 }
 /* D5: 删除角色前二次确认（可通过 Ctrl+Z 撤销）。 */
 function requestDeleteReplay(replayId, label){
-  confirmDialog('删除角色', '确定删除角色「' + (label || replayId) + '」？该操作可通过 Ctrl+Z 撤销。', function(){ send('deleteReplay', { replayId: replayId }); });
+  confirmDialog(S('dlg.deleteChar'), S('dlg.deleteCharMsg1') + (label || replayId) + S('dlg.deleteCharMsg2'), function(){ send('deleteReplay', { replayId: replayId }); });
 }
 /* D: 有未保存改动时，退出编辑器前先提示确认 */
 function tryCloseEditor(){
   var s = window.bbsState || {};
   if(s.dirty){
-    confirmDialog('未保存的更改', '当前作品有未保存的更改，确定退出编辑器？', function(){ send('closeEditor'); });
+    confirmDialog(S('dlg.unsaved'), S('dlg.unsavedMsg'), function(){ send('closeEditor'); });
   } else {
     send('closeEditor');
   }
@@ -1981,10 +2006,10 @@ function escHtml(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').rep
 
 function openAeNewMenu(){
   var M = [
-    ['走路','locomotion','walk'],['奔跑','locomotion','run'],['空闲','locomotion','idle'],
-    ['攻击','attack',null],['挥击','swipe',null],['破坏方块','break_block',null],['放置方块','place_block',null],
-    ['钓鱼','use_item','fishing_rod'],['聊天','chat',null],['命令','command',null],['丢物品','drop_item',null],
-    ['脚本动作','script',null]
+    [S('ae.preset.walk'),'locomotion','walk'],[S('ae.preset.run'),'locomotion','run'],[S('ae.preset.idle'),'locomotion','idle'],
+    [S('ae.preset.attack'),'attack',null],[S('ae.preset.swipe'),'swipe',null],[S('ae.preset.break_block'),'break_block',null],[S('ae.preset.place_block'),'place_block',null],
+    [S('ae.preset.fishing'),'use_item','fishing_rod'],[S('ae.preset.chat'),'chat',null],[S('ae.preset.command'),'command',null],[S('ae.preset.drop_item'),'drop_item',null],
+    [S('ae.preset.script'),'script',null]
   ];
   var popup = document.createElement('div'); popup.className = 'context-menu'; popup.style.display = 'block';
   popup.style.left = '330px'; popup.style.top = '120px';
