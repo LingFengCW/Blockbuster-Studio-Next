@@ -68,6 +68,7 @@ import lingfeng.bbsnext.film.replays.ActionGroupLibrary;
 import lingfeng.bbsnext.film.replays.TrackPropStore;
 import lingfeng.bbsnext.film.replays.TrackProp;
 import lingfeng.bbsnext.film.replays.TrackOrderStore;
+import lingfeng.bbsnext.film.replays.CameraTrackStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -670,6 +671,22 @@ public class EditorBridge implements IHtmlBridge
                 TrackOrderStore.set(filmId, all);
             }
 
+            /* Same legacy-seed for cameras: existing films show all their
+             * cameras on the track until the user re-arranges them. New films
+             * are seeded on first render; cameras created afterwards stay in
+             * the library (film.camera) until dragged onto the track. */
+            if (!CameraTrackStore.has(filmId))
+            {
+                List<String> allCam = new ArrayList<>();
+
+                for (Clip c : film.camera.get())
+                {
+                    allCam.add(c.id.get());
+                }
+
+                CameraTrackStore.set(filmId, allCam);
+            }
+
             Map<String, Replay> byId = new HashMap<>();
 
             for (Replay r : film.replays.getList())
@@ -684,8 +701,15 @@ public class EditorBridge implements IHtmlBridge
             camTrack.addProperty("id", "camera");
             camTrack.addProperty("label", "相机");
             JsonArray camClips = new JsonArray();
-            for (Clip clip : film.camera.get())
+            for (String cid : CameraTrackStore.get(filmId))
             {
+                Clip clip = findCameraClip(film, cid);
+
+                if (clip == null)
+                {
+                    continue;
+                }
+
                 JsonObject o = new JsonObject();
                 o.addProperty("id", clip.id.get());
                 o.addProperty("title", clip.title.get());
@@ -1373,7 +1397,7 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "dropCamera":
                 dropCamera(panel,
-                    (req.has("index") && !req.get("index").isJsonNull()) ? req.get("index").getAsInt() : -1,
+                    req.has("cameraId") ? req.get("cameraId").getAsString() : "",
                     (req.has("tick") && !req.get("tick").isJsonNull()) ? req.get("tick").getAsInt() : -1);
                 break;
             case "viewportMetrics":
@@ -1744,20 +1768,34 @@ public class EditorBridge implements IHtmlBridge
             }
             case "deleteCamera":
             {
-                int ci = req.has("index") ? req.get("index").getAsInt() : -1;
+                String camId = req.has("cameraId") ? req.get("cameraId").getAsString() : "";
 
                 Minecraft.getInstance().execute(() ->
                 {
                     Film film = panel.getData();
 
-                    if (film != null && ci >= 0 && ci < film.camera.get().size())
+                    if (film != null)
                     {
-                        BaseValue.edit(film, f -> f.camera.get().remove(ci));
-                        /* Persist immediately — without this the deletion only
-                         * marks the film dirty and the stale camera reappears
-                         * on next load. */
-                        panel.save();
-                        refreshHtml();
+                        Clip c = findCameraClip(film, camId);
+
+                        if (c != null)
+                        {
+                            int idx = film.camera.get().indexOf(c);
+
+                            if (idx >= 0)
+                            {
+                                final int i = idx;
+
+                                BaseValue.edit(film, f -> f.camera.get().remove(i));
+                                /* Also drop it from the timeline track (if placed). */
+                                CameraTrackStore.remove(film.getId(), camId);
+                                /* Persist immediately — without this the deletion only
+                                 * marks the film dirty and the stale camera reappears
+                                 * on next load. */
+                                panel.save();
+                                refreshHtml();
+                            }
+                        }
                     }
                 });
 
@@ -1765,9 +1803,9 @@ public class EditorBridge implements IHtmlBridge
             }
             case "renameCamera":
             {
-                int ci = req.has("index") ? req.get("index").getAsInt() : -1;
+                String camId = req.has("cameraId") ? req.get("cameraId").getAsString() : "";
 
-                renameCamera(panel, ci);
+                renameCamera(panel, camId);
 
                 break;
             }
@@ -1814,15 +1852,17 @@ public class EditorBridge implements IHtmlBridge
                         {
                             if ("camera".equals(kind))
                             {
-                                int idx = renameReq.has("target") ? renameReq.get("target").getAsInt() : -1;
-                                final int i = idx;
+                                String camId = renameReq.has("target") ? renameReq.get("target").getAsString() : "";
+                                final String cid = camId;
                                 final String n = name;
 
                                 BaseValue.edit(film, f ->
                                 {
-                                    if (i >= 0 && i < f.camera.get().size())
+                                    Clip c = findCameraClip(f, cid);
+
+                                    if (c != null)
                                     {
-                                        f.camera.get().get(i).title.set(n);
+                                        c.title.set(n);
                                     }
                                 });
                             }
@@ -1892,8 +1932,10 @@ public class EditorBridge implements IHtmlBridge
                     req.has("item") ? req.get("item").getAsString() : "");
                 break;
             case "clipOp":
-                clipOp(panel, req.has("op") ? req.get("op").getAsString() : "",
-                    req.has("index") ? req.get("index").getAsInt() : -1);
+                clipOp(panel,
+                    req.has("op") ? req.get("op").getAsString() : "",
+                    req.has("index") ? req.get("index").getAsInt() : -1,
+                    req.has("id") ? req.get("id").getAsString() : "");
                 break;
             case "toBackpack":
                 return toBackpack(panel,
@@ -2758,20 +2800,25 @@ public class EditorBridge implements IHtmlBridge
     /** Open the in-page HTML rename modal for a camera clip. Replaces the
      *  Swing text-input dialog, which the MCEF exclusive-fullscreen overlay
      *  buries and prevents from ever popping up. */
-    private static void renameCamera(UIFilmPanel panel, int index)
+    private static void renameCamera(UIFilmPanel panel, String cameraId)
     {
         Film film = panel.getData();
 
-        if (film == null || index < 0 || index >= film.camera.get().size())
+        if (film == null || cameraId == null || cameraId.isEmpty())
         {
             return;
         }
 
-        Clip c = film.camera.get().get(index);
+        Clip c = findCameraClip(film, cameraId);
+
+        if (c == null)
+        {
+            return;
+        }
 
         renameReq = new JsonObject();
         renameReq.addProperty("kind", "camera");
-        renameReq.addProperty("target", index);
+        renameReq.addProperty("target", cameraId);
         renameReq.addProperty("current", c.title.get());
         refreshHtml();
     }
@@ -2796,22 +2843,28 @@ public class EditorBridge implements IHtmlBridge
     }
 
     /** Find a camera clip by its stable asset id. */
-    private static Clip findClipByStableId(Film film, String assetId)
+    /** Find a camera clip on the timeline track by its stable clip id. */
+    private static Clip findCameraClip(Film film, String id)
     {
-        if (film == null || assetId == null)
+        if (film == null || id == null)
         {
             return null;
         }
 
         for (Clip c : film.camera.get())
         {
-            if (assetId.equals(c.id.get()))
+            if (id.equals(c.id.get()))
             {
                 return c;
             }
         }
 
         return null;
+    }
+
+    private static Clip findClipByStableId(Film film, String assetId)
+    {
+        return findCameraClip(film, assetId);
     }
 
     /** Wrap a camera clip into a self-contained export document. */
@@ -3162,27 +3215,54 @@ public class EditorBridge implements IHtmlBridge
         refreshHtml();
     }
 
-    /** Move a camera clip to the tick where it was dropped on the timeline. */
-    private static void dropCamera(UIFilmPanel panel, int index, int tick)
+    /** Place a library camera onto the timeline track at the dropped tick. */
+    private static void dropCamera(UIFilmPanel panel, String cameraId, int tick)
     {
         Film film = panel.getData();
 
-        if (film == null || index < 0 || index >= film.camera.get().size())
+        if (film == null || cameraId == null || cameraId.isEmpty())
+        {
+            return;
+        }
+
+        Clip c = findCameraClip(film, cameraId);
+
+        if (c == null)
         {
             return;
         }
 
         int t = Math.max(0, tick);
+        String filmId = film.getId();
 
         BaseValue.edit(film, f ->
         {
-            Clip c = f.camera.get().get(index);
+            Clip cc = findCameraClip(f, cameraId);
 
-            if (c != null)
+            if (cc != null)
             {
-                c.tick.set(t);
+                cc.tick.set(t);
             }
         });
+
+        /* Ensure the track order exists before inserting (mirrors the
+         * getStateJson legacy-seed) so a drop never drops existing cameras. */
+        if (!CameraTrackStore.has(filmId))
+        {
+            List<String> allCam = new ArrayList<>();
+
+            for (Clip cl : film.camera.get())
+            {
+                allCam.add(cl.id.get());
+            }
+
+            CameraTrackStore.set(filmId, allCam);
+        }
+
+        int pos = CameraTrackStore.get(filmId).size();
+        CameraTrackStore.insert(filmId, cameraId, pos);
+        panel.save();
+        refreshHtml();
     }
 
     /** Toggle in-world path recording for the camera at the given index. */
@@ -4613,7 +4693,7 @@ public class EditorBridge implements IHtmlBridge
         refreshHtml();
     }
 
-    private static void clipOp(UIFilmPanel panel, String op, int index)
+    private static void clipOp(UIFilmPanel panel, String op, int index, String id)
     {
         Film film = panel.getData();
 
@@ -4624,6 +4704,25 @@ public class EditorBridge implements IHtmlBridge
 
         if ("select".equals(op))
         {
+            /* Camera track clips are identified by stable clip id, so resolve
+             * that to the library index the delete/split ops operate on. */
+            if (id != null && !id.isEmpty())
+            {
+                Clip sel = findCameraClip(film, id);
+
+                if (sel != null)
+                {
+                    int i = film.camera.get().indexOf(sel);
+
+                    if (i >= 0)
+                    {
+                        selectedClipIndex = i;
+                    }
+                }
+
+                return;
+            }
+
             /* Remember the selected clip so index-less clipOp requests
              * (delete/split from the menu) can target it later. */
             if (index >= 0 && index < film.camera.get().size())

@@ -966,7 +966,7 @@ function renderAssets(s){
   });
   (s.cameras || []).forEach(function(cam){
     var rec = cam.recording ? ' ●录制中' : '';
-    addItem('camera', String(cam.index), (cam.title || cam.type) + rec, function(){ selectedClip = cam.index; send('clipOp', { op:'select', index: cam.index }); }, null, false, false);
+    addItem('camera', String(cam.id), (cam.title || cam.type) + rec, function(){ selectedClip = cam.index; send('clipOp', { op:'select', index: cam.index }); }, null, false, false, cam.index);
   });
   addGroup('相机组');
   (s.cameraGroups || []).forEach(function(g){
@@ -1041,6 +1041,7 @@ function renderTimeline(s){
       row.appendChild(lab);
       (tr.clips || []).forEach(function(cl, ci){
         var blk = document.createElement('div'); blk.className = 'clip-block' + (tr.kind === 'replay' ? ' kind-replay' : '');
+        blk.dataset.id = cl.id;
         if(selectedClips.has(cl.id)) blk.classList.add('cursor-here');
         if(cl.enabled === false) blk.classList.add('clip-disabled');
         blk.style.left = (120 + cl.tick * pxPerTick) + 'px';
@@ -1054,7 +1055,7 @@ function renderTimeline(s){
             selectedClips.clear(); selectedClips.add(cl.id);
           }
           if(tr.kind === 'camera'){
-            selectedClip = ci; send('clipOp', { op:'select', index:ci });
+            selectedClip = -1; send('clipOp', { op:'select', id: cl.id });
           } else if(tr.kind === 'replay'){
             var ri = replayIndexById(row.dataset.replayId);
             var rep = (s.replays || [])[ri];
@@ -2025,7 +2026,7 @@ document.addEventListener('contextmenu', hideMenus, true);
       ['data-mode','data-op','data-index','data-type'].forEach(function(k){ if(it.getAttribute(k) != null) p[k.replace('data-','')] = it.getAttribute(k); });
       if(a === 'fromBackpack' && bagTarget) p.name = bagTarget;
       if(a === 'deleteBackpackItem' && bagTarget) p.name = bagTarget;
-      if(a === 'toBackpack' && itemTarget){ p.type = itemTarget.type; p.id = itemTarget.id; }
+      if(a === 'toBackpack' && itemTarget){ p.type = itemTarget.type; p.id = (itemTarget.type === 'camera' && typeof itemTarget.index !== 'undefined') ? String(itemTarget.index) : itemTarget.id; }
       /* D5/F0: deleteReplay keys on the stable replay id; require a confirm
        * before sending so a stray click cannot wipe a character. */
       if(a === 'deleteReplay' && itemTarget){
@@ -2039,8 +2040,11 @@ document.addEventListener('contextmenu', hideMenus, true);
       /* Action-editor still keys on the list index: prefer the carried index, else
        * reverse-resolve from the stable id. */
       if(a === 'openActionEditor' && itemTarget) p.index = (typeof itemTarget.index !== 'undefined') ? itemTarget.index : replayIndexById(itemTarget.id);
-      if(itemTarget && (itemTarget.type === 'character' || itemTarget.type === 'camera')) p.index = (typeof itemTarget.index !== 'undefined') ? itemTarget.index : parseInt(itemTarget.id);
-      if(itemTarget && itemTarget.type === 'camera' && (a === 'recordCamera' || a === 'deleteCamera')) p.index = parseInt(itemTarget.id);
+      if(itemTarget && itemTarget.type === 'character') p.index = (typeof itemTarget.index !== 'undefined') ? itemTarget.index : parseInt(itemTarget.id);
+      /* Camera ops still keyed on the list index keep the carried ctxIndex (record/export/backpack). */
+      if(itemTarget && itemTarget.type === 'camera' && (a === 'recordCamera' || a === 'exportCameraFile' || a === 'toBackpack')) p.index = (typeof itemTarget.index !== 'undefined') ? itemTarget.index : parseInt(itemTarget.id);
+      /* Camera drag-to-place ops use the stable clip id instead of the fragile list index. */
+      if(itemTarget && itemTarget.type === 'camera' && (a === 'deleteCamera' || a === 'renameCamera')) p.cameraId = itemTarget.id;
       if(itemTarget && itemTarget.type === 'cameragroup') p.id = itemTarget.id;
       if(a === 'openScene' && itemTarget) p.id = itemTarget.id;
       if(a === 'enterSequence' && itemTarget) p.id = itemTarget.id;
@@ -2207,7 +2211,7 @@ function withinRect(el,x,y){ if(!el) return false; var r=el.getBoundingClientRec
 function moveGhost(e){ if(customDrag&&customDrag.ghost){ customDrag.ghost.style.left=(e.clientX+10)+'px'; customDrag.ghost.style.top=(e.clientY+10)+'px'; if(Math.abs(e.clientX-customDrag.sx)+Math.abs(e.clientY-customDrag.sy)>4) customDrag.moved=true; } var vp=document.getElementById('mainViewport'); if(vp) vp.classList.toggle('drag-over', withinRect(vp,e.clientX,e.clientY)); updateDropHighlight(e); }
 function startCustomDrag(e,type,id){ if(e.button!==0) return; customDrag={type:type,id:id,sx:e.clientX,sy:e.clientY,moved:false}; var g=document.createElement('div'); g.textContent=type+' #'+id; g.style.cssText='position:fixed;pointer-events:none;z-index:99999;background:#2367ac;color:#fff;padding:4px 8px;border-radius:3px;font-size:12px;'; document.body.appendChild(g); customDrag.ghost=g; moveGhost(e); e.preventDefault(); }
 document.addEventListener('mousemove', function(e){ if(customDrag){ moveGhost(e); } });
-document.addEventListener('mouseup', function(e){ if(!customDrag) return; var type=customDrag.type, id=customDrag.id, moved=customDrag.moved; if(customDrag.ghost) customDrag.ghost.remove(); var vp=document.getElementById('mainViewport'); if(vp) vp.classList.remove('drag-over'); customDrag=null; clearDropHighlights(); if(!moved) return; /* 纯点击：交给素材项自身 onclick，避免误报 */ var s=window.bbsState||{}; var tr=document.getElementById('tracks'); if(withinRect(vp,e.clientX,e.clientY)){ if(type==='group'){ toast('动作组只能拖到角色动作轨', true); } else { if(type==='character'){ selectedChar=replayIndexById(id); } send('addToCurrent',{type:type,id:id}); toast('已放入当前场景：'+type+' #'+id); } } else if(withinRect(tr,e.clientX,e.clientY)){ var tgt=resolveTargetTrack(e.clientY); var dur=s.duration||0, w=tr.clientWidth, px=pxPerTickOf(dur,w); var x=e.clientX-tr.getBoundingClientRect().left; var tick=Math.max(0,Math.round((x-120)/px)); if(!isFinite(tick)) tick=0; var tgtId=(tgt?tgt.replayId:''); if(type==='audio'){ toast('音轨暂未启用', true); } else if(type==='camera'){ if(!tgt||tgt.kind!=='camera'){ toast('相机只能放到「相机」轨', true); } else { send('dropCamera',{index:parseInt(id),tick:tick}); toast('已放入时间轴：相机 #'+id+' @ tick '+tick); } } else if(type==='group'){ if(!tgt||tgt.kind!=='replay'){ toast('动作组只能放到角色动作轨', true); } else { send('addActionGroup',{id:id, replayId:tgtId, tick:tick}); toast('已加入时间轴：动作组 #'+id); } } else if(type==='character'||type==='entity'||type==='particle'||type==='item'){ if(!tgt||tgt.kind!=='replay'){ toast('角色只能放到角色轨', true); } else { var placed=(s.tracks||[]).some(function(t){ return t.kind==='replay' && t.id===id; }); if(placed){ send('dropActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } else { send('placeActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } toast('已放入/重排时间轴：'+type+' #'+id); } } else if(type==='replay'){ if(!tgt||tgt.kind!=='replay'){ toast('轨道只能重排到角色轨', true); } else { send('reorderTrack', { replayId:id, targetReplayId:tgtId }); toast('已重排轨道：'+type+' #'+id); } } else { toast('无效：只有相机/动作组能拖到时间轴', true); } } else { toast('无效位置：请拖到右侧画布或下方时间轴', true); } });
+document.addEventListener('mouseup', function(e){ if(!customDrag) return; var type=customDrag.type, id=customDrag.id, moved=customDrag.moved; if(customDrag.ghost) customDrag.ghost.remove(); var vp=document.getElementById('mainViewport'); if(vp) vp.classList.remove('drag-over'); customDrag=null; clearDropHighlights(); if(!moved) return; /* 纯点击：交给素材项自身 onclick，避免误报 */ var s=window.bbsState||{}; var tr=document.getElementById('tracks'); if(withinRect(vp,e.clientX,e.clientY)){ if(type==='group'){ toast('动作组只能拖到角色动作轨', true); } else { if(type==='character'){ selectedChar=replayIndexById(id); } send('addToCurrent',{type:type,id:id}); toast('已放入当前场景：'+type+' #'+id); } } else if(withinRect(tr,e.clientX,e.clientY)){ var tgt=resolveTargetTrack(e.clientY); var dur=s.duration||0, w=tr.clientWidth, px=pxPerTickOf(dur,w); var x=e.clientX-tr.getBoundingClientRect().left; var tick=Math.max(0,Math.round((x-120)/px)); if(!isFinite(tick)) tick=0; var tgtId=(tgt?tgt.replayId:''); if(type==='audio'){ toast('音轨暂未启用', true); } else if(type==='camera'){ if(!tgt||tgt.kind!=='camera'){ toast('相机只能放到「相机」轨', true); } else { send('dropCamera',{id:id,tick:tick}); toast('已放入时间轴：相机 #'+id+' @ tick '+tick); } } else if(type==='group'){ if(!tgt||tgt.kind!=='replay'){ toast('动作组只能放到角色动作轨', true); } else { send('addActionGroup',{id:id, replayId:tgtId, tick:tick}); toast('已加入时间轴：动作组 #'+id); } } else if(type==='character'||type==='entity'||type==='particle'||type==='item'){ if(!tgt||tgt.kind!=='replay'){ toast('角色只能放到角色轨', true); } else { var placed=(s.tracks||[]).some(function(t){ return t.kind==='replay' && t.id===id; }); if(placed){ send('dropActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } else { send('placeActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } toast('已放入/重排时间轴：'+type+' #'+id); } } else if(type==='replay'){ if(!tgt||tgt.kind!=='replay'){ toast('轨道只能重排到角色轨', true); } else { send('reorderTrack', { replayId:id, targetReplayId:tgtId }); toast('已重排轨道：'+type+' #'+id); } } else { toast('无效：只有相机/动作组能拖到时间轴', true); } } else { toast('无效位置：请拖到右侧画布或下方时间轴', true); } });
 
 /* 空格键播放/暂停 */
 document.addEventListener('keydown', function(e){
