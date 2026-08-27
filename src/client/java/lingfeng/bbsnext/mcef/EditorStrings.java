@@ -40,6 +40,7 @@ public final class EditorStrings
         put("menu.newCharacter", "新建角色", "New Character");
         put("menu.newEntity", "新建实体", "New Entity");
         put("menu.exitEditor", "退出编辑器", "Exit Editor");
+        put("menu.exit", "退出编辑器", "Exit Editor");
         put("menu.undo", "撤销", "Undo");
         put("menu.redo", "重做", "Redo");
         put("menu.camFollow", "跟随相机", "Follow Camera");
@@ -274,6 +275,17 @@ public final class EditorStrings
         put("create.sequence", "新建序列", "New Sequence");
         put("create.particle", "新建粒子", "New Particle");
         put("create.item", "新建物品", "New Item");
+        put("create.scene", "新建场景", "New Scene");
+        put("create.entity", "新建实体", "New Entity");
+        put("create.character", "新建角色", "New Character");
+
+        /* ----- character-form type labels ----- */
+        put("type.mob", "生物", "Mob");
+        put("type.model", "模型", "Model");
+        put("type.particle", "粒子", "Particle");
+        put("type.block", "方块", "Block");
+        put("form.selected", "已选", "Selected");
+        put("form.unit", "个", "");
 
         /* ----- asset-bin section labels ----- */
         put("bin.work", "作品：", "Project: ");
@@ -289,6 +301,13 @@ public final class EditorStrings
         put("bin.ref", "引用", "Ref");
         put("bin.hintCreateCamera", "先用「右键素材箱空白处 › 新建项 › 相机」创建相机", "Right-click empty asset-box space › New Item › Camera to create a camera first");
         put("bin.hintSelectChar", "请先在「角色」分组里点选一个动作角色", "Select an action character in the Character group first");
+        put("bin.scenes", "场景", "Scenes");
+        put("bin.character", "角色", "Character");
+        put("bin.entity", "实体", "Entity");
+        put("bin.particle", "粒子", "Particle");
+        put("bin.item", "物品", "Item");
+        put("bin.camera", "相机", "Camera");
+        put("bin.camCount", " 台相机", " cameras");
 
         /* ----- timeline track labels ----- */
         put("track.replay", "轨道", "Track");
@@ -301,6 +320,7 @@ public final class EditorStrings
         put("cam.warnOverlapNow", "⚠ 相机重叠：当前帧被多个相机覆盖", "⚠ Camera overlap: current frame covered by multiple cameras");
         put("cam.warnLost", "⚠ 相机丢失：时间轴存在无相机的区段", "⚠ Camera missing: timeline has segments with no camera");
         put("cam.warnOverlap", "⚠ 相机重叠：时间轴存在多相机重叠的区段", "⚠ Camera overlap: timeline has segments covered by multiple cameras");
+        put("cam.recording", "录制中", "Recording");
 
         /* ----- toasts (static / composed) ----- */
         put("toast.charUnavailable", "该角色不可用", "This character is unavailable");
@@ -315,6 +335,23 @@ public final class EditorStrings
 
         /* ----- misc ----- */
         put("film.prefix", "场景：", "Scene: ");
+
+        /* ----- extra (action editor / equip details) ----- */
+        put("ae.subActions", " 个子动作", " sub-actions");
+        put("ae.matHint", "材质片段：在时间轴上拖动可改起始帧，拖右端 ▮ 可改时长。播放时在其区间内覆盖角色外观。", "Material clip: drag on the timeline to change the start frame, drag the right edge ▮ to change the duration. During playback it overrides the character's appearance within its interval.");
+        put("ae.addMaterial", "+ 添加", "+ Add");
+        put("ae.disabled", "（已禁用）", "(disabled)");
+        put("equip.charPrefix", "角色：", "Character: ");
+        put("equip.char", "角色", "Character");
+        put("equip.set", "装配", "Equip");
+        put("equip.clear", "清除", "Clear");
+        put("ae.mat.skinPh", "assets 贴图路径，如 skins/steve", "assets skin path, e.g. skins/steve");
+        put("ae.slotMainHand", "主手", "Main Hand");
+        put("ae.slotOffHand", "副手", "Off Hand");
+        put("ae.slotHead", "头盔", "Head");
+        put("ae.slotChest", "胸甲", "Chest");
+        put("ae.slotLegs", "护腿", "Legs");
+        put("ae.slotFeet", "靴子", "Feet");
     }
 
     private static void put(String key, String zh, String en)
