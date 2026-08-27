@@ -2037,6 +2037,11 @@ document.addEventListener('contextmenu', hideMenus, true);
       if(a === 'deleteScene' && itemTarget) p.id = itemTarget.id;
       if(a === 'deleteSequence' && itemTarget) p.id = itemTarget.id;
       if(a === 'createCameraGroup' && window.pendingGroupIds) p.ids = window.pendingGroupIds;
+      if(a === 'deleteReplay' && itemTarget){
+        var dn = itemTarget.label || p.replayId || '';
+        confirmDialog('删除角色', '确定删除角色「' + dn + '」？将同时移除其轨道与关联引用，且不可撤销（可撤销上一步）。', function(){ send('deleteReplay', p); renderAll(); });
+        hideMenus(); return;
+      }
       send(a, p); hideMenus(); renderAll();
     };
   });
@@ -2204,7 +2209,12 @@ document.addEventListener('keydown', function(e){
     if(window.selKf){ send('aeDelKeyframe', { channel: window.selKf.channel, index: window.selKf.index }); window.selKf = null; e.preventDefault(); return; }
     if(selectedClips && selectedClips.size > 0){ send('clipOp', { op:'delete', index:-1 }); e.preventDefault(); return; }
     var s = window.bbsState || {};
-    if(s.focusedCharacter){ send('deleteReplay', { replayId: s.focusedCharacter.id }); e.preventDefault(); return; }
+    if(s.focusedCharacter){
+      var fid = s.focusedCharacter.id;
+      var fn = s.focusedCharacter.label || fid;
+      confirmDialog('删除角色', '确定删除角色「' + fn + '」？将同时移除其轨道与关联引用，且不可撤销（可撤销上一步）。', function(){ send('deleteReplay', { replayId: fid }); });
+      e.preventDefault(); return;
+    }
   }
 });
 
