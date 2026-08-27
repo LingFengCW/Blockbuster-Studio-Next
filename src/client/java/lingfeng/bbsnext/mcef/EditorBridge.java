@@ -4735,41 +4735,52 @@ public class EditorBridge implements IHtmlBridge
 
             String filmId = f.getId();
             Replay removed = target;
+            int removedIndex = f.replays.getList().indexOf(removed);
 
-            BaseValue.edit(f, ff -> ff.replays.remove(removed));
+            BaseValue.edit(f, ff -> {
+                ff.replays.remove(removed);
 
-            /* A2: drop the track's visual + ordering side-table entries. */
-            TrackPropStore.removeForReplay(filmId, replayId);
-            TrackOrderStore.remove(filmId, replayId);
+                /* A2/D2: tear down side-table + sequence references inside the
+                 * SAME undo transaction, otherwise Ctrl+Z restores the replay
+                 * but leaves dangling track order / matte / sequence refs. */
+                TrackPropStore.removeForReplay(filmId, replayId);
+                TrackOrderStore.remove(filmId, replayId);
+                TrackPropStore.clearMatteSource(filmId, replayId);
 
-            /* A2/S15: clear matte sources on other tracks that pointed here. */
-            TrackPropStore.clearMatteSource(filmId, replayId);
+                SequenceManager seqMgr = SequenceManager.get();
 
-            /* A2: drop any sequence reference (mcpr) that pointed at the removed
-             * replay. References are stored by stable id, so we only clear the
-             * exact id; no mchorse class is modified, we just call the public
-             * removeRef API. */
-            SequenceManager seqMgr = SequenceManager.get();
-
-            if (seqMgr != null)
-            {
-                for (Sequence seq : seqMgr.getSequences())
+                if (seqMgr != null)
                 {
-                    List<Sequence.SequenceRef> dangling = new ArrayList<>();
-
-                    for (Sequence.SequenceRef ref : seq.refs)
+                    for (Sequence seq : seqMgr.getSequences())
                     {
-                        if (Sequence.SequenceRef.MCPR.equals(ref.type) && replayId.equals(ref.id))
+                        List<Sequence.SequenceRef> dangling = new ArrayList<>();
+
+                        for (Sequence.SequenceRef ref : seq.refs)
                         {
-                            dangling.add(ref);
+                            if (Sequence.SequenceRef.MCPR.equals(ref.type) && replayId.equals(ref.id))
+                            {
+                                dangling.add(ref);
+                            }
+                        }
+
+                        for (Sequence.SequenceRef ref : dangling)
+                        {
+                            seqMgr.removeRef(seq, ref);
                         }
                     }
-
-                    for (Sequence.SequenceRef ref : dangling)
-                    {
-                        seqMgr.removeRef(seq, ref);
-                    }
                 }
+            });
+
+            /* D1: re-sync the focused-character index so the asset-detail panel
+             * and any subsequent Delete keystroke cannot mis-target a neighbour
+             * after the list shifts. */
+            if (focusedCharacterIndex == removedIndex)
+            {
+                focusedCharacterIndex = -1;
+            }
+            else if (focusedCharacterIndex > removedIndex)
+            {
+                focusedCharacterIndex--;
             }
 
             /* Persist immediately and re-sync the editor HTML so the deleted
