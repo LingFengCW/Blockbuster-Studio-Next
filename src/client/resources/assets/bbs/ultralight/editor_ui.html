@@ -954,7 +954,7 @@ function renderAssets(s){
    * subsystem still keys on the replay's list index, so we resolve it by id.
    * Library items are unplaced replays, so both id and index stay in sync. */
   addGroup('角色');
-  (s.characters || []).forEach(function(c){ var ri = replayIndexById(c.id); addItem('character', c.id, c.label, function(){ selectedChar = ri; send('addToCurrent', { type:'character', id:c.id }); send('focusCharacter', { index: ri }); }, null, false, false, ri); });
+  (s.characters || []).forEach(function(c){ var ri = replayIndexById(c.id); addItem('character', c.id, c.label, function(){ selectedChar = ri; send('addToCurrent', { type:'character', id:c.id }); send('focusCharacter', { id: c.id }); }, null, false, false, ri); });
   addGroup('实体');
   (s.entities || []).forEach(function(c){ addItem('entity', c.id, c.label, function(){ send('addToCurrent', { type:'entity', id:c.id }); }, null, false, false, replayIndexById(c.id)); });
   addGroup('粒子');
@@ -1035,7 +1035,7 @@ function renderTimeline(s){
       else { row.style.setProperty('--track-accent', '#5a5a60'); }
       /* F3.2: right-click a placed track to remove it (back to library) or delete
        * the underlying replay. Both key on the stable replay id. */
-      if(tr.kind === 'replay'){ row.oncontextmenu = function(e){ e.preventDefault(); itemTarget = { type: 'character', id: tr.id }; showMenu(trackCtx, e); }; }
+      if(tr.kind === 'replay'){ row.oncontextmenu = function(e){ e.preventDefault(); itemTarget = { type: 'character', id: tr.id }; showMenu(trackCtx, e); }; row.onmousedown = function(e){ if(e.button !== 0) return; startCustomDrag(e, 'replay', tr.id); }; }
       var lab = document.createElement('span'); lab.className = 'track-label';
       lab.textContent = tr.label || (tr.kind === 'camera' ? '相机' : (tr.kind === 'replay' ? '轨道' : '音频'));
       row.appendChild(lab);
@@ -1850,7 +1850,7 @@ function renderAssetDetail(s){
   info.appendChild(type);
   head.appendChild(info);
   var close = document.createElement('div'); close.className = 'ad-close'; close.textContent = '×'; close.title = '关闭详情';
-  close.onclick = function(){ send('focusCharacter', { index: -1 }); };
+  close.onclick = function(){ send('focusCharacter', { id: '' }); };
   head.appendChild(close);
   box.appendChild(head);
 
@@ -1951,6 +1951,10 @@ function confirmDialog(title, msg, onYes, html){
   confirmCb = onYes;
   document.getElementById('confirmModal').classList.add('show');
 }
+/* D5: 删除角色前二次确认（可通过 Ctrl+Z 撤销）。 */
+function requestDeleteReplay(replayId, label){
+  confirmDialog('删除角色', '确定删除角色「' + (label || replayId) + '」？该操作可通过 Ctrl+Z 撤销。', function(){ send('deleteReplay', { replayId: replayId }); });
+}
 /* D: 有未保存改动时，退出编辑器前先提示确认 */
 function tryCloseEditor(){
   var s = window.bbsState || {};
@@ -2022,8 +2026,14 @@ document.addEventListener('contextmenu', hideMenus, true);
       if(a === 'fromBackpack' && bagTarget) p.name = bagTarget;
       if(a === 'deleteBackpackItem' && bagTarget) p.name = bagTarget;
       if(a === 'toBackpack' && itemTarget){ p.type = itemTarget.type; p.id = itemTarget.id; }
-      /* F0/S12: deleteReplay keys on the stable replay id (no index lookup). */
-      if(a === 'deleteReplay' && itemTarget) p.replayId = itemTarget.id;
+      /* D5/F0: deleteReplay keys on the stable replay id; require a confirm
+       * before sending so a stray click cannot wipe a character. */
+      if(a === 'deleteReplay' && itemTarget){
+        var dl = (window.bbsState.replays || [])[replayIndexById(itemTarget.id)];
+        requestDeleteReplay(itemTarget.id, dl ? dl.label : null);
+        hideMenus();
+        return;
+      }
       /* F3.2: remove a track without deleting the replay. */
       if(a === 'unplaceActor' && itemTarget) p.replayId = itemTarget.id;
       /* Action-editor still keys on the list index: prefer the carried index, else
@@ -2133,7 +2143,7 @@ document.getElementById('confirmCancel').onclick = function(){ confirmCb = null;
 document.getElementById('confirmModal').addEventListener('click', function(e){ if(e.target === this){ confirmCb = null; this.classList.remove('show'); } });
 
 /* ----- B4: 点非角色素材项清除聚焦 ----- */
-assetList.addEventListener('click', function(e){ var it = e.target.closest('.asset-item'); if(it && it.dataset.type && it.dataset.type !== 'character'){ send('focusCharacter', { index: -1 }); } });
+assetList.addEventListener('click', function(e){ var it = e.target.closest('.asset-item'); if(it && it.dataset.type && it.dataset.type !== 'character'){ send('focusCharacter', { id: '' }); } });
 
 /* Phase H: 拖到右侧画布放下 → 加入当前场景 */
 var dropView = document.getElementById('mainViewport');
@@ -2175,11 +2185,11 @@ function clearDropHighlights(){
 function updateDropHighlight(e){
   clearDropHighlights();
   if(!customDrag) return;
-  if(customDrag.type !== 'camera' && customDrag.type !== 'group' && customDrag.type !== 'character') return;
+  if(customDrag.type !== 'camera' && customDrag.type !== 'group' && customDrag.type !== 'character' && customDrag.type !== 'entity' && customDrag.type !== 'particle' && customDrag.type !== 'item' && customDrag.type !== 'replay') return;
   if(!withinRect(tracksEl, e.clientX, e.clientY)) return;
   var tgt = resolveTargetTrack(e.clientY);
   if(!tgt) return;
-  var ok = (customDrag.type === 'camera' && tgt.kind === 'camera') || (customDrag.type === 'group' && tgt.kind === 'replay') || (customDrag.type === 'character' && tgt.kind === 'replay');
+  var ok = (customDrag.type === 'camera' && tgt.kind === 'camera') || (customDrag.type === 'group' && tgt.kind === 'replay') || (customDrag.type === 'character' && tgt.kind === 'replay') || (customDrag.type === 'entity' && tgt.kind === 'replay') || (customDrag.type === 'particle' && tgt.kind === 'replay') || (customDrag.type === 'item' && tgt.kind === 'replay') || (customDrag.type === 'replay' && tgt.kind === 'replay');
   tgt.el.classList.add(ok ? 'drop-target' : 'drop-target-invalid');
 }
 
@@ -2197,7 +2207,7 @@ function withinRect(el,x,y){ if(!el) return false; var r=el.getBoundingClientRec
 function moveGhost(e){ if(customDrag&&customDrag.ghost){ customDrag.ghost.style.left=(e.clientX+10)+'px'; customDrag.ghost.style.top=(e.clientY+10)+'px'; if(Math.abs(e.clientX-customDrag.sx)+Math.abs(e.clientY-customDrag.sy)>4) customDrag.moved=true; } var vp=document.getElementById('mainViewport'); if(vp) vp.classList.toggle('drag-over', withinRect(vp,e.clientX,e.clientY)); updateDropHighlight(e); }
 function startCustomDrag(e,type,id){ if(e.button!==0) return; customDrag={type:type,id:id,sx:e.clientX,sy:e.clientY,moved:false}; var g=document.createElement('div'); g.textContent=type+' #'+id; g.style.cssText='position:fixed;pointer-events:none;z-index:99999;background:#2367ac;color:#fff;padding:4px 8px;border-radius:3px;font-size:12px;'; document.body.appendChild(g); customDrag.ghost=g; moveGhost(e); e.preventDefault(); }
 document.addEventListener('mousemove', function(e){ if(customDrag){ moveGhost(e); } });
-document.addEventListener('mouseup', function(e){ if(!customDrag) return; var type=customDrag.type, id=customDrag.id, moved=customDrag.moved; if(customDrag.ghost) customDrag.ghost.remove(); var vp=document.getElementById('mainViewport'); if(vp) vp.classList.remove('drag-over'); customDrag=null; clearDropHighlights(); if(!moved) return; /* 纯点击：交给素材项自身 onclick，避免误报 */ var s=window.bbsState||{}; var tr=document.getElementById('tracks'); if(withinRect(vp,e.clientX,e.clientY)){ if(type==='group'){ toast('动作组只能拖到角色动作轨', true); } else { if(type==='character'){ selectedChar=replayIndexById(id); } send('addToCurrent',{type:type,id:id}); toast('已放入当前场景：'+type+' #'+id); } } else if(withinRect(tr,e.clientX,e.clientY)){ var tgt=resolveTargetTrack(e.clientY); var dur=s.duration||0, w=tr.clientWidth, px=pxPerTickOf(dur,w); var x=e.clientX-tr.getBoundingClientRect().left; var tick=Math.max(0,Math.round((x-120)/px)); if(!isFinite(tick)) tick=0; var tgtId=(tgt?tgt.replayId:''); if(type==='audio'){ toast('音轨暂未启用', true); } else if(type==='camera'){ if(!tgt||tgt.kind!=='camera'){ toast('相机只能放到「相机」轨', true); } else { send('dropCamera',{index:parseInt(id),tick:tick}); toast('已放入时间轴：相机 #'+id+' @ tick '+tick); } } else if(type==='group'){ if(!tgt||tgt.kind!=='replay'){ toast('动作组只能放到角色动作轨', true); } else { send('addActionGroup',{id:id, replayId:tgtId, tick:tick}); toast('已加入时间轴：动作组 #'+id); } } else if(type==='character'||type==='entity'||type==='particle'||type==='item'){ if(!tgt||tgt.kind!=='replay'){ toast('角色只能放到角色轨', true); } else { var placed=(s.tracks||[]).some(function(t){ return t.kind==='replay' && t.id===id; }); if(placed){ send('dropActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } else { send('placeActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } toast('已放入/重排时间轴：'+type+' #'+id); } } else { toast('无效：只有相机/动作组能拖到时间轴', true); } } else { toast('无效位置：请拖到右侧画布或下方时间轴', true); } });
+document.addEventListener('mouseup', function(e){ if(!customDrag) return; var type=customDrag.type, id=customDrag.id, moved=customDrag.moved; if(customDrag.ghost) customDrag.ghost.remove(); var vp=document.getElementById('mainViewport'); if(vp) vp.classList.remove('drag-over'); customDrag=null; clearDropHighlights(); if(!moved) return; /* 纯点击：交给素材项自身 onclick，避免误报 */ var s=window.bbsState||{}; var tr=document.getElementById('tracks'); if(withinRect(vp,e.clientX,e.clientY)){ if(type==='group'){ toast('动作组只能拖到角色动作轨', true); } else { if(type==='character'){ selectedChar=replayIndexById(id); } send('addToCurrent',{type:type,id:id}); toast('已放入当前场景：'+type+' #'+id); } } else if(withinRect(tr,e.clientX,e.clientY)){ var tgt=resolveTargetTrack(e.clientY); var dur=s.duration||0, w=tr.clientWidth, px=pxPerTickOf(dur,w); var x=e.clientX-tr.getBoundingClientRect().left; var tick=Math.max(0,Math.round((x-120)/px)); if(!isFinite(tick)) tick=0; var tgtId=(tgt?tgt.replayId:''); if(type==='audio'){ toast('音轨暂未启用', true); } else if(type==='camera'){ if(!tgt||tgt.kind!=='camera'){ toast('相机只能放到「相机」轨', true); } else { send('dropCamera',{index:parseInt(id),tick:tick}); toast('已放入时间轴：相机 #'+id+' @ tick '+tick); } } else if(type==='group'){ if(!tgt||tgt.kind!=='replay'){ toast('动作组只能放到角色动作轨', true); } else { send('addActionGroup',{id:id, replayId:tgtId, tick:tick}); toast('已加入时间轴：动作组 #'+id); } } else if(type==='character'||type==='entity'||type==='particle'||type==='item'){ if(!tgt||tgt.kind!=='replay'){ toast('角色只能放到角色轨', true); } else { var placed=(s.tracks||[]).some(function(t){ return t.kind==='replay' && t.id===id; }); if(placed){ send('dropActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } else { send('placeActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } toast('已放入/重排时间轴：'+type+' #'+id); } } else if(type==='replay'){ if(!tgt||tgt.kind!=='replay'){ toast('轨道只能重排到角色轨', true); } else { send('reorderTrack', { replayId:id, targetReplayId:tgtId }); toast('已重排轨道：'+type+' #'+id); } } else { toast('无效：只有相机/动作组能拖到时间轴', true); } } else { toast('无效位置：请拖到右侧画布或下方时间轴', true); } });
 
 /* 空格键播放/暂停 */
 document.addEventListener('keydown', function(e){
@@ -2209,12 +2219,7 @@ document.addEventListener('keydown', function(e){
     if(window.selKf){ send('aeDelKeyframe', { channel: window.selKf.channel, index: window.selKf.index }); window.selKf = null; e.preventDefault(); return; }
     if(selectedClips && selectedClips.size > 0){ send('clipOp', { op:'delete', index:-1 }); e.preventDefault(); return; }
     var s = window.bbsState || {};
-    if(s.focusedCharacter){
-      var fid = s.focusedCharacter.id;
-      var fn = s.focusedCharacter.label || fid;
-      confirmDialog('删除角色', '确定删除角色「' + fn + '」？将同时移除其轨道与关联引用，且不可撤销（可撤销上一步）。', function(){ send('deleteReplay', { replayId: fid }); });
-      e.preventDefault(); return;
-    }
+    if(s.focusedCharacter){ requestDeleteReplay(s.focusedCharacter.id, s.focusedCharacter.label); e.preventDefault(); return; }
   }
 });
 

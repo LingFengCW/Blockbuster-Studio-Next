@@ -27,7 +27,9 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.utils.undo.IUndo;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIScreen;
@@ -136,6 +138,12 @@ public class EditorBridge implements IHtmlBridge
      *  panel (-1 = none). The panel shares the action editor's state, so both
      *  the panel and the modal read from the same focused/open replay. */
     private static int focusedCharacterIndex = -1;
+    /** Stable replay id of the currently focused character (D1: index-free focus
+     *  tracking so deleting a replay cannot shift the focused target). */
+    private static String focusedCharacterId = null;
+    /** Stable replay id backing {@code actionEditorReplay} so undo/redo and
+     *  deletions keep the action editor pinned to the right replay. */
+    private static String actionEditorReplayId = null;
     /** Index of the character (Replay) whose equipment editor is currently open
      *  in the HTML page (-1 = closed). The editor is rendered as an in-page
      *  modal so it stays visible in exclusive fullscreen (a Swing JDialog would
@@ -1393,19 +1401,35 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "aeClose":
                 actionEditorReplay = -1;
+                actionEditorReplayId = null;
                 actionEditorSelected = -1;
                 actionEditorSelectedChannel = null;
                 MCEFUI.injectScript("window.bbsState.actionEditorOpen=false;renderActionEditor(window.bbsState);renderAssetDetail(window.bbsState);");
                 break;
             case "closeActionEditor":
                 actionEditorReplay = -1;
+                actionEditorReplayId = null;
                 MCEFUI.injectScript("window.bbsState.actionEditorOpen=false;renderActionEditor(window.bbsState);renderAssetDetail(window.bbsState);");
                 break;
             case "focusCharacter":
             {
-                int idx = req.has("index") ? req.get("index").getAsInt() : -1;
-                focusedCharacterIndex = idx;
-                if (idx >= 0)
+                String fcId = req.has("id") ? req.get("id").getAsString() : null;
+                int fcIdx = req.has("index") ? req.get("index").getAsInt() : -1;
+                Film f = panel.getData();
+
+                if (fcId != null && !fcId.isEmpty())
+                {
+                    int found = replayIndexById(f, fcId);
+                    focusedCharacterId = found >= 0 ? fcId : null;
+                    focusedCharacterIndex = found;
+                }
+                else
+                {
+                    focusedCharacterId = null;
+                    focusedCharacterIndex = fcIdx;
+                }
+
+                if (focusedCharacterIndex >= 0)
                 {
                     actionEditorLeftMode = "action";
                     actionEditorSelected = -1;
@@ -3334,14 +3358,24 @@ public class EditorBridge implements IHtmlBridge
     {
         Film film = panel.getData();
 
-        if (focusedCharacterIndex < 0 || film == null || focusedCharacterIndex >= film.replays.getList().size())
+        if (focusedCharacterId == null || film == null)
         {
             return null;
         }
 
-        Replay fcr = film.replays.getList().get(focusedCharacterIndex);
+        int idx = replayIndexById(film, focusedCharacterId);
+
+        if (idx < 0)
+        {
+            focusedCharacterId = null;
+            focusedCharacterIndex = -1;
+
+            return null;
+        }
+
+        Replay fcr = film.replays.getList().get(idx);
         JsonObject focused = new JsonObject();
-        focused.addProperty("index", focusedCharacterIndex);
+        focused.addProperty("index", idx);
         focused.addProperty("id", fcr.getId());
         focused.addProperty("label", fcr.getName());
         focused.addProperty("characterType", fcr.characterType.get());
@@ -3434,7 +3468,9 @@ public class EditorBridge implements IHtmlBridge
         /* Open the HTML in-page action editor for this character (the Swing
          * window is gone - it was buried by the fullscreen MCEF editor). */
         actionEditorReplay = index;
+        actionEditorReplayId = replayIdByIndex(film, index);
         focusedCharacterIndex = index;
+        focusedCharacterId = actionEditorReplayId;
         actionEditorLeftMode = "action";
         actionEditorSelected = -1;
         actionEditorSelectedChannel = null;
@@ -3811,7 +3847,9 @@ public class EditorBridge implements IHtmlBridge
          * fullscreen, so it never appeared. The modal lives inside editor_ui.html
          * and is driven entirely by window.bbsState.actionEditor. */
         actionEditorReplay = index;
+        actionEditorReplayId = replayIdByIndex(film, index);
         focusedCharacterIndex = index;
+        focusedCharacterId = actionEditorReplayId;
         actionEditorLeftMode = "action";
         actionEditorSelected = actionIndex >= 0 && actionIndex < film.replays.getList().get(index).actions.get().size() ? actionIndex : -1;
         actionEditorSelectedChannel = null;
@@ -4259,7 +4297,24 @@ public class EditorBridge implements IHtmlBridge
 
     private static int editorReplayIndex()
     {
-        return actionEditorReplay >= 0 ? actionEditorReplay : focusedCharacterIndex;
+        Film film = instance != null && instance.panel != null ? instance.panel.getData() : null;
+
+        if (actionEditorReplayId != null)
+        {
+            int idx = replayIndexById(film, actionEditorReplayId);
+
+            if (idx >= 0)
+            {
+                return idx;
+            }
+        }
+
+        if (actionEditorReplay >= 0)
+        {
+            return actionEditorReplay;
+        }
+
+        return focusedCharacterIndex;
     }
 
     private static void aeSetActionField(UIFilmPanel panel, JsonObject req, java.util.function.Consumer<ActionClip> editor)
@@ -4698,9 +4753,44 @@ public class EditorBridge implements IHtmlBridge
         return film.replays.getList().get(index).getId();
     }
 
-    /* F0: delete a replay by its stable id. The id is reverse-resolved to the
-     * live Replay so reordering/other deletes cannot shift the target. Cascades
-     * to the lingfeng side-tables (A2/S15). */
+    /* F0/S12: reverse lookup — stable replay id to its current list index. */
+    private static int replayIndexById(Film film, String id)
+    {
+        if (film == null || id == null)
+        {
+            return -1;
+        }
+
+        List<Replay> list = film.replays.getList();
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            if (id.equals(list.get(i).getId()))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static String replayIdByIndex(Film film, int index)
+    {
+        if (film == null || index < 0 || index >= film.replays.getList().size())
+        {
+            return null;
+        }
+
+        return film.replays.getList().get(index).getId();
+    }
+
+    /* F0/D2: delete a replay by its stable id and cascade the lingfeng
+     * side-tables (track order, track props, matte sources) and any MCPR
+     * sequence references into ONE undoable transaction. Snapshot-style: the
+     * pre-delete state of every affected side-table/reference is captured and a
+     * custom IUndo is pushed so a single Ctrl+Z restores the replay AND every
+     * cascade. D1: focus is tracked by stable id, so the deletion cannot
+     * mis-target the focused character. */
     private static void deleteReplay(UIFilmPanel panel, String replayId)
     {
         if (replayId == null || replayId.isEmpty())
@@ -4717,77 +4807,333 @@ public class EditorBridge implements IHtmlBridge
                 return;
             }
 
-            Replay target = null;
+            int removedIndex = replayIndexById(f, replayId);
 
-            for (Replay r : f.replays.getList())
-            {
-                if (replayId.equals(r.getId()))
-                {
-                    target = r;
-                    break;
-                }
-            }
-
-            if (target == null)
+            if (removedIndex < 0)
             {
                 return;
             }
 
             String filmId = f.getId();
-            Replay removed = target;
-            int removedIndex = f.replays.getList().indexOf(removed);
 
-            BaseValue.edit(f, ff -> {
-                ff.replays.remove(removed);
+            BaseType replayBefore = f.replays.getList().get(removedIndex).toData();
+            List<String> orderBefore = TrackOrderStore.get(filmId);
+            JsonObject propBefore = snapshotTrackProp(filmId, replayId);
+            List<JsonObject> matteBefore = snapshotMatteSources(f, filmId, replayId);
+            List<JsonObject> seqRefsBefore = snapshotSeqRefs(filmId, replayId);
+            MapType uiBefore = panel.getRoot() == null ? null : panel.getRoot().collectAllUndoData();
 
-                /* A2/D2: tear down side-table + sequence references inside the
-                 * SAME undo transaction, otherwise Ctrl+Z restores the replay
-                 * but leaves dangling track order / matte / sequence refs. */
-                TrackPropStore.removeForReplay(filmId, replayId);
-                TrackOrderStore.remove(filmId, replayId);
-                TrackPropStore.clearMatteSource(filmId, replayId);
+            DeleteReplayUndo undo = new DeleteReplayUndo(panel, filmId, replayId, removedIndex, replayBefore, orderBefore, propBefore, matteBefore, seqRefsBefore);
 
-                SequenceManager seqMgr = SequenceManager.get();
+            applyDeleteReplay(panel, f, filmId, replayId);
 
-                if (seqMgr != null)
-                {
-                    for (Sequence seq : seqMgr.getSequences())
-                    {
-                        List<Sequence.SequenceRef> dangling = new ArrayList<>();
+            undo.uiAfter = panel.getRoot() == null ? null : panel.getRoot().collectAllUndoData();
 
-                        for (Sequence.SequenceRef ref : seq.refs)
-                        {
-                            if (Sequence.SequenceRef.MCPR.equals(ref.type) && replayId.equals(ref.id))
-                            {
-                                dangling.add(ref);
-                            }
-                        }
-
-                        for (Sequence.SequenceRef ref : dangling)
-                        {
-                            seqMgr.removeRef(seq, ref);
-                        }
-                    }
-                }
-            });
-
-            /* D1: re-sync the focused-character index so the asset-detail panel
-             * and any subsequent Delete keystroke cannot mis-target a neighbour
-             * after the list shifts. */
-            if (focusedCharacterIndex == removedIndex)
+            if (panel.getUndoHandler() != null)
             {
-                focusedCharacterIndex = -1;
-            }
-            else if (focusedCharacterIndex > removedIndex)
-            {
-                focusedCharacterIndex--;
+                panel.getUndoHandler().getUndoManager().pushUndo(undo);
             }
 
-            /* Persist immediately and re-sync the editor HTML so the deleted
-             * asset disappears from the asset box. */
-            panel.save();
             refreshHtml();
         });
+    }
+
+    private static final String SNAP_REPLAY_ID = "__rid";
+
+    private static JsonObject snapshotTrackProp(String filmId, String replayId)
+    {
+        TrackProp tp = TrackPropStore.getIfPresent(filmId, replayId);
+
+        return tp == null ? null : tp.toJson();
+    }
+
+    private static List<JsonObject> snapshotMatteSources(Film film, String filmId, String replayId)
+    {
+        List<JsonObject> snaps = new ArrayList<>();
+
+        for (Replay r : film.replays.getList())
+        {
+            if (replayId.equals(r.getId()))
+            {
+                continue;
+            }
+
+            TrackProp tp = TrackPropStore.getIfPresent(filmId, r.getId());
+
+            if (tp != null && replayId.equals(tp.matteSource))
+            {
+                JsonObject snap = tp.toJson();
+                snap.addProperty(SNAP_REPLAY_ID, r.getId());
+                snaps.add(snap);
+            }
+        }
+
+        return snaps;
+    }
+
+    private static List<JsonObject> snapshotSeqRefs(String filmId, String replayId)
+    {
+        List<JsonObject> snaps = new ArrayList<>();
+        SequenceManager seqMgr = SequenceManager.get();
+
+        if (seqMgr != null)
+        {
+            for (Sequence seq : seqMgr.getSequences())
+            {
+                for (Sequence.SequenceRef ref : seq.refs)
+                {
+                    if (Sequence.SequenceRef.MCPR.equals(ref.type) && replayId.equals(ref.id))
+                    {
+                        JsonObject snap = new JsonObject();
+                        snap.addProperty("seqId", seq.id);
+                        snap.addProperty("type", ref.type);
+                        snap.addProperty("refId", ref.id);
+                        snaps.add(snap);
+                    }
+                }
+            }
+        }
+
+        return snaps;
+    }
+
+    /* D2: apply the deletion (replay + every cascade) without pushing an undo.
+     * Shared by the initial delete and the custom undo's redo(). */
+    private static void applyDeleteReplay(UIFilmPanel panel, Film f, String filmId, String replayId)
+    {
+        int removedIndex = replayIndexById(f, replayId);
+
+        if (removedIndex < 0)
+        {
+            return;
+        }
+
+        Replay removed = f.replays.getList().get(removedIndex);
+        List<Replay> list = f.replays.getAllTyped();
+
+        list.remove(removed);
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            list.get(i).setId(String.valueOf(i));
+            list.get(i).setParent(f.replays);
+        }
+
+        f.replays.postNotify();
+
+        TrackPropStore.removeForReplay(filmId, replayId);
+        TrackOrderStore.remove(filmId, replayId);
+        TrackPropStore.clearMatteSource(filmId, replayId);
+
+        SequenceManager seqMgr = SequenceManager.get();
+
+        if (seqMgr != null)
+        {
+            for (Sequence seq : seqMgr.getSequences())
+            {
+                List<Sequence.SequenceRef> dangling = new ArrayList<>();
+
+                for (Sequence.SequenceRef ref : seq.refs)
+                {
+                    if (Sequence.SequenceRef.MCPR.equals(ref.type) && replayId.equals(ref.id))
+                    {
+                        dangling.add(ref);
+                    }
+                }
+
+                for (Sequence.SequenceRef ref : dangling)
+                {
+                    seqMgr.removeRef(seq, ref);
+                }
+            }
+        }
+
+        /* D1: maintain the index caches so neither the asset-detail panel nor the
+         * action editor can mis-target a neighbour after the list shifts. */
+        if (replayId.equals(focusedCharacterId))
+        {
+            focusedCharacterId = null;
+            focusedCharacterIndex = -1;
+        }
+        else if (removedIndex >= 0 && removedIndex < focusedCharacterIndex)
+        {
+            focusedCharacterIndex--;
+        }
+
+        if (replayId.equals(actionEditorReplayId))
+        {
+            actionEditorReplayId = null;
+            actionEditorReplay = -1;
+        }
+        else if (removedIndex >= 0 && removedIndex < actionEditorReplay)
+        {
+            actionEditorReplay--;
+        }
+
+        panel.save();
+    }
+
+    /* D2: reverse of applyDeleteReplay — rebuild the replay and every cascade
+     * from the captured snapshots. */
+    private static void applyRestoreReplay(UIFilmPanel panel, Film f, String filmId, String replayId, int removedIndex, BaseType replayBefore, List<String> orderBefore, JsonObject propBefore, List<JsonObject> matteBefore, List<JsonObject> seqRefsBefore)
+    {
+        Replay r = new Replay(String.valueOf(Math.max(0, removedIndex)));
+        r.fromData(replayBefore);
+
+        List<Replay> list = f.replays.getAllTyped();
+        int insertAt = (removedIndex < 0 || removedIndex > list.size()) ? list.size() : removedIndex;
+
+        list.add(insertAt, r);
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            list.get(i).setId(String.valueOf(i));
+            list.get(i).setParent(f.replays);
+        }
+
+        f.replays.postNotify();
+
+        TrackOrderStore.set(filmId, orderBefore);
+
+        if (propBefore != null)
+        {
+            restoreTrackProp(filmId, replayId, propBefore);
+        }
+
+        for (JsonObject snap : matteBefore)
+        {
+            String otherId = snap.has(SNAP_REPLAY_ID) ? snap.get(SNAP_REPLAY_ID).getAsString() : null;
+            snap.remove(SNAP_REPLAY_ID);
+
+            if (otherId != null)
+            {
+                restoreTrackProp(filmId, otherId, snap);
+            }
+        }
+
+        SequenceManager seqMgr = SequenceManager.get();
+
+        if (seqMgr != null)
+        {
+            for (JsonObject snap : seqRefsBefore)
+            {
+                Sequence seq = seqMgr.getById(snap.get("seqId").getAsString());
+
+                if (seq != null)
+                {
+                    seqMgr.addRef(seq, snap.get("type").getAsString(), snap.get("refId").getAsString());
+                }
+            }
+        }
+
+        /* D1: re-pin the index caches from the stable ids after re-insertion. */
+        if (focusedCharacterId != null)
+        {
+            focusedCharacterIndex = replayIndexById(f, focusedCharacterId);
+        }
+
+        if (actionEditorReplayId != null)
+        {
+            actionEditorReplay = replayIndexById(f, actionEditorReplayId);
+        }
+
+        panel.save();
+    }
+
+    private static void restoreTrackProp(String filmId, String replayId, JsonObject json)
+    {
+        if (json == null)
+        {
+            return;
+        }
+
+        if (json.has("blendMode")) TrackPropStore.set(filmId, replayId, "blendMode", json.get("blendMode").getAsString());
+        if (json.has("opacity")) TrackPropStore.set(filmId, replayId, "opacity", String.valueOf(json.get("opacity").getAsFloat()));
+        if (json.has("matteSource")) TrackPropStore.set(filmId, replayId, "matteSource", json.get("matteSource").getAsString());
+        if (json.has("matteMode")) TrackPropStore.set(filmId, replayId, "matteMode", json.get("matteMode").getAsString());
+    }
+
+    /* D2: single undo entry covering the replay deletion and all its cascades. */
+    private static class DeleteReplayUndo implements IUndo<ValueGroup>
+    {
+        private final UIFilmPanel panel;
+        private final String filmId;
+        private final String replayId;
+        private final int removedIndex;
+        private final BaseType replayBefore;
+        private final List<String> orderBefore;
+        private final JsonObject propBefore;
+        private final List<JsonObject> matteBefore;
+        private final List<JsonObject> seqRefsBefore;
+        private MapType uiBefore;
+        private MapType uiAfter;
+
+        DeleteReplayUndo(UIFilmPanel panel, String filmId, String replayId, int removedIndex, BaseType replayBefore, List<String> orderBefore, JsonObject propBefore, List<JsonObject> matteBefore, List<JsonObject> seqRefsBefore)
+        {
+            this.panel = panel;
+            this.filmId = filmId;
+            this.replayId = replayId;
+            this.removedIndex = removedIndex;
+            this.replayBefore = replayBefore;
+            this.orderBefore = orderBefore;
+            this.propBefore = propBefore;
+            this.matteBefore = matteBefore;
+            this.seqRefsBefore = seqRefsBefore;
+        }
+
+        @Override
+        public IUndo<ValueGroup> noMerging()
+        {
+            return this;
+        }
+
+        @Override
+        public boolean isMergeable(IUndo<ValueGroup> undo)
+        {
+            return false;
+        }
+
+        @Override
+        public void merge(IUndo<ValueGroup> undo)
+        {}
+
+        @Override
+        public void undo(ValueGroup context)
+        {
+            Film f = panel.getData();
+
+            if (f == null)
+            {
+                return;
+            }
+
+            applyRestoreReplay(panel, f, filmId, replayId, removedIndex, replayBefore, orderBefore, propBefore, matteBefore, seqRefsBefore);
+            applyUi(uiBefore);
+            refreshHtml();
+        }
+
+        @Override
+        public void redo(ValueGroup context)
+        {
+            Film f = panel.getData();
+
+            if (f == null)
+            {
+                return;
+            }
+
+            applyDeleteReplay(panel, f, filmId, replayId);
+            applyUi(uiAfter);
+            refreshHtml();
+        }
+
+        private void applyUi(MapType data)
+        {
+            if (data != null && panel.getRoot() != null)
+            {
+                panel.getRoot().applyAllUndoData(data);
+            }
+        }
     }
 
     /* Drag a library character (replay) onto the timeline, or move a placed
@@ -4858,8 +5204,10 @@ public class EditorBridge implements IHtmlBridge
         refreshHtml();
     }
 
-    /* F3.2: destroy a track without deleting the replay. The replay returns to
-     * the asset library; matte references on other tracks are cleared (S15). */
+    /* F3.2/D2: destroy a track without deleting the replay. The replay returns to
+     * the asset library; matte references on other tracks are cleared (S15). The
+     * whole operation is a single undoable transaction so Ctrl+Z re-places the
+     * track AND restores the matte references. */
     private static void unplaceActor(UIFilmPanel panel, String replayId)
     {
         Film film = panel.getData();
@@ -4870,12 +5218,101 @@ public class EditorBridge implements IHtmlBridge
         }
 
         String filmId = film.getId();
+        List<String> orderBefore = TrackOrderStore.get(filmId);
+        List<JsonObject> matteBefore = snapshotMatteSources(film, filmId, replayId);
+        MapType uiBefore = panel.getRoot() == null ? null : panel.getRoot().collectAllUndoData();
 
         TrackOrderStore.remove(filmId, replayId);
         TrackPropStore.clearMatteSource(filmId, replayId);
-
         panel.save();
+
+        MapType uiAfter = panel.getRoot() == null ? null : panel.getRoot().collectAllUndoData();
+
+        UnplaceActorUndo undo = new UnplaceActorUndo(panel, filmId, replayId, orderBefore, matteBefore);
+        undo.uiAfter = uiAfter;
+
+        if (panel.getUndoHandler() != null)
+        {
+            panel.getUndoHandler().getUndoManager().pushUndo(undo);
+        }
+
         refreshHtml();
+    }
+
+    /* D2: single undo entry for unplaceActor (track removal + matte cascade). */
+    private static class UnplaceActorUndo implements IUndo<ValueGroup>
+    {
+        private final UIFilmPanel panel;
+        private final String filmId;
+        private final String replayId;
+        private final List<String> orderBefore;
+        private final List<JsonObject> matteBefore;
+        private MapType uiBefore;
+        private MapType uiAfter;
+
+        UnplaceActorUndo(UIFilmPanel panel, String filmId, String replayId, List<String> orderBefore, List<JsonObject> matteBefore)
+        {
+            this.panel = panel;
+            this.filmId = filmId;
+            this.replayId = replayId;
+            this.orderBefore = orderBefore;
+            this.matteBefore = matteBefore;
+        }
+
+        @Override
+        public IUndo<ValueGroup> noMerging()
+        {
+            return this;
+        }
+
+        @Override
+        public boolean isMergeable(IUndo<ValueGroup> undo)
+        {
+            return false;
+        }
+
+        @Override
+        public void merge(IUndo<ValueGroup> undo)
+        {}
+
+        @Override
+        public void undo(ValueGroup context)
+        {
+            TrackOrderStore.set(filmId, orderBefore);
+
+            for (JsonObject snap : matteBefore)
+            {
+                String otherId = snap.has(SNAP_REPLAY_ID) ? snap.get(SNAP_REPLAY_ID).getAsString() : null;
+                snap.remove(SNAP_REPLAY_ID);
+
+                if (otherId != null)
+                {
+                    restoreTrackProp(filmId, otherId, snap);
+                }
+            }
+
+            panel.save();
+            applyUi(uiBefore);
+            refreshHtml();
+        }
+
+        @Override
+        public void redo(ValueGroup context)
+        {
+            TrackOrderStore.remove(filmId, replayId);
+            TrackPropStore.clearMatteSource(filmId, replayId);
+            panel.save();
+            applyUi(uiAfter);
+            refreshHtml();
+        }
+
+        private void applyUi(MapType data)
+        {
+            if (data != null && panel.getRoot() != null)
+            {
+                panel.getRoot().applyAllUndoData(data);
+            }
+        }
     }
 
     /* F4: update a track's visual property in the lingfeng side-table, keyed by

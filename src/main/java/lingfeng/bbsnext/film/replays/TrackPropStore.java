@@ -43,6 +43,13 @@ public class TrackPropStore
         return MAP.computeIfAbsent(key(filmId, replayId), k -> new TrackProp());
     }
 
+    /** Read a side-table entry without creating a default (used by D2 snapshots
+     *  so capturing a replay's cascade never materialises phantom entries). */
+    public static TrackProp getIfPresent(String filmId, String replayId)
+    {
+        return MAP.get(key(filmId, replayId));
+    }
+
     public static void set(String filmId, String replayId, String prop, String value)
     {
         TrackProp p = get(filmId, replayId);
