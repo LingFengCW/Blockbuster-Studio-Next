@@ -212,6 +212,17 @@ public class EditorBridge implements IHtmlBridge
     {
         JsonObject root = new JsonObject();
 
+        /* State-injected i18n: tell the page which language is active and hand
+         * it the full editor string dictionary (EditorStrings.TABLE) so every
+         * visible label can switch without a page reload. */
+        String currentLang = mchorse.bbs_mod.BBSModClient.getLanguageKey();
+        if (currentLang == null || currentLang.isEmpty())
+        {
+            currentLang = "zh_cn";
+        }
+        root.addProperty("lang", currentLang);
+        root.add("strings", EditorStrings.stringsFor(currentLang));
+
         UIFilmPanel panel = bridge.panel;
 
         if (Minecraft.getInstance().level != null)
