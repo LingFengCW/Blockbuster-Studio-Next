@@ -22,11 +22,25 @@ public class MinecraftServerMixin
 
         if (videoRecorder.isRecording())
         {
-            while (videoRecorder.lastServerTicks < videoRecorder.serverTicks)
+            /* The recorder is meant to advance serverTicks per captured frame so the
+             * server is ticked in lock-step; if no frames are pending (capture
+             * stalled, or recorder state is inconsistent) we must still tick the
+             * server at least once, otherwise the integrated server starves and the
+             * world never finishes loading ("stuck on loading"). */
+            int pending = videoRecorder.serverTicks - videoRecorder.lastServerTicks;
+
+            if (pending > 0)
+            {
+                for (int i = 0; i < pending; i++)
+                {
+                    original.call(supplier);
+
+                    videoRecorder.lastServerTicks += 1;
+                }
+            }
+            else
             {
                 original.call(supplier);
-
-                videoRecorder.lastServerTicks += 1;
             }
         }
         else

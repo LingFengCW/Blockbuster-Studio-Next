@@ -2873,26 +2873,45 @@ public class EditorBridge implements IHtmlBridge
                 endWorldSwitch();
                 clearEnteringWorld();
 
+                /* Diagnostic: confirms whether MC's world load actually completed and
+                 * fired this callback. If the log shows "opening bound world" but never
+                 * this line, the hang is inside MC's native world loading (e.g. the
+                 * scene's bound save is missing/corrupt), not in our post-load setup. */
+                BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: openWorld callback fired (world loaded, completing entry)");
+
                 if (owningPreviewWorld)
                 {
-                    reopenEditorUi();
-                    inWorld = true;
-                    spawnReplayActors(target);
-
-                    Film film = target == null ? null : target.getData();
-
-                    if (film != null)
+                    try
                     {
-                        /* Start the Film playing in the preview world so replays
-                         * animate along their keyframes, and drive the camera via
-                         * the editor runner. Keep withCamera=false so the runner
-                         * (not a second conflicting controller) owns the camera. */
-                        Films.stopFilm(film.getId());
-                        Films.playFilm(film, false);
+                        reopenEditorUi();
+                        inWorld = true;
+                        spawnReplayActors(target);
 
-                        target.setCursor(0);
-                        target.getRunner().setWork(film.camera);
-                        target.getRunner().toggle(0);
+                        Film film = target == null ? null : target.getData();
+
+                        if (film != null)
+                        {
+                            /* Start the Film playing in the preview world so replays
+                             * animate along their keyframes, and drive the camera via
+                             * the editor runner. Keep withCamera=false so the runner
+                             * (not a second conflicting controller) owns the camera. */
+                            Films.stopFilm(film.getId());
+                            Films.playFilm(film, false);
+
+                            target.setCursor(0);
+                            target.getRunner().setWork(film.camera);
+                            target.getRunner().toggle(0);
+                        }
+                    }
+                    catch (Throwable t)
+                    {
+                        /* A failure in post-load setup (spawning replay actors,
+                         * starting the film, toggling the camera runner, ...) must
+                         * NOT propagate out of the openWorld callback: doing so
+                         * aborts MC's world-load finalisation and leaves the
+                         * LoadingOverlay up forever ("stuck on loading"). Log and
+                         * keep the world usable instead. */
+                        BBSMod.LOGGER.error("[EditorBridge] enterSceneWorld post-load setup failed (world still loaded)", t);
                     }
                 }
             });
@@ -2928,6 +2947,11 @@ public class EditorBridge implements IHtmlBridge
      */
     private static void spawnReplayActors(UIFilmPanel panel)
     {
+        if (panel == null)
+        {
+            return;
+        }
+
         Minecraft mc = Minecraft.getInstance();
         Film film = panel.getData();
 
