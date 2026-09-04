@@ -318,6 +318,14 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 .tl-toolbar button{display:flex;align-items:center;gap:5px;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:4px 10px;font-size:12px;cursor:pointer;}
 .tl-toolbar button:hover{background:var(--c-accent);color:#fff;}
 .tl-toolbar button.active{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+/* 动作编辑器预览控制条（aeDock 内，驱动聚焦角色动作实时预览） */
+.ae-preview-bar{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--c-bg-sub);border-bottom:1px solid var(--c-border);flex:0 0 auto;}
+.ae-preview-bar button{display:flex;align-items:center;justify-content:center;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:4px 12px;font-size:12px;cursor:pointer;min-width:52px;}
+.ae-preview-bar button:hover{background:var(--c-accent);color:#fff;}
+.ae-preview-bar button.active{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+.ae-preview-bar .ae-ptime{margin-left:auto;font-size:12px;color:var(--c-text-3);font-variant-numeric:tabular-nums;}
+.tl-playhead{opacity:0;}
+.tl-playhead.show{opacity:1;}
 /* 时间轴工具栏里那个原生 number 输入框：统一成浅色输入框 */
 #tlKfAllN{background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:4px 6px;font-size:13px;outline:none;}
 #tlKfAllN:focus{border-color:var(--c-accent);}
@@ -448,7 +456,17 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
       <div class="ad-left" id="aeDockLeft"></div>
       <div class="ad-right" id="aeDockRight"></div>
     </div>
-    <div class="ae-timeline-wrap"><div class="tl-ruler" id="aeDockRuler"></div><div class="tl-tracks" id="aeDockTimeline"></div><div class="tl-playhead" id="aeDockPlayhead"></div></div>
+    <div class="ae-timeline-wrap">
+      <div class="ae-preview-bar">
+        <button id="aePrevPlay" type="button">播放</button>
+        <button id="aePrevStop" type="button">停止</button>
+        <button id="aePrevToStart" type="button">回到起点</button>
+        <span class="ae-ptime" id="aePrevTime">0 / 0</span>
+      </div>
+      <div class="tl-ruler" id="aeDockRuler"></div>
+      <div class="tl-tracks" id="aeDockTimeline"></div>
+      <div class="tl-playhead" id="aeDockPlayhead"></div>
+    </div>
   </div>
 
   <div class="editor">
@@ -3130,6 +3148,59 @@ function renderAssetDetail(s){
 }
 
 function renderAeTimelineDock(ae){ renderAeTracks(ae, document.getElementById('aeDockTimeline')); }
+
+/* 动作编辑器预览控制条：播放/停止/回到起点 + 时间轴拖拽 scrub。
+ * 状态由 Java 端通过 window.__aePreview = {tick,duration,playing} 推送，updateAePlayhead
+ * 负责把播放头定位到时间轴、刷新时间文本与按钮高亮。 */
+function updateAePlayhead(){
+  var ph = document.getElementById('aeDockPlayhead');
+  var tracks = document.getElementById('aeDockTimeline');
+  var time = document.getElementById('aePrevTime');
+  var pv = window.__aePreview || { tick: 0, duration: 0, playing: false };
+  if(!ph || !tracks) return;
+  var dur = pv.duration || 0;
+  var tick = pv.tick || 0;
+  if(dur > 0 && tracks.offsetWidth > 0){
+    var frac = Math.max(0, Math.min(1, tick / dur));
+    ph.style.left = (tracks.offsetLeft + frac * tracks.offsetWidth) + 'px';
+    ph.classList.add('show');
+  } else {
+    ph.classList.remove('show');
+  }
+  if(time) time.textContent = tick + ' / ' + dur;
+  var playBtn = document.getElementById('aePrevPlay');
+  if(playBtn) playBtn.classList.toggle('active', !!pv.playing);
+}
+
+function initAePreviewBar(){
+  if(window.__aePreviewBarInited) return;
+  window.__aePreviewBarInited = true;
+  var play = document.getElementById('aePrevPlay');
+  var stop = document.getElementById('aePrevStop');
+  var toStart = document.getElementById('aePrevToStart');
+  var tracks = document.getElementById('aeDockTimeline');
+  if(play) play.onclick = function(){ send('aePreviewPlay'); };
+  if(stop) stop.onclick = function(){ send('aePreviewStop'); };
+  if(toStart) toStart.onclick = function(){ send('aePreviewToStart'); };
+  var ruler = document.getElementById('aeDockRuler');
+  if(ruler){
+    function scrubFromEvent(e){
+      var rect = ruler.getBoundingClientRect();
+      var frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      var dur = (window.__aePreview && window.__aePreview.duration) || 0;
+      if(dur > 0) send('aePreviewScrub', { tick: Math.round(frac * dur) });
+    }
+    ruler.addEventListener('click', scrubFromEvent);
+    ruler.addEventListener('pointerdown', function(e){
+      scrubFromEvent(e);
+      function move(ev){ scrubFromEvent(ev); }
+      function up(){ document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); }
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    });
+    ruler.style.cursor = 'pointer';
+  }
+}
 function renderAeDock(s){
   var dock = document.getElementById('aeDock');
   var show = !!(s.focusedCharacter && s.actionEditor);
@@ -3142,6 +3213,8 @@ function renderAeDock(s){
   renderAeTimelineDock(ae);
   var maxBtn = document.getElementById('aeDockMax');
   if(maxBtn) maxBtn.onclick = function(){ send('openActionEditor', { index: fc.index }); };
+  initAePreviewBar();
+  updateAePlayhead();
 }
 function adToggle(labelText, checked, onchange){
   var w = document.createElement('label'); w.className = 'modal-check';

@@ -60,6 +60,9 @@ import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.actions.types.LocomotionActionClip;
 import mchorse.bbs_mod.actions.types.ScriptActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemActionClip;
+import mchorse.bbs_mod.actions.SuperFakePlayer;
+import mchorse.bbs_mod.forms.entities.MCEntity;
+import net.minecraft.world.entity.LivingEntity;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.clips.Clip;
@@ -179,6 +182,20 @@ public class EditorBridge implements IHtmlBridge
     /** Stable replay id of the currently focused character (D1: index-free focus
      *  tracking so deleting a replay cannot shift the focused target). */
     private static String focusedCharacterId = null;
+    /* 动作编辑器「预览动作」状态：聚焦角色（Replay）的客户端实时动作预览。
+     * 预览在集成服务器线程上按 tick 调用 replay.applyActions（与 ActionPlayer 生产路径
+     * 一致），复用 spawnReplayActors 已生成的可见 ActorEntity，不另起 ActionPlayer，
+     * 避免重复生成实体。所有客户端集合（actors map / film.replays）仅在起点（客户端
+     * 线程）读取一次并缓存，daemon 线程不再触碰客户端集合，仅通过 world.getEntity 取
+     * 服务端实体。 */
+    private static int aePreviewTick = 0;
+    private static int aePreviewDuration = 0;
+    private static boolean aePreviewPlaying = false;
+    private static Thread aePreviewThread = null;
+    private static UIFilmPanel aePreviewPanel = null;
+    private static Film aePreviewFilm = null;
+    private static Replay aePreviewReplayRef = null;
+    private static int aePreviewEntityId = -1;
     /** Stable replay id backing {@code actionEditorReplay} so undo/redo and
      *  deletions keep the action editor pinned to the right replay. */
     private static String actionEditorReplayId = null;
@@ -1718,6 +1735,18 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "aeDeleteAction":
                 aeDeleteAction(panel, req.has("ai") ? req.get("ai").getAsInt() : -1);
+                break;
+            case "aePreviewPlay":
+                aePreviewStart(panel);
+                break;
+            case "aePreviewStop":
+                aePreviewStop(panel);
+                break;
+            case "aePreviewToStart":
+                aePreviewToStart(panel);
+                break;
+            case "aePreviewScrub":
+                aePreviewScrub(panel, req.has("tick") ? req.get("tick").getAsInt() : 0);
                 break;
             case "aeAddMaterial":
                 aeAddMaterial(panel, req.has("type") ? req.get("type").getAsString() : null);
@@ -4586,6 +4615,168 @@ public class EditorBridge implements IHtmlBridge
         int size = replay.actions.get().size();
         actionEditorSelected = size <= 0 ? -1 : Math.min(actionEditorSelected, size - 1);
         refreshHtml();
+    }
+
+    /* ============ 动作编辑器：聚焦角色动作实时预览 ============
+     * 驱动聚焦角色（Replay）已生成的 ActorEntity，按 tick 应用其真实动作
+     * （replay.applyActions，与 ActionPlayer 生产路径一致）。预览在集成服务器线程上
+     * 执行，attack / command / script 等动作得到真实执行；不另起 ActionPlayer，复用
+     * spawnReplayActors 已生成的可见 ActorEntity，避免重复生成实体。
+     * 实体 id、film、replay 仅在起点（客户端线程）读取一次并缓存，daemon 线程不再触碰
+     * 客户端集合，仅通过 world.getEntity 在服务端线程取实体，规避并发读写。 */
+
+    private static Replay aePreviewResolveReplay(UIFilmPanel panel)
+    {
+        Film film = panel == null ? null : panel.getData();
+        if (film == null) return null;
+        int ri = editorReplayIndex();
+        if (ri < 0 || ri >= film.replays.getList().size()) return null;
+        Replay replay = film.replays.getList().get(ri);
+        if (!"action".equals(replay.characterType.get())) return null;
+        return replay;
+    }
+
+    private static int aePreviewComputeDuration(Replay replay)
+    {
+        return Math.max(1, replay.actions.calculateDuration());
+    }
+
+    private static void aePreviewPushTick(int tick, int duration, boolean playing)
+    {
+        MCEFUI.injectScript("window.__aePreview={tick:" + tick + ",duration:" + duration + ",playing:" + playing + "};updateAePlayhead();");
+    }
+
+    private static void aePreviewApplyAt(int tick)
+    {
+        if (aePreviewFilm == null || aePreviewReplayRef == null || aePreviewEntityId < 0) return;
+        ServerLevel world = previewServerLevel();
+        IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+        if (world == null || server == null) return;
+        final int feid = aePreviewEntityId;
+        final int ftick = tick;
+        final Replay freplay = aePreviewReplayRef;
+        final Film ffilm = aePreviewFilm;
+        server.submit(() ->
+        {
+            Entity e = world.getEntity(feid);
+            if (e instanceof LivingEntity le)
+            {
+                freplay.applyActions(le, SuperFakePlayer.get(world), ffilm, ftick);
+                freplay.keyframes.apply(ftick, new MCEntity(e));
+            }
+        });
+    }
+
+    private static void aePreviewStart(UIFilmPanel panel)
+    {
+        Replay replay = aePreviewResolveReplay(panel);
+        if (replay == null)
+        {
+            MCEFUI.injectScript("toast('请先选中一个动作角色再预览', true)");
+            return;
+        }
+        ServerLevel world = previewServerLevel();
+        if (world == null)
+        {
+            MCEFUI.injectScript("toast('请先进入世界以预览动作', true)");
+            return;
+        }
+        Film film = panel.getData();
+        Map<String, Integer> amap = BBSModClient.getFilms().actors.get(film.getId());
+        Integer eid = amap == null ? null : amap.get(replay.getId());
+        if (eid == null)
+        {
+            MCEFUI.injectScript("toast('角色尚未在世界中生成，请先进入世界', true)");
+            return;
+        }
+        aePreviewPanel = panel;
+        aePreviewFilm = film;
+        aePreviewReplayRef = replay;
+        aePreviewEntityId = eid;
+        aePreviewDuration = Math.max(1, aePreviewComputeDuration(replay));
+        aePreviewTick = 0;
+        aePreviewPlaying = true;
+        if (aePreviewThread == null || !aePreviewThread.isAlive())
+        {
+            aePreviewThread = new Thread(EditorBridge::aePreviewLoop, "bbs-ae-preview");
+            aePreviewThread.setDaemon(true);
+            aePreviewThread.start();
+        }
+        aePreviewApplyAt(0);
+        aePreviewPushTick(0, aePreviewDuration, true);
+    }
+
+    private static void aePreviewLoop()
+    {
+        while (aePreviewPlaying)
+        {
+            ServerLevel world = previewServerLevel();
+            IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+            if (world == null || server == null || aePreviewReplayRef == null || aePreviewEntityId < 0)
+            {
+                aePreviewPlaying = false;
+                break;
+            }
+            final int t = aePreviewTick;
+            final int dur = aePreviewDuration;
+            final int feid = aePreviewEntityId;
+            final Replay freplay = aePreviewReplayRef;
+            final Film ffilm = aePreviewFilm;
+            server.submit(() ->
+            {
+                Entity e = world.getEntity(feid);
+                if (e instanceof LivingEntity le)
+                {
+                    freplay.applyActions(le, SuperFakePlayer.get(world), ffilm, t);
+                    freplay.keyframes.apply(t, new MCEntity(e));
+                }
+            });
+            aePreviewPushTick(t, dur, true);
+            try
+            {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException ie)
+            {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            aePreviewTick++;
+            if (aePreviewTick > dur) aePreviewTick = 0;
+        }
+        if (aePreviewPanel != null) aePreviewPushTick(aePreviewTick, aePreviewDuration, false);
+    }
+
+    private static void aePreviewStop(UIFilmPanel panel)
+    {
+        aePreviewPlaying = false;
+        if (aePreviewThread != null)
+        {
+            try
+            {
+                aePreviewThread.join(300);
+            }
+            catch (InterruptedException ie)
+            {
+                Thread.currentThread().interrupt();
+            }
+            aePreviewThread = null;
+        }
+        aePreviewPushTick(aePreviewTick, aePreviewDuration, false);
+    }
+
+    private static void aePreviewToStart(UIFilmPanel panel)
+    {
+        aePreviewTick = 0;
+        aePreviewApplyAt(0);
+        aePreviewPushTick(0, aePreviewDuration, aePreviewPlaying);
+    }
+
+    private static void aePreviewScrub(UIFilmPanel panel, int tick)
+    {
+        aePreviewTick = Math.max(0, Math.min(tick, aePreviewDuration));
+        aePreviewApplyAt(aePreviewTick);
+        aePreviewPushTick(aePreviewTick, aePreviewDuration, aePreviewPlaying);
     }
 
     /** The replay index whose action-editor state is currently shown, either
