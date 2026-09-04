@@ -2,7 +2,10 @@ package mchorse.bbs_mod.data;
 
 import mchorse.bbs_mod.data.storage.DataStorage;
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.ByteArrayType;
 import mchorse.bbs_mod.data.types.ByteType;
+import mchorse.bbs_mod.data.types.IntArrayType;
+import mchorse.bbs_mod.data.types.ShortArrayType;
 import mchorse.bbs_mod.data.types.DoubleType;
 import mchorse.bbs_mod.data.types.FloatType;
 import mchorse.bbs_mod.data.types.IntType;
@@ -11,10 +14,12 @@ import mchorse.bbs_mod.data.types.LongType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.data.types.ShortType;
 import mchorse.bbs_mod.data.types.StringType;
+import net.minecraft.nbt.ByteArrayTag;
 import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.DoubleTag;
 import net.minecraft.nbt.FloatTag;
+import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongTag;
@@ -172,8 +177,27 @@ public class DataStorageUtils
 
             return compound;
         }
+        else if (type instanceof ByteArrayType arrayType)
+        {
+            return new ByteArrayTag(arrayType.value);
+        }
+        else if (type instanceof IntArrayType arrayType)
+        {
+            return new IntArrayTag(arrayType.value);
+        }
+        else if (type instanceof ShortArrayType arrayType)
+        {
+            int[] widened = new int[arrayType.value.length];
 
-        // TODO: ArrayType
+            for (int i = 0; i < widened.length; i++)
+            {
+                widened[i] = arrayType.value[i];
+            }
+
+            return new IntArrayTag(widened);
+        }
+
+        // TODO: remaining BaseType subclasses
 
         return null;
     }
@@ -230,8 +254,16 @@ public class DataStorageUtils
 
             return map;
         }
+        else if (element instanceof ByteArrayTag nbtArray)
+        {
+            return new ByteArrayType(nbtArray.getAsByteArray());
+        }
+        else if (element instanceof IntArrayTag nbtArray)
+        {
+            return new IntArrayType(nbtArray.getAsIntArray());
+        }
 
-        // TODO: ArrayType
+        // TODO: remaining NBT tag types
 
         return null;
     }

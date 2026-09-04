@@ -5,14 +5,17 @@ import mchorse.bbs_mod.film.replays.Inventory;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.Replays;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
+import mchorse.bbs_mod.settings.values.numeric.ValueLong;
 import mchorse.bbs_mod.utils.clips.Clips;
 
 public class Film extends ValueGroup
 {
     public final Clips camera = new Clips("camera", BBSMod.getFactoryCameraClips());
     public final Replays replays = new Replays("replays");
+    public final CameraGroups cameraGroups = new CameraGroups("camera_groups");
 
     public final Inventory inventory = new Inventory("inventory");
     public final ValueFloat hp = new ValueFloat("hp", 20F);
@@ -20,18 +23,25 @@ public class Film extends ValueGroup
     public final ValueInt xpLevel = new ValueInt("xp_level", 0);
     public final ValueFloat xpProgress = new ValueFloat("xp_progress", 0F);
 
+    public final ValueString description = new ValueString("description", "");
+    public final ValueLong timeSpent = new ValueLong("time_spent", 0L);
+
     public Film()
     {
         super("");
 
         this.add(this.camera);
         this.add(this.replays);
+        this.add(this.cameraGroups);
 
         this.add(this.inventory);
         this.add(this.hp);
         this.add(this.hunger);
         this.add(this.xpLevel);
         this.add(this.xpProgress);
+
+        this.add(this.description);
+        this.add(this.timeSpent);
     }
 
     public Replay getFirstPersonReplay()

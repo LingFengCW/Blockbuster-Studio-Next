@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.forms;
 
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.utils.pose.Pose;
@@ -10,6 +11,8 @@ public class MobForm extends Form
 {
     public final ValueString mobID = new ValueString("mobId", "minecraft:chicken");
     public final ValueString mobNBT = new ValueString("mobNbt", "");
+    public final ValueString mobGroup = new ValueString("mobGroup", "");
+    public final ValueFloat mobMorphDur = new ValueFloat("mobMorphDur", 1.0F, 0.1F, 60F);
 
     public final ValueLink texture = new ValueLink("texture", null);
     public final ValueBoolean slim = new ValueBoolean("slim", false);
@@ -23,6 +26,8 @@ public class MobForm extends Form
 
         this.add(this.mobID);
         this.add(this.mobNBT);
+        this.add(this.mobGroup);
+        this.add(this.mobMorphDur);
         this.add(this.pose);
         this.add(this.poseOverlay);
         this.add(this.texture);

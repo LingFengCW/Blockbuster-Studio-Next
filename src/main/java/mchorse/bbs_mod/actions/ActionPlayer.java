@@ -152,12 +152,12 @@ public class ActionPlayer
 
     public void apply(LivingEntity actor, Replay replay, float tick, boolean ticking)
     {
-        double x = replay.keyframes.x.interpolate(tick);
-        double y = replay.keyframes.y.interpolate(tick);
-        double z = replay.keyframes.z.interpolate(tick);
-        float yawHead = replay.keyframes.headYaw.interpolate(tick).floatValue();
-        float yawBody = replay.keyframes.bodyYaw.interpolate(tick).floatValue();
-        float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
+        double x = replay.keyframes.x.sample(tick);
+        double y = replay.keyframes.y.sample(tick);
+        double z = replay.keyframes.z.sample(tick);
+        float yawHead = replay.keyframes.headYaw.sample(tick).floatValue();
+        float yawBody = replay.keyframes.bodyYaw.sample(tick).floatValue();
+        float pitch = replay.keyframes.pitch.sample(tick).floatValue();
 
         Vec3 pos = actor.position();
 
@@ -171,34 +171,34 @@ public class ActionPlayer
         actor.setYHeadRot(yawHead);
         actor.setXRot(pitch);
         actor.setYBodyRot(yawBody);
-        actor.setShiftKeyDown(replay.keyframes.sneaking.interpolate(tick) > 0);
-        actor.setOnGround(replay.keyframes.grounded.interpolate(tick) > 0);
-        actor.setItemSlot(EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
-        actor.setItemSlot(EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
-        actor.setItemSlot(EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
-        actor.setItemSlot(EquipmentSlot.LEGS, replay.keyframes.armorLegs.interpolate(tick, ItemStack.EMPTY));
-        actor.setItemSlot(EquipmentSlot.FEET, replay.keyframes.armorFeet.interpolate(tick, ItemStack.EMPTY));
+        actor.setShiftKeyDown(replay.keyframes.sneaking.sample(tick) > 0);
+        actor.setOnGround(replay.keyframes.grounded.sample(tick) > 0);
+        actor.setItemSlot(EquipmentSlot.OFFHAND, replay.keyframes.offHand.sample(tick, ItemStack.EMPTY));
+        actor.setItemSlot(EquipmentSlot.HEAD, replay.keyframes.armorHead.sample(tick, ItemStack.EMPTY));
+        actor.setItemSlot(EquipmentSlot.CHEST, replay.keyframes.armorChest.sample(tick, ItemStack.EMPTY));
+        actor.setItemSlot(EquipmentSlot.LEGS, replay.keyframes.armorLegs.sample(tick, ItemStack.EMPTY));
+        actor.setItemSlot(EquipmentSlot.FEET, replay.keyframes.armorFeet.sample(tick, ItemStack.EMPTY));
 
         if (actor instanceof ServerPlayer player)
         {
             int selectedSlot = player.getInventory().getSelectedSlot();
-            int slot = MathUtils.clamp(replay.keyframes.selectedSlot.interpolate(this.tick), 0, 8);
+            int slot = MathUtils.clamp(replay.keyframes.selectedSlot.sample(this.tick), 0, 8);
 
             if (selectedSlot != slot)
             {
                 ServerNetwork.sendSelectedSlot(player, slot);
             }
 
-            actor.setItemSlot(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
+            actor.setItemSlot(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.sample(tick, ItemStack.EMPTY));
         }
         else
         {
-            actor.setItemSlot(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
+            actor.setItemSlot(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.sample(tick, ItemStack.EMPTY));
         }
 
-        double vx = x - replay.keyframes.x.interpolate(tick - 1);
-        double vy = y - replay.keyframes.y.interpolate(tick - 1);
-        double vz = z - replay.keyframes.z.interpolate(tick - 1);
+        double vx = x - replay.keyframes.x.sample(tick - 1);
+        double vy = y - replay.keyframes.y.sample(tick - 1);
+        double vz = z - replay.keyframes.z.sample(tick - 1);
 
         if (vy == 0D)
         {
@@ -207,7 +207,7 @@ public class ActionPlayer
 
         actor.setDeltaMovement(vx, vy, vz);
 
-        actor.fallDistance = replay.keyframes.fall.interpolate(tick).floatValue();
+        actor.fallDistance = replay.keyframes.fall.sample(tick).floatValue();
     }
 
     public boolean tick()

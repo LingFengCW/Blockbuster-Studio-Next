@@ -16,6 +16,11 @@ import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
+
+import lingfeng.bbsnext.film.replays.MaterialClip;
+import lingfeng.bbsnext.film.replays.MaterialClips;
+import lingfeng.bbsnext.film.replays.PotionClip;
+import lingfeng.bbsnext.film.replays.PotionClips;
 import net.minecraft.world.entity.LivingEntity;
 import java.util.List;
 
@@ -25,11 +30,17 @@ public class Replay extends ValueGroup
     public final ReplayKeyframes keyframes = new ReplayKeyframes("keyframes");
     public final FormProperties properties = new FormProperties("properties");
     public final Clips actions = new Clips("actions", BBSMod.getFactoryActionClips());
+    /** Material timeline: per-tick appearance overrides (model/skin/equip). */
+    public final MaterialClips materials = new MaterialClips("materials");
+    /** Potion-effect timeline: per-tick status effects (action characters only). */
+    public final PotionClips potions = new PotionClips("potions");
 
     public final ValueBoolean enabled = new ValueBoolean("enabled", true);
+    public final ValueBoolean masked = new ValueBoolean("masked", false);
     public final ValueString label = new ValueString("label", "");
     public final ValueString nameTag = new ValueString("name_tag", "");
     public final ValueBoolean shadow = new ValueBoolean("shadow", true);
+    public final ValueBoolean locked = new ValueBoolean("locked", false);
     public final ValueFloat shadowSize = new ValueFloat("shadow_size", 0.5F);
     public final ValueInt looping = new ValueInt("looping", 0);
 
@@ -52,11 +63,14 @@ public class Replay extends ValueGroup
         this.add(this.keyframes);
         this.add(this.properties);
         this.add(this.actions);
+        this.add(this.materials);
+        this.add(this.potions);
 
         this.add(this.enabled);
         this.add(this.label);
         this.add(this.nameTag);
         this.add(this.shadow);
+        this.add(this.locked);
         this.add(this.shadowSize);
         this.add(this.looping);
 
@@ -94,6 +108,8 @@ public class Replay extends ValueGroup
         this.keyframes.shift(tick);
         this.properties.shift(tick);
         this.actions.shift(tick);
+        this.materials.shift(tick);
+        this.potions.shift(tick);
     }
 
     public void applyActions(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, int tick)
@@ -118,6 +134,40 @@ public class Replay extends ValueGroup
             {
                 actionClip.applyClient(entity, film, this, tick);
             }
+        }
+
+        /* Materials override appearance while active and auto-revert at edges.
+         * Snapshot the "natural" form (baseline + morph actions already applied
+         * above) so a non-active frame restores it without clobbering morphs. */
+        Form naturalForm = entity.getForm();
+        boolean formOverridden = false;
+
+        for (MaterialClip mc : this.materials.getAllTyped())
+        {
+            if (!mc.isActive(tick))
+            {
+                continue;
+            }
+
+            if (MaterialClip.TYPE_EQUIP.equals(mc.type.get()))
+            {
+                entity.setEquipmentStack(MaterialClip.slotOf(mc.slot.get()), mc.resolveItem());
+            }
+            else
+            {
+                Form f = mc.resolveForm();
+
+                if (f != null)
+                {
+                    entity.setForm(f);
+                    formOverridden = true;
+                }
+            }
+        }
+
+        if (!formOverridden && naturalForm != null)
+        {
+            entity.setForm(naturalForm);
         }
     }
 

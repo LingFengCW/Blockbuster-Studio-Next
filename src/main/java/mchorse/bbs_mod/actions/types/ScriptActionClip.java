@@ -16,6 +16,8 @@ import net.minecraft.world.entity.LivingEntity;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.Writer;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * 脚本动作 (Script Action).
@@ -37,16 +39,73 @@ public class ScriptActionClip extends ActionClip
         }
     };
 
+    /** The JavaScript source executed during playback (see {@link ScriptActionRuntime}). */
+    public final mchorse.bbs_mod.settings.values.core.ValueString script = new mchorse.bbs_mod.settings.values.core.ValueString("script", "");
+
     public ScriptActionClip()
     {
         this.add(this.params);
+        this.add(this.script);
+    }
+
+    /**
+     * Parses the {@code // @use <context>} directives from the first comment
+     * lines of the script. A directive of {@code // @use all} (or {@code *})
+     * means the script can be used anywhere. Known contexts: character, item,
+     * global, camera.
+     */
+    public Set<String> getUsageContexts()
+    {
+        Set<String> set = new LinkedHashSet<>();
+        String src = this.script.get();
+
+        if (src == null)
+        {
+            return set;
+        }
+
+        for (String raw : src.split("\n"))
+        {
+            String line = raw.trim();
+
+            if (line.startsWith("//"))
+            {
+                String body = line.substring(2).trim();
+
+                if (body.startsWith("@use") || body.startsWith("@appliesTo"))
+                {
+                    String rest = body.replaceFirst("@(use|appliesTo)", "").trim();
+
+                    for (String part : rest.split("[,\\s]+"))
+                    {
+                        if (!part.isEmpty())
+                        {
+                            set.add(part.toLowerCase());
+                        }
+                    }
+                }
+            }
+            else if (!line.isEmpty())
+            {
+                break;
+            }
+        }
+
+        if (set.contains("all") || set.contains("*"))
+        {
+            set.clear();
+            set.add("all");
+        }
+
+        return set;
     }
 
     @Override
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)
     {
-        /* Script actions are parameter carriers; the runtime effect is defined
-         * by external tooling reading params. No default in-engine behavior. */
+        /* Script actions run user JavaScript that drives the character via the
+         * bbs API (potion / held item / health / pose) and the raw references. */
+        ScriptActionRuntime.run(this, actor, player, film, replay, tick);
     }
 
     @Override
@@ -70,6 +129,14 @@ public class ScriptActionClip extends ActionClip
             arr.add(v.get());
         }
         root.add("params", arr);
+        root.addProperty("script", this.script.get());
+
+        JsonArray use = new JsonArray();
+        for (String ctx : this.getUsageContexts())
+        {
+            use.add(ctx);
+        }
+        root.add("use", use);
         return root;
     }
 
@@ -132,6 +199,10 @@ public class ScriptActionClip extends ActionClip
                 v.set(e.getAsFloat());
                 this.params.add(v);
             }
+        }
+        if (root.has("script") && root.get("script").isJsonPrimitive())
+        {
+            this.script.set(root.get("script").getAsString());
         }
     }
 }
