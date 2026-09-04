@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.utils.iris;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -41,6 +42,15 @@ public class IrisTextureWrapper extends AbstractTexture
     public int getGlId()
     {
         if (this.texture == null || !this.texture.isValid())
+        {
+            return -1;
+        }
+
+        /* The raw GL texture id is only meaningful on the OpenGL backend.
+         * On Vulkan (or any non-GL backend) BBS does not own GL textures, so
+         * handing Iris this id would bind a bogus handle and corrupt sampling.
+         * Iris itself is OpenGL-only, so this simply guards the seam. */
+        if (!BBSModClient.GL_AVAILABLE)
         {
             return -1;
         }

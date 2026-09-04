@@ -22,6 +22,8 @@ public class ModelBakery implements Runnable
         if (this.thread == null)
         {
             this.thread = new Thread(this, "BBS model loader");
+            // daemon: one-shot background model load (slow IO), fire-and-forget
+            this.thread.setDaemon(true);
             this.thread.start();
         }
     }

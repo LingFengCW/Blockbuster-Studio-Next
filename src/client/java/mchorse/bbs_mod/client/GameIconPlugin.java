@@ -2,6 +2,7 @@ package mchorse.bbs_mod.client;
 
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.platform.Window;
+import lingfeng.bbsnext.mcef.EditorBridge;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.stb.STBImage;
@@ -26,7 +27,6 @@ public class GameIconPlugin
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(GameIconPlugin.class);
     private static final String ICON_RESOURCE = "/bbs_mod/icon.png";
-    public static final String WINDOW_TITLE = "Blockbuster Studio Next";
 
     public static void unsafeApplyTitle()
     {
@@ -35,7 +35,7 @@ public class GameIconPlugin
 
         if (window != null)
         {
-            GLFW.glfwSetWindowTitle(window.handle(), WINDOW_TITLE);
+            GLFW.glfwSetWindowTitle(window.handle(), EditorBridge.getWindowTitle());
         }
     }
 

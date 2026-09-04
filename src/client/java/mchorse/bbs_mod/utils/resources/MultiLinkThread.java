@@ -58,6 +58,8 @@ public class MultiLinkThread implements Runnable
             instance = new MultiLinkThread();
             instance.addLink(location);
             thread = new Thread(instance);
+            // daemon: blocks on network texture downloads, must not stall JVM exit
+            thread.setDaemon(true);
             thread.start();
         }
         else

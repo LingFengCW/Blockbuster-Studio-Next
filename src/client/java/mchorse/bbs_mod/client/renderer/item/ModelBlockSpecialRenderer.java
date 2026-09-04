@@ -22,7 +22,7 @@ import java.util.function.Consumer;
  */
 public class ModelBlockSpecialRenderer implements SpecialModelRenderer<ItemStack>
 {
-    /** MapCodec used to register this special type in SpecialModelTypes.ID_MAPPER. */
+    /** MapCodec used to register this special type in SpecialModelRenderers.ID_MAPPER. */
     public static final MapCodec<Unbaked> MAP_CODEC = MapCodec.unit(new Unbaked());
 
     private final ModelBlockItemRenderer renderer = new ModelBlockItemRenderer();

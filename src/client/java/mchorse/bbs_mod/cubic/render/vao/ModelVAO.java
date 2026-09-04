@@ -64,6 +64,41 @@ public class ModelVAO implements IModelVAO
             return;
         }
 
+        /* GUI PiP phase must not open a render pass. Submit the mesh through
+         * the active collector (its render type carries the bridged BBS
+         * texture). Snapshot the model matrix because the collector runs the
+         * geometry callback later, possibly after the caller's stack is popped. */
+        net.minecraft.client.renderer.SubmitNodeCollector collector = mchorse.bbs_mod.client.PipGeometry.getCollector();
+
+        if (collector != null)
+        {
+            final org.joml.Matrix4f snap = new org.joml.Matrix4f(stack.last().pose());
+
+            collector.submitCustomGeometry(stack, mchorse.bbs_mod.client.PipGeometry.getModelRenderType(texture), (pose, consumer) ->
+            {
+                for (int i = 0; i < this.count; i++)
+                {
+                    float vx = this.vertices[i * 3];
+                    float vy = this.vertices[i * 3 + 1];
+                    float vz = this.vertices[i * 3 + 2];
+                    float nx = this.normals == null ? 0F : this.normals[i * 3];
+                    float ny = this.normals == null ? 0F : this.normals[i * 3 + 1];
+                    float nz = this.normals == null ? 0F : this.normals[i * 3 + 2];
+                    float u = this.texCoords == null ? 0F : this.texCoords[i * 2];
+                    float v = this.texCoords == null ? 0F : this.texCoords[i * 2 + 1];
+
+                    consumer.addVertex(snap, vx, vy, vz)
+                        .setColor(r, g, b, a)
+                        .setUv(u, v)
+                        .setUv1(overlay & 0xFFFF, overlay >> 16 & 0xFFFF)
+                        .setUv2(light & 0xFFFF, light >> 16 & 0xFFFF)
+                        .setNormal(nx, ny, nz);
+                }
+            });
+
+            return;
+        }
+
         ByteBufferBuilder byteBuf = new ByteBufferBuilder(65536);
         BufferBuilder builder = new BufferBuilder(byteBuf, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP);
 
