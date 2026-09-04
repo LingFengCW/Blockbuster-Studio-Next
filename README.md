@@ -3,7 +3,7 @@
 一个基于 **Fabric** 的 Minecraft 26.2 模组，用于在游戏内制作动画与电影（MC 视频 / 动画制作工具）。
 A Fabric Minecraft 26.2 mod for creating animations and cinematics inside the game.
 
-本项目派生自 [McHorse 的 BBS mod](https://github.com/mchorse/bbs)（MIT），已移植到 Minecraft 26.2（Fabric /  Vulkan 渲染后端），由 [LingFengCW（泠沨 / 何承宇）](https://github.com/LingFengCW) 维护。
+本项目派生自 [McHorse 的 BBS mod](https://github.com/mchorse/bbs)（MIT），已移植到 Minecraft 26.2（Fabric /  Vulkan 渲染后端），由 [LingFengCW（泠沨）](https://github.com/LingFengCW) 维护。
 
 ---
 
@@ -46,9 +46,9 @@ A Fabric Minecraft 26.2 mod for creating animations and cinematics inside the ga
 
 ```bash
 env -i PATH="/d/Program Files/Java/jdk-26.0.1/bin:/usr/bin:/bin" \
-  HOME=/c/Users/hechengyu GRADLE_USER_HOME=/c/Users/hechengyu/.gradle \
-  USERPROFILE=/c/Users/hechengyu TEMP=/c/Users/hechengyu/AppData/Local/Temp \
-  TMP=/c/Users/hechengyu/AppData/Local/Temp \
+  HOME=/c/Users/<用户名> GRADLE_USER_HOME=/c/Users/<用户名>/.gradle \
+  USERPROFILE=/c/Users/<用户名> TEMP=/c/Users/<用户名>/AppData/Local/Temp \
+  TMP=/c/Users/<用户名>/AppData/Local/Temp \
   java -jar "/d/DEV/gradle-9.5.1/lib/gradle-gradle-cli-main-9.5.1.jar" \
   -p /d/DEV/bbs_clean build -x test --offline
 ```

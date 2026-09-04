@@ -1,7 +1,7 @@
 # NOTICE — 许可证与署名（Licensing & Attribution）
 
 本项目 **BBS‑NEXT（泠瀑）** 是 [McHorse 的 BBS mod](https://github.com/mchorse/bbs) 的派生（fork）作品，
-由 [LingFengCW（泠沨 / 何承宇）](https://github.com/LingFengCW) 维护并移植至 Minecraft 26.2（Fabric）。
+由 [LingFengCW（泠沨）](https://github.com/LingFengCW) 维护并移植至 Minecraft 26.2（Fabric）。
 
 ## 双许可证结构（混合代码处置）
 
