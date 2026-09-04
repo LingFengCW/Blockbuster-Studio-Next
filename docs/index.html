@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBS-NEXT（泠瀑）· Minecraft 专业视频/动画制作工具</title>
+<style>
+/* ============================================================
+   BBS-NEXT 宣传站 · 纯 HTML/CSS/JS · 无外部依赖
+   风格：vanilla MC 暗色 DCC（与编辑器 editor_ui.html 一致）
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#1b1d23; --bg2:#22252c; --bg3:#2a2e37; --bg4:#343947;
+  --border:#12141a; --border2:#3a3f4d;
+  --text:#d6dae3; --text-dim:#8a90a0; --text-faint:#5a6070;
+  --accent:#4a90d9; --accent2:#2e6db4; --accent-soft:#1d3a5c;
+  --dirty:#ff6b4a; --ok:#4ac26b; --clip:#3b6fb3; --gold:#e0c068;
+}
+html{scroll-behavior:smooth;}
+body{
+  background:
+    radial-gradient(1200px 600px at 70% -10%, #20242d 0%, transparent 60%),
+    var(--bg);
+  color:var(--text);
+  font-family:"Segoe UI","Microsoft YaHei","PingFang SC",Consolas,system-ui,monospace;
+  font-size:15px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px;}
+
+/* ---------- 顶部导航 ---------- */
+.nav{position:sticky;top:0;z-index:60;background:rgba(27,29,35,.92);
+  backdrop-filter:blur(6px);border-bottom:1px solid var(--border);}
+.nav .wrap{display:flex;align-items:center;gap:14px;height:54px;}
+.brand{font-weight:800;letter-spacing:.5px;font-size:17px;display:flex;align-items:center;gap:8px;}
+.brand .logo{width:22px;height:22px;border-radius:5px;
+  background:linear-gradient(135deg,var(--accent),#7a5ac4);display:inline-block;
+  box-shadow:0 0 0 1px #000 inset;}
+.brand small{color:var(--text-faint);font-weight:500;font-size:12px;}
+.nav .links{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+.nav .links a{color:var(--text-dim);padding:7px 12px;border-radius:6px;font-size:14px;}
+.nav .links a:hover{background:var(--bg3);color:var(--text);text-decoration:none;}
+.btn{display:inline-flex;align-items:center;gap:7px;cursor:pointer;border:none;
+  background:var(--accent2);color:#fff;font-size:14px;font-weight:600;
+  padding:9px 16px;border-radius:6px;box-shadow:0 2px 0 #1b4f87, 0 4px 12px rgba(0,0,0,.35);
+  transition:transform .06s ease, background .15s ease;}
+.btn:hover{background:var(--accent);}
+.btn:active{transform:translateY(2px);box-shadow:0 0 0 #1b4f87;}
+.btn.ghost{background:var(--bg3);box-shadow:0 2px 0 #14161c;color:var(--text);}
+.btn.ghost:hover{background:var(--bg4);}
+.btn svg{width:18px;height:18px;}
+
+/* ---------- Hero ---------- */
+.hero{padding:64px 0 40px;text-align:center;}
+.hero h1{font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:1px;
+  background:linear-gradient(180deg,#fff,#aeb6c6);-webkit-background-clip:text;
+  background-clip:text;color:transparent;line-height:1.2;}
+.hero .sub{margin-top:14px;font-size:clamp(15px,2.4vw,19px);color:var(--text-dim);}
+.tags{margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.tag{background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+  padding:6px 14px;border-radius:999px;font-size:13px;display:inline-flex;align-items:center;gap:6px;}
+.tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);}
+.hero .cta{margin-top:30px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* ---------- 通用区块 ---------- */
+section{padding:46px 0;border-top:1px solid var(--border);}
+.sec-head{margin-bottom:26px;}
+.sec-head h2{font-size:26px;font-weight:800;letter-spacing:.5px;}
+.sec-head p{color:var(--text-dim);margin-top:6px;max-width:720px;}
+.kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:2px;
+  text-transform:uppercase;}
+
+/* ---------- 组件画廊 ---------- */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+  padding:18px 14px;text-align:center;transition:.15s;position:relative;overflow:hidden;}
+.card:hover{border-color:var(--accent);transform:translateY(-3px);
+  box-shadow:0 8px 22px rgba(0,0,0,.4);}
+.card .ic{width:44px;height:44px;margin:0 auto 10px;display:grid;place-items:center;
+  background:var(--bg3);border-radius:10px;border:1px solid var(--border);}
+.card .ic img{width:26px;height:26px;}
+.card .nm{font-weight:700;font-size:14px;}
+.card .ds{color:var(--text-dim);font-size:12px;margin-top:4px;}
+
+/* ---------- 快速上手 ---------- */
+.steps{counter-reset:step;display:grid;gap:14px;}
+.step{display:flex;gap:16px;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:10px;padding:16px 18px;align-items:flex-start;}
+.step .num{counter-increment:step;flex-shrink:0;width:34px;height:34px;border-radius:50%;
+  background:var(--accent-soft);border:1px solid var(--accent2);color:var(--accent);
+  display:grid;place-items:center;font-weight:800;}
+.step .num::before{content:counter(step);}
+.step h4{font-size:15px;margin-bottom:3px;}
+.step p{color:var(--text-dim);font-size:13.5px;}
+.step code{background:var(--bg4);padding:1px 7px;border-radius:4px;
+  font-size:12.5px;color:#e6ebf2;}
+
+/* ---------- 编辑器示意 + 引导 ---------- */
+.editor-mock{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;
+  overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);}
+.em-title{height:34px;background:var(--bg3);display:flex;align-items:center;gap:8px;
+  padding:0 12px;border-bottom:1px solid var(--border);font-size:13px;}
+.em-title .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);}
+.em-menu{height:30px;background:var(--bg4);display:flex;align-items:center;gap:14px;
+  padding:0 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-dim);}
+.em-body{display:flex;min-height:260px;}
+.em-asset{width:200px;background:var(--bg3);border-right:1px solid var(--border);
+  padding:10px;font-size:12px;}
+.em-asset .grp{color:var(--text-faint);font-size:11px;margin:8px 2px 4px;letter-spacing:1px;}
+.em-asset .it{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:5px;
+  color:var(--text);}
+.em-asset .it:hover{background:var(--bg4);}
+.em-asset .sw{width:9px;height:9px;border-radius:2px;}
+.em-main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.em-prev{flex:1;background:#0d0f13;position:relative;min-height:150px;}
+.em-prev .grid{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:26px 26px;}
+.em-prev .cam{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+  width:30px;height:22px;border:2px solid var(--accent);border-radius:3px;opacity:.85;}
+.em-prev .cam::after{content:"";position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
+  border:5px solid transparent;border-top:7px solid var(--accent);}
+.em-prev .tag{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);
+  padding:2px 9px;border-radius:4px;font-size:11px;color:var(--text);}
+/* F1 对话框示意 */
+.em-dialog{position:absolute;right:14px;bottom:14px;width:210px;background:var(--bg3);
+  border:1px solid var(--accent2);border-radius:8px;overflow:hidden;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);font-size:12px;}
+.em-dialog .dh{background:var(--accent-soft);padding:6px 10px;font-weight:700;
+  display:flex;align-items:center;gap:6px;}
+.em-dialog .db{padding:10px;}
+.em-dialog .bar{height:7px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:6px;}
+.em-dialog .bar i{display:block;height:100%;width:64%;background:var(--accent);}
+.em-dialog .row{display:flex;gap:6px;margin-top:8px;}
+.em-dialog .row span{flex:1;text-align:center;background:var(--bg4);padding:4px 0;border-radius:4px;}
+.em-tl{height:120px;background:var(--bg);border-top:1px solid var(--border);padding:6px;font-size:11px;}
+.em-tl .ruler{height:14px;border-bottom:1px solid var(--border);color:var(--text-faint);
+  display:flex;justify-content:space-between;padding:0 4px;}
+.em-tl .trk{display:flex;align-items:center;height:22px;border-bottom:1px solid var(--border);}
+.em-tl .th{width:96px;color:var(--text-dim);flex-shrink:0;}
+.em-tl .lane{flex:1;height:14px;background:var(--clip);border-radius:3px;margin-left:6px;}
+
+/* 引导高亮框（聚光） */
+#spot{position:fixed;border-radius:8px;pointer-events:none;z-index:1000;
+  box-shadow:0 0 0 3px var(--accent), 0 0 0 9999px rgba(8,9,12,.78);
+  transition:all .25s ease;display:none;}
+#tourBox{position:fixed;z-index:1001;left:50%;bottom:26px;transform:translateX(-50%);
+  width:min(420px,92vw);background:var(--bg3);border:1px solid var(--accent2);
+  border-radius:12px;padding:16px 18px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none;}
+#tourBox h4{font-size:16px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+#tourBox .prog{color:var(--text-faint);font-size:12px;}
+#tourBox p{color:var(--text-dim);font-size:13.5px;min-height:42px;}
+#tourBox .ctr{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+.tour-btn{cursor:pointer;border:1px solid var(--border2);background:var(--bg4);
+  color:var(--text);border-radius:6px;padding:7px 14px;font-size:13px;}
+.tour-btn:hover{background:var(--bg);}
+.tour-btn.primary{background:var(--accent2);border-color:transparent;color:#fff;font-weight:600;}
+.tour-btn.primary:hover{background:var(--accent);}
+.tour-start{text-align:center;margin-top:18px;}
+
+/* ---------- FAQ ---------- */
+.faq{display:grid;gap:12px;}
+.q{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:0;overflow:hidden;}
+.q summary{cursor:pointer;padding:14px 18px;font-weight:700;list-style:none;
+  display:flex;align-items:center;gap:10px;}
+.q summary::-webkit-details-marker{display:none;}
+.q summary::before{content:"+";color:var(--accent);font-weight:800;font-size:18px;transition:.2s;}
+.q[open] summary::before{content:"–";}
+.q .a{padding:0 18px 16px;color:var(--text-dim);font-size:14px;}
+.vs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;}
+.vs .col{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:16px;}
+.vs .col h4{color:var(--gold);font-size:14px;margin-bottom:8px;}
+.vs .col ul{margin-left:18px;color:var(--text-dim);font-size:13px;}
+.vs .col ul li{margin:4px 0;}
+
+/* ---------- 页脚 ---------- */
+footer{border-top:1px solid var(--border);padding:30px 0 50px;color:var(--text-faint);font-size:13px;}
+footer a{color:var(--text-dim);}
+
+/* ---------- 响应式 ---------- */
+@media(max-width:640px){
+  .em-body{flex-direction:column;}
+  .em-asset{width:auto;border-right:none;border-bottom:1px solid var(--border);}
+  .nav .links a{padding:7px 9px;font-size:13px;}
+  .hero{padding:44px 0 28px;}
+}
+</style>
+</head>
+<body>
+
+<!-- 导航 -->
+<nav class="nav">
+  <div class="wrap">
+    <div class="brand"><span class="logo"></span>BBS-NEXT <small>泠瀑</small></div>
+    <div class="links">
+      <a href="#gallery">组件画廊</a>
+      <a href="#start">快速上手</a>
+      <a href="#tour">UI 引导</a>
+      <a href="#faq">对标亮点</a>
+      <a href="tutorial.html">完整教程</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="wrap">
+    <h1>BBS-NEXT（泠瀑）</h1>
+    <p class="sub">Minecraft 26.2 专业视频 / 动画制作工具 · 在游戏内完成剪辑、运镜与渲染</p>
+    <div class="tags">
+      <span class="tag">时间轴剪辑</span>
+      <span class="tag">无限角色</span>
+      <span class="tag">动作序列</span>
+      <span class="tag">实时 3D 预览</span>
+      <span class="tag">HTML 编辑器</span>
+    </div>
+    <div class="cta">
+      <a class="btn" href="#start">⚡ 三步上手</a>
+      <a class="btn ghost" href="#tour">▶ 开始 UI 引导</a>
+      <a class="btn ghost" href="tutorial.html">📘 阅读教程</a>
+    </div>
+  </div>
+</header>
+
+<!-- 组件画廊 -->
+<section id="gallery">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">UI Components</div>
+      <h2>编辑器 UI 组件画廊</h2>
+      <p>以下图标来自项目的 Game-Icon-Pack（gip）资源，已在编辑器工具条、菜单与对话框中实际使用。它们都是单色矢量，随主题色自适应。</p>
+    </div>
+    <div class="gallery" id="galleryGrid"><!-- JS 注入 --></div>
+  </div>
+</section>
+
+<!-- 快速上手 -->
+<section id="start">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Quick Start</div>
+      <h2>分步快速上手（5 步）</h2>
+      <p>从进入编辑器到导出成片，最短路径如下。</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num"></div><div>
+        <h4>进入编辑器</h4>
+        <p>在游戏中打开 BBS-NEXT 编辑器（基于 MCEF / Chromium 的全屏 HTML 界面覆盖在原生 Dashboard 上）。</p>
+      </div></div>
+      <div class="step"><div class="num"></div><div>
+        <h4>资源库右键新建</h4>
+        <p>在左侧<strong>资源库</strong>面板右键 → 新建<strong>场景</strong>与<strong>角色</strong>（实体 / 模型方块 / 粒子等）。</p>
+      </div></div>
+      <div class="step"><div class="num"></div><div>
+        <h4>拖拽素材到时间轴</h4>
+        <p>把场景、相机、音频等素材拖入底部<strong>时间轴</strong>，按轨道排列剪辑块与关键帧。</p>
+      </div></div>
+      <div class="step"><div class="num"></div><div>
+        <h4>预览播放</h4>
+        <p>点击主视口工具条的 <code>▶ 播放</code>，实时查看 3D 预览与相机运动；用播放头精确定位。</p>
+      </div></div>
+      <div class="step"><div class="num"></div><div>
+        <h4>导出</h4>
+        <p>通过菜单 <code>渲染</code> / <code>文件 → 导出</code> 输出序列或 PNG 序列帧，完成成片。</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- UI 引导学习 -->
+<section id="tour">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Guided Tour</div>
+      <h2>UI 引导学习</h2>
+      <p>下面是编辑器的结构示意（非截图，纯 HTML 布局块）。点击「开始引导」按顺序了解各个区块的作用。</p>
+    </div>
+
+    <div class="editor-mock" id="mock">
+      <div class="em-title" data-region="titlebar"><span class="dot"></span> BBS-N · 城市主序列.seqbbs <span style="margin-left:auto;color:var(--text-faint);font-size:11px;">30fps · 12.4s</span></div>
+      <div class="em-menu" data-region="menubar">文件 编辑 视图 轨道 关键帧 录制 渲染 窗口 设置</div>
+      <div class="em-body">
+        <div class="em-asset" data-region="asset">
+          <div class="grp">场景工程</div>
+          <div class="it"><span class="sw" style="background:#4a90d9"></span>主城场景</div>
+          <div class="it"><span class="sw" style="background:#4a90d9"></span>黄昏海岸</div>
+          <div class="grp">角色实体</div>
+          <div class="it"><span class="sw" style="background:#c45a5a"></span>玩家模型</div>
+          <div class="it"><span class="sw" style="background:#c45a5a"></span>骷髅战士</div>
+          <div class="grp">动作模板</div>
+          <div class="it"><span class="sw" style="background:#5ac47a"></span>行走循环</div>
+        </div>
+        <div class="em-main">
+          <div class="em-prev" data-region="preview">
+            <div class="grid"></div>
+            <div class="cam"></div>
+            <div class="tag">主相机预览视口</div>
+            <div class="em-dialog" data-region="dialog">
+              <div class="dh">💬 提示对话框</div>
+              <div class="db">
+                进度加载中…
+                <div class="bar"><i></i></div>
+                <div class="row"><span>确定</span><span>取消</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="em-tl" data-region="timeline">
+            <div class="ruler"><span>0:00</span><span>0:04</span><span>0:08</span><span>0:12</span></div>
+            <div class="trk"><span class="th">场景轨道</span><span class="lane"></span></div>
+            <div class="trk"><span class="th">全局相机轨道</span><span class="lane"></span></div>
+            <div class="trk"><span class="th">音频轨道</span><span class="lane" style="background:#4a7a4a"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tour-start">
+      <button class="btn" id="startTour">▶ 开始引导</button>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ / 对标亮点 -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Why BBS-NEXT</div>
+      <h2>对标专业软件的设计取舍</h2>
+      <p>BBS-NEXT 把专业 NLE（非线性编辑）与 3D DCC 的核心范式搬进 Minecraft，目标是「专业且易用」——既给得起专业工作流的深度，又让玩家零门槛上手。</p>
+    </div>
+
+    <div class="vs">
+      <div class="col">
+        <h4>🎬 时间轴 = Premiere / Blender</h4>
+        <ul>
+          <li>多轨道剪辑（场景 / 相机 / 音频 / 标记）</li>
+          <li>播放头精确定位、拖拽剪辑块</li>
+          <li>右键拆分、波纹删除、变速编辑</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>🎥 相机 = Replay / 运镜</h4>
+        <ul>
+          <li>推拉摇移、轨道、变焦等专业运镜</li>
+          <li>相机走位作为独立轨道编辑</li>
+          <li>实时 3D 预览即所见即所得</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>📈 关键帧 = 曲线编辑器</h4>
+        <ul>
+          <li>位置 / 旋转 / 缩放 / 轨迹关键帧</li>
+          <li>线性、缓入、缓出、贝塞尔插值</li>
+          <li>对标专业关键帧曲线调节</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>🖥️ HTML 编辑器 = 现代 UX</h4>
+        <ul>
+          <li>MCEF/Chromium 全屏 HTML 界面</li>
+          <li>悬停高亮、原生级新建对话框</li>
+          <li>Java↔JS 桥接，44 个 gip 图标接入</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq" style="margin-top:20px;">
+      <details class="q"><summary>这是 Mod 还是独立软件？</summary>
+        <div class="a">是 Minecraft 26.2（Fabric）模组，继承自 McHorse 的 BBS，由 LingFengCW 维护并迁移到新版本。编辑器在游戏内以全屏 HTML 界面运行。</div></details>
+      <details class="q"><summary>需要联网或额外运行环境吗？</summary>
+        <div class="a">不需要。MCEF 自带 Chromium 内核，整站与编辑器均为本地运行、无外部依赖。本宣传站同样纯静态、可双击打开。</div></details>
+      <details class="q"><summary>和原版 BBS 有什么区别？</summary>
+        <div class="a">已迁移到 MC 26.2 / Fabric，并重做了 HTML 编辑器（DCC 暗色风、现代化时间轴与对话框），强化实时预览播放与相机驱动。</div></details>
+      <details class="q"><summary>新手从哪开始？</summary>
+        <div class="a">先点上方「开始引导」认识界面，再读 <a href="tutorial.html">完整教程</a>：从场景/角色新建，到时间轴剪辑与动作序列预览。</div></details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    BBS-NEXT（泠瀑）· Minecraft 26.2 Fabric 模组 ·
+    继承自 <a href="https://github.com/mchorse/bbs">McHorse/bbs</a> ·
+    维护者 <a href="https://github.com/LingFengCW">LingFengCW</a> ·
+    本页面为静态展示站，无外部依赖。
+  </div>
+</footer>
+
+<!-- 引导学习：聚光框 + 步骤框 -->
+<div id="spot"></div>
+<div id="tourBox">
+  <h4><span id="tourIcon">💡</span> <span id="tourTitle"></span></h4>
+  <p id="tourText"></p>
+  <div style="font-size:12px;color:var(--text-faint);margin-top:2px;">第 <span id="tourIdx">1</span> / <span id="tourTotal">6</span> 步</div>
+  <div class="ctr">
+    <button class="tour-btn" id="tourSkip">跳过</button>
+    <button class="tour-btn" id="tourPrev">上一步</button>
+    <button class="tour-btn primary" id="tourNext">下一步</button>
+  </div>
+</div>
+
+<script>
+/* ---------- 组件画廊数据（图标来自 docs/assets/icons/） ---------- */
+const ICONS = [
+  {f:"gip-play.svg",     n:"播放",       d:"开始时间轴预览播放"},
+  {f:"gip-pause.svg",    n:"暂停",       d:"暂停当前预览"},
+  {f:"gip-next-frame.svg",n:"帧步进 ▶",  d:"逐帧前进精确定位"},
+  {f:"gip-previous-frame.svg",n:"帧步进 ◀",d:"逐帧后退"},
+  {f:"gip-first-frame.svg",n:"首帧",     d:"跳到序列开头"},
+  {f:"gip-last-frame.svg", n:"末帧",     d:"跳到序列结尾"},
+  {f:"gip-undo.svg",     n:"撤销",       d:"撤销上一步操作 (Ctrl+Z)"},
+  {f:"gip-redo.svg",     n:"重做",       d:"重做已撤销操作 (Ctrl+Y)"},
+  {f:"gip-save.svg",     n:"保存",       d:"保存当前工程 (Ctrl+S)"},
+  {f:"gip-trash.svg",    n:"删除",       d:"删除选中的素材或剪辑块"},
+  {f:"gip-zoom-in.svg",  n:"放大",       d:"视口放大 / 时间轴缩放"},
+  {f:"gip-zoom-out.svg", n:"缩小",       d:"视口缩小 / 时间轴缩放"},
+  {f:"gip-diamonds.svg", n:"关键帧",     d:"添加 / 选择关键帧 (K)"},
+  {f:"gip-camera.svg",   n:"相机",       d:"相机预览与运镜控制"},
+  {f:"gip-character.svg",n:"角色",       d:"新建 / 选择角色实体"},
+  {f:"gip-folder.svg",   n:"资源库",     d:"打开素材资源箱"},
+  {f:"gip-export.svg",   n:"导出",       d:"导出序列 / PNG 序列帧"},
+  {f:"gip-import.svg",   n:"导入",       d:"导入音频 / 旧版动画"},
+  {f:"gip-copy.svg",     n:"复制",       d:"复制选中对象"},
+  {f:"gip-paste.svg",    n:"粘贴",       d:"粘贴到时间轴 / 资源库"},
+  {f:"gip-expand.svg",   n:"全屏预览",   d:"切换预览视口全屏"},
+  {f:"gip-settings.svg", n:"设置",       d:"编辑器全局参数配置"},
+  {f:"gip-pencil.svg",   n:"重命名",     d:"重命名素材 / 工程"},
+  {f:"gip-info.svg",     n:"对话框",     d:"F1 提示 / 信息对话框"}
+];
+const grid = document.getElementById("galleryGrid");
+grid.innerHTML = ICONS.map(i =>
+  `<div class="card"><div class="ic"><img src="assets/icons/${i.f}" alt="${i.n}"></div>
+   <div class="nm">${i.n}</div><div class="ds">${i.d}</div></div>`).join("");
+
+/* ---------- 引导学习（guided tour） ---------- */
+const STEPS = [
+  {region:"titlebar", icon:"🏷️", title:"顶栏 · 工程信息",
+   text:"这里显示当前工程名、未保存标记（*）以及帧率与总时长。任何编辑都会触发脏标记提醒你保存。"},
+  {region:"menubar", icon:"🧭", title:"主菜单栏",
+   text:"文件 / 编辑 / 视图 / 轨道 / 关键帧 / 录制 / 渲染 / 窗口 / 设置——所有功能入口。悬停展开下拉，支持子菜单与快捷键。"},
+  {region:"asset", icon:"📦", title:"资源库（左侧）",
+   text:"按场景、角色、动作模板、音频等分组管理素材。右键可新建场景 / 角色 / 实体，或导入外部资源。"},
+  {region:"preview", icon:"🎥", title:"预览视口（中央）",
+   text:"实时 3D 预览主相机画面，支持网格、中心线、截图等工具。所见即所得地查看动画与运镜效果。"},
+  {region:"dialog", icon:"💬", title:"对话气泡 / 对话框（F1）",
+   text:"右上角对话框支持按钮、输入框、进度条与缓动动画，用于加载、确认与提示交互，体验接近原生。"},
+  {region:"timeline", icon:"🎞️", title:"时间轴（底部）",
+   text:"多轨道剪辑核心区：场景、相机、音频、标记轨道并排。拖拽剪辑块、添加关键帧、拖动播放头定位帧。"}
+];
+const spot=document.getElementById("spot"), box=document.getElementById("tourBox");
+const elTitle=document.getElementById("tourTitle"), elText=document.getElementById("tourText");
+const elIcon=document.getElementById("tourIcon"), elIdx=document.getElementById("tourIdx");
+document.getElementById("tourTotal").textContent=STEPS.length;
+let cur=-1, active=false;
+
+function position(){
+  if(cur<0) return;
+  const r=document.querySelector(`[data-region="${STEPS[cur].region}"]`).getBoundingClientRect();
+  const pad=6;
+  spot.style.display="block";
+  spot.style.left=(r.left-pad)+"px";
+  spot.style.top=(r.top-pad)+"px";
+  spot.style.width=(r.width+pad*2)+"px";
+  spot.style.height=(r.height+pad*2)+"px";
+}
+function show(i){
+  cur=i; const s=STEPS[i];
+  elIcon.textContent=s.icon; elTitle.textContent=s.title; elText.textContent=s.text;
+  elIdx.textContent=i+1; box.style.display="block";
+  document.getElementById("tourPrev").style.visibility = i===0?"hidden":"visible";
+  document.getElementById("tourNext").textContent = i===STEPS.length-1?"完成":"下一步";
+  position();
+}
+function end(){ active=false; spot.style.display="none"; box.style.display="none"; cur=-1; }
+function next(){ if(cur>=STEPS.length-1){end();return;} show(cur+1); }
+function prev(){ if(cur>0) show(cur-1); }
+
+document.getElementById("startTour").addEventListener("click",()=>{active=true;show(0);
+  document.getElementById("mock").scrollIntoView({behavior:"smooth",block:"center"});});
+document.getElementById("tourNext").addEventListener("click",next);
+document.getElementById("tourPrev").addEventListener("click",prev);
+document.getElementById("tourSkip").addEventListener("click",end);
+window.addEventListener("resize",()=>{if(active)position();});
+window.addEventListener("scroll",()=>{if(active)position();},true);
+</script>
+</body>
+</html>

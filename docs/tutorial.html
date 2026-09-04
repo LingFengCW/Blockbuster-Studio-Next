@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBS-NEXT（泠瀑）· 中文教程</title>
+<style>
+:root{
+  --bg:#1b1d23; --bg2:#22252c; --bg3:#2a2e37; --bg4:#343947;
+  --border:#12141a; --border2:#3a3f4d;
+  --text:#d6dae3; --text-dim:#8a90a0; --text-faint:#5a6070;
+  --accent:#4a90d9; --accent2:#2e6db4; --accent-soft:#1d3a5c;
+  --ok:#4ac26b; --gold:#e0c068;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);
+  font-family:"Segoe UI","Microsoft YaHei","PingFang SC",Consolas,system-ui,monospace;
+  font-size:15px;line-height:1.7;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px;}
+.nav{position:sticky;top:0;z-index:50;background:rgba(27,29,35,.92);
+  backdrop-filter:blur(6px);border-bottom:1px solid var(--border);}
+.nav .wrap{display:flex;align-items:center;gap:14px;height:52px;}
+.brand{font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:8px;}
+.brand .logo{width:20px;height:20px;border-radius:5px;
+  background:linear-gradient(135deg,var(--accent),#7a5ac4);}
+.nav .links{margin-left:auto;display:flex;gap:6px;}
+.nav .links a{color:var(--text-dim);padding:7px 12px;border-radius:6px;font-size:14px;}
+.nav .links a:hover{background:var(--bg3);color:var(--text);text-decoration:none;}
+
+header.hero{padding:50px 0 30px;border-bottom:1px solid var(--border);}
+.hero h1{font-size:34px;font-weight:800;}
+.hero p{color:var(--text-dim);margin-top:8px;}
+
+.toc{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+  padding:16px 20px;margin:28px 0;}
+.toc h3{font-size:14px;color:var(--accent);letter-spacing:1px;margin-bottom:8px;}
+.toc ol{margin-left:20px;color:var(--text-dim);font-size:14px;}
+.toc ol li{margin:4px 0;}
+
+section{padding:34px 0;border-top:1px solid var(--border);}
+section:first-of-type{border-top:none;}
+h2{font-size:24px;margin-bottom:6px;display:flex;align-items:center;gap:10px;}
+h2 .badge{font-size:12px;background:var(--accent-soft);color:var(--accent);
+  border:1px solid var(--accent2);padding:2px 10px;border-radius:99px;font-weight:600;}
+.lead{color:var(--text-dim);margin-bottom:16px;}
+h3{font-size:17px;margin:20px 0 8px;color:#e6ebf2;}
+p{margin:10px 0;color:var(--text);}
+ul,ol{margin:10px 0 10px 22px;color:var(--text-dim);}
+li{margin:5px 0;}
+
+.note{background:var(--accent-soft);border:1px solid var(--accent2);
+  border-radius:8px;padding:12px 16px;margin:14px 0;font-size:14px;color:#cfe0f2;}
+.note b{color:#fff;}
+.code{background:#0d0f13;border:1px solid var(--border2);border-radius:8px;
+  padding:12px 16px;margin:12px 0;overflow:auto;font-size:13px;
+  font-family:Consolas,monospace;color:#b9e3a8;}
+.code .c{color:var(--text-faint);}
+.img{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+  padding:14px;margin:14px 0;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.img .cap{color:var(--text-faint);font-size:12px;}
+.step-card{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+  padding:14px 18px;margin:12px 0;}
+.step-card .h{font-weight:700;color:var(--gold);margin-bottom:4px;}
+
+footer{border-top:1px solid var(--border);padding:28px 0 50px;color:var(--text-faint);font-size:13px;}
+
+/* 简易示意图 */
+.fig{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;}
+@media(max-width:640px){.nav .links a{padding:7px 8px;font-size:13px;}.hero h1{font-size:26px;}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="brand"><span class="logo"></span>BBS-NEXT <span style="font-weight:400;color:var(--text-faint);font-size:13px;">泠瀑 · 教程</span></div>
+    <div class="links">
+      <a href="index.html">返回首页</a>
+      <a href="#top">回到顶部</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <h1>中文教程：从入门到进阶</h1>
+  <p>面向 Minecraft 26.2（Fabric）的 BBS-NEXT 动画 / 视频制作全流程指南。</p>
+</div></header>
+
+<div class="wrap">
+  <div class="toc">
+    <h3>目录</h3>
+    <ol>
+      <li><a href="#s1">入门：进入编辑器与工作区</a></li>
+      <li><a href="#s2">场景与角色：从资源库新建</a></li>
+      <li><a href="#s3">时间轴剪辑：轨道、剪辑块与播放头</a></li>
+      <li><a href="#s4">动作序列与实时预览播放</a></li>
+      <li><a href="#s5">进阶：关键帧曲线与材质时间轴</a></li>
+      <li><a href="#s6">导出与渲染</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 -->
+  <section id="s1">
+    <h2><span class="badge">入门</span> 进入编辑器与工作区</h2>
+    <p class="lead">BBS-NEXT 的编辑器是一个覆盖在原生 Dashboard 之上的全屏 HTML 界面（基于 MCEF / Chromium），通过 Java↔JS 桥接与游戏世界通信。</p>
+    <div class="step-card">
+      <div class="h">界面四大区块</div>
+      <ul>
+        <li><b>顶栏 + 主菜单栏</b>：工程名、帧率时长、文件/编辑/视图…功能入口。</li>
+        <li><b>左侧资源库</b>：场景、角色、动作模板、音频等素材，支持右键新建与导入。</li>
+        <li><b>中央预览视口</b>：实时 3D 主相机画面，含网格、中心线、截图等工具。</li>
+        <li><b>底部时间轴</b>：多轨道剪辑核心区，编排场景、相机、音频与关键帧。</li>
+      </ul>
+    </div>
+    <div class="img">
+      <svg class="fig" viewBox="0 0 600 320">
+        <rect x="0" y="0" width="600" height="34" fill="#2a2e37"/>
+        <rect x="0" y="34" width="600" height="26" fill="#343947"/>
+        <rect x="0" y="60" width="180" height="180" fill="#2a2e37"/>
+        <rect x="180" y="60" width="420" height="130" fill="#0d0f13"/>
+        <rect x="180" y="190" width="420" height="50" fill="#1b1d23"/>
+        <text x="8" y="22" fill="#d6dae3" font-size="13">BBS-N · 工程.seqbbs</text>
+        <text x="8" y="78" fill="#8a90a0" font-size="11">资源库</text>
+        <text x="196" y="80" fill="#d6dae3" font-size="11">主相机预览视口</text>
+        <text x="196" y="210" fill="#8a90a0" font-size="11">时间轴</text>
+      </svg>
+      <div class="cap">图：编辑器工作区结构示意</div>
+    </div>
+    <p>建议先用首页的 <a href="index.html#tour">UI 引导</a> 走一遍交互式认识，再回来阅读细节。</p>
+  </section>
+
+  <!-- 2 -->
+  <section id="s2">
+    <h2><span class="badge">基础</span> 场景与角色：从资源库新建</h2>
+    <p class="lead">所有内容都从资源库开始。右键空白处或分组即可新建。</p>
+    <div class="step-card">
+      <div class="h">新建场景</div>
+      <ol>
+        <li>在左侧资源库右键 → <b>新建 → 场景</b>。</li>
+        <li>命名后会生成 <code>.scenebbs</code> 场景工程，出现在「场景工程」分组。</li>
+        <li>双击或右键「打开」进入该场景进行编辑。</li>
+      </ol>
+    </div>
+    <div class="step-card">
+      <div class="h">新建角色</div>
+      <ol>
+        <li>资源库右键 → <b>新建 → 实体</b>（玩家实体 / 盔甲架 / 僵尸 / 自定义模型实体）。</li>
+        <li>角色即「无限角色」中的一员，可套用形态系统变身任意实体或模型方块。</li>
+      </ol>
+    </div>
+    <div class="note"><b>提示</b>：也可导入外部资源——音频（wav/ogg）、旧版 <code>.bban</code> 动画、或图片序列帧，作为素材直接使用。</div>
+    <div class="img">
+      <svg class="fig" viewBox="0 0 600 200">
+        <rect x="20" y="20" width="200" height="160" fill="#2a2e37" rx="6"/>
+        <rect x="40" y="44" width="160" height="18" fill="#4a90d9" rx="3"/>
+        <rect x="40" y="74" width="120" height="14" fill="#343947" rx="3"/>
+        <rect x="40" y="96" width="140" height="14" fill="#343947" rx="3"/>
+        <rect x="240" y="20" width="340" height="160" fill="#1b1d23" rx="6"/>
+        <text x="40" y="36" fill="#8a90a0" font-size="11">资源库 · 右键</text>
+        <text x="260" y="44" fill="#d6dae3" font-size="12">→ 新建 场景</text>
+        <text x="260" y="68" fill="#d6dae3" font-size="12">→ 新建 实体（角色）</text>
+        <text x="260" y="92" fill="#d6dae3" font-size="12">→ 导入 音频 / 旧版动画</text>
+      </svg>
+      <div class="cap">图：资源库右键菜单 → 新建内容</div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section id="s3">
+    <h2><span class="badge">核心</span> 时间轴剪辑：轨道、剪辑块与播放头</h2>
+    <p class="lead">时间轴是专业非线性编辑（NLE）范式，对标 Premiere / Blender 的多轨道结构。</p>
+    <h3>轨道类型</h3>
+    <ul>
+      <li><b>场景轨道</b>：放置场景剪辑块，决定何时出现哪个场景。</li>
+      <li><b>全局相机轨道</b>：编排相机走位与运镜。</li>
+      <li><b>音频轨道</b>：波形剪辑，可静音 / 锁定。</li>
+      <li><b>时间标记轨道</b>：关键事件标记点。</li>
+    </ul>
+    <h3>基本操作</h3>
+    <div class="step-card">
+      <div class="h">把素材拖到时间轴</div>
+      <ol>
+        <li>从资源库把场景 / 角色 / 音频拖到对应轨道的 <b>剪辑块泳道</b>。</li>
+        <li>拖动剪辑块两端可裁剪长度，拖动中间可移动位置。</li>
+        <li>右键剪辑块可拆分、波纹删除、设置速度（整体拉伸 / 倒放 / 分段变速）。</li>
+      </ol>
+    </div>
+    <div class="code"><span class="c">// 轨道模型（示意）</span>
+场景轨道  : [==== 主城场景 ====][== 黄昏海岸 ==]
+相机轨道  : [======== 相机走位 A ========]
+音频轨道  : [====== 背景音乐 ======]
+标记轨道  :      [★ 关键标记]
+            ^播放头</div>
+    <div class="note"><b>播放头</b>：拖动时间轴顶部的红色竖线即可逐帧定位；配合视口的「帧步进」按钮（◀ ▶）精修。</div>
+  </section>
+
+  <!-- 4 -->
+  <section id="s4">
+    <h2><span class="badge">预览</span> 动作序列与实时预览播放</h2>
+    <p class="lead">编排好轨道后，进入世界即可实时预览：角色按关键帧动画、相机按走位运动。</p>
+    <div class="step-card">
+      <div class="h">预览播放流程</div>
+      <ol>
+        <li>在资源库选中一个<b>已绑定世界</b>的场景。</li>
+        <li>点击主视口工具条的 <code>▶ 播放</code> —— 自动进入游戏世界并启动 FirstPersonFilmController 播放。</li>
+        <li>角色动画、相机运动同步播放；点 <code>⏸ 暂停</code> 或退出预览即停止释放。</li>
+      </ol>
+    </div>
+    <div class="img">
+      <svg class="fig" viewBox="0 0 600 220">
+        <rect x="40" y="40" width="320" height="140" fill="#0d0f13" rx="6"/>
+        <rect x="60" y="60" width="280" height="100" fill="none" stroke="#343947"/>
+        <polygon points="180,90 180,130 215,110" fill="#4a90d9"/>
+        <rect x="400" y="40" width="160" height="140" fill="#2a2e37" rx="6"/>
+        <text x="60" y="62" fill="#8a90a0" font-size="11">主相机预览</text>
+        <text x="420" y="64" fill="#d6dae3" font-size="11">工具条</text>
+        <text x="420" y="92" fill="#4ac26b" font-size="12">▶ 播放</text>
+        <text x="420" y="116" fill="#d6dae3" font-size="12">⏸ 暂停</text>
+        <text x="420" y="140" fill="#d6dae3" font-size="12">▦ 网格 / ✚ 中心线</text>
+      </svg>
+      <div class="cap">图：预览视口与播放控制</div>
+    </div>
+    <div class="note"><b>已知边界</b>：已在世界内时再点另一场景不会自动切换世界（enterSceneWorld 的 mc.level 守卫不重复开）。如需「预览中切场景自动切换」，可后续反馈主理人。</div>
+  </section>
+
+  <!-- 5 -->
+  <section id="s5">
+    <h2><span class="badge">进阶</span> 关键帧曲线与材质时间轴</h2>
+    <p class="lead">专业感的来源：关键帧 + 插值曲线，对标 Blender 的曲线编辑器。</p>
+    <h3>关键帧</h3>
+    <ul>
+      <li>选中目标后按 <code>K</code> 添加关键帧，记录当前位置 / 旋转 / 缩放 / 轨迹。</li>
+      <li>插值模式：<b>线性</b>、<b>缓入</b>、<b>缓出</b>、<b>贝塞尔</b>（自动 / 平滑）。</li>
+      <li>打开<b>曲线编辑器面板</b>可像专业 DCC 一样拖拽缓动曲线。</li>
+    </ul>
+    <div class="code">位置.x : ●━━━╮      ╭━━●   线性 → 直线；缓动 → 曲线
+           ●╲   ╱╲  ╱╲  ╱
+              ╲╱  ╲╱  ╲╱
+关键帧 ● 决定节点，曲线决定中间如何过渡</div>
+    <h3>材质时间轴</h3>
+    <p>除角色动作外，材质 / 模型方块也拥有独立时间轴，可随时间驱动颜色、可见性、形状等属性，构建更复杂的视觉变化（如昼夜渐变、物体生长）。</p>
+    <div class="note"><b>设计取舍</b>：把「动作序列」与「材质属性」都做成时间轴驱动，既统一了工作流，也降低了学习成本——编辑器交互范式始终一致。</div>
+  </section>
+
+  <!-- 6 -->
+  <section id="s6">
+    <h2><span class="badge">收尾</span> 导出与渲染</h2>
+    <p class="lead">完成编排后输出成片。</p>
+    <div class="step-card">
+      <div class="h">导出路径</div>
+      <ol>
+        <li>菜单 <b>文件 → 导出</b>：导出场景 <code>.scenebbs</code> / 序列 <code>.seqbbs</code> / PNG 序列帧。</li>
+        <li>菜单 <b>渲染</b>：管理渲染队列、输出参数预设，可开启后台渲染。</li>
+        <li>快捷键 <code>F2</code> 截图导出当前帧。</li>
+      </ol>
+    </div>
+    <div class="code"><span class="c"># 典型输出</span>
+序列成片   →  .seqbbs（可在游戏内再次打开编辑）
+帧序列     →  PNG 序列帧（供外部合成）
+当前帧     →  F2 截图</div>
+    <p>至此你已走完「入门 → 进阶」全流程。回到 <a href="index.html">首页</a> 可再次体验 UI 引导与组件画廊。</p>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      BBS-NEXT（泠瀑）教程 · 本页为静态文档，无外部依赖 ·
+      项目继承自 <a href="https://github.com/mchorse/bbs">McHorse/bbs</a>，由 LingFengCW 维护。
+    </div>
+  </footer>
+</div>
+</body>
+</html>
