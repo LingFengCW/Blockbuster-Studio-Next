@@ -8,6 +8,8 @@ import javax.swing.border.LineBorder;
 import javax.swing.plaf.ColorUIResource;
 import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -100,6 +102,19 @@ public class NativeDialog
 
     private static void open(JDialog dlg)
     {
+        dlg.setAutoRequestFocus(true);
+        dlg.addWindowListener(new java.awt.event.WindowAdapter()
+        {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e)
+            {
+                /* Defeat Windows focus-stealing prevention: a window created
+                 * from a background thread can be denied the foreground even
+                 * with setAlwaysOnTop. Re-assert topmost once it is shown. */
+                dlg.toFront();
+                dlg.requestFocusInWindow();
+            }
+        });
         dlg.pack();
         dlg.setLocationRelativeTo(null);
         dlg.toFront();
@@ -196,7 +211,10 @@ public class NativeDialog
         });
     }
 
-    /** New-scene dialog: scene name + background world picker. */
+    /** New-scene dialog: scene name plus a background world picker. A scene
+     *  DOES need a background world — every character/entity acts inside it,
+     *  so the user must be able to pick which world the scene plays in
+     *  (blank world, or any local singleplayer save in .minecraft/saves). */
     public static void sceneDialog(BiConsumer<String, String> onResult)
     {
         SwingUtilities.invokeLater(() ->
@@ -210,7 +228,7 @@ public class NativeDialog
             form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
             form.setOpaque(false);
 
-            JLabel nameLbl = new JLabel("场景名称");
+            JLabel nameLbl = new JLabel("场景名称（可留空）");
             nameLbl.setForeground(MUTED);
             nameLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
             form.add(nameLbl);
@@ -219,15 +237,15 @@ public class NativeDialog
             name.setAlignmentX(Component.LEFT_ALIGNMENT);
             name.setMaximumSize(new Dimension(Integer.MAX_VALUE, name.getPreferredSize().height));
             form.add(name);
-            form.add(Box.createVerticalStrut(12));
 
-            JLabel bgLbl = new JLabel("背景世界（留空为空白世界）");
-            bgLbl.setForeground(MUTED);
-            bgLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-            form.add(bgLbl);
+            JLabel worldLbl = new JLabel("背景世界（可选，角色在此世界中活动）");
+            worldLbl.setForeground(MUTED);
+            worldLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+            form.add(worldLbl);
 
-            DefaultComboBoxModel<String> bgModel = new DefaultComboBoxModel<>();
-            bgModel.addElement("");
+            /* Blank world first, then every local singleplayer save. */
+            List<String> worlds = new ArrayList<>();
+            worlds.add("");
 
             File saves = new File(Minecraft.getInstance().gameDirectory, "saves");
 
@@ -237,22 +255,22 @@ public class NativeDialog
 
                 if (dirs != null)
                 {
-                    for (File d : dirs)
+                    for (File dir : dirs)
                     {
-                        if (new File(d, "level.dat").exists())
+                        if (new File(dir, "level.dat").exists())
                         {
-                            bgModel.addElement(d.getName());
+                            worlds.add(dir.getName());
                         }
                     }
                 }
             }
 
-            JComboBox<String> bg = new JComboBox<>(bgModel);
-            bg.setAlignmentX(Component.LEFT_ALIGNMENT);
-            bg.setMaximumSize(new Dimension(Integer.MAX_VALUE, bg.getPreferredSize().height));
-            bg.setBackground(FIELD);
-            bg.setForeground(TEXT);
-            form.add(bg);
+            JComboBox<String> world = new JComboBox<>(worlds.toArray(new String[0]));
+            world.setAlignmentX(Component.LEFT_ALIGNMENT);
+            world.setMaximumSize(new Dimension(Integer.MAX_VALUE, world.getPreferredSize().height));
+            world.setBackground(FIELD);
+            world.setForeground(Color.WHITE);
+            form.add(world);
 
             root.add(form, BorderLayout.CENTER);
 
@@ -269,10 +287,8 @@ public class NativeDialog
                 }
 
                 closed[0] = true;
-                String n = name.getText().trim();
-                String b = (String) bg.getSelectedItem();
                 dlg.dispose();
-                onResult.accept(n, b == null ? "" : b);
+                onResult.accept(name.getText().trim(), (String) world.getSelectedItem());
             };
 
             ok.addActionListener(e -> finish.run());

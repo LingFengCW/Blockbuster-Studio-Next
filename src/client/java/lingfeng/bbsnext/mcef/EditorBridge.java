@@ -2736,7 +2736,7 @@ public class EditorBridge implements IHtmlBridge
 
         try
         {
-            String name = mc.level.getLevelData().getLevelName();
+            String name = mc.getSingleplayerServer() == null ? "" : mc.getSingleplayerServer().getWorldData().getLevelSettings().levelName();
             return name == null ? "" : name;
         }
         catch (Throwable t)
@@ -2759,13 +2759,8 @@ public class EditorBridge implements IHtmlBridge
             return;
         }
 
-        UIFilmPanel target = panel;
-
-        if (target == null)
-        {
-            UIDashboard dashboard = BBSModClient.getDashboard();
-            target = dashboard == null ? null : dashboard.getPanel(UIFilmPanel.class);
-        }
+        UIDashboard dashboard = BBSModClient.getDashboard();
+        UIFilmPanel target = panel != null ? panel : (dashboard == null ? null : dashboard.getPanel(UIFilmPanel.class));
 
         /* The editor is an overlay on top of a live world, so mc.level != null
          * is the NORMAL case after the first scene entry, not a reason to bail.

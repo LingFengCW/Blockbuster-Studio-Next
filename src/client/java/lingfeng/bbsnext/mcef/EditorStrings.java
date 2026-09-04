@@ -202,6 +202,17 @@ public final class EditorStrings
         put("ae.f.deleteAction", "删除此动作", "Delete this action");
         put("ae.f.type", "类型", "Type");
         put("ae.f.deleteMaterial", "删除此材质", "Delete this material");
+        put("ae.f.deletePotion", "删除此药水", "Delete this potion");
+        put("ae.potHint", "药水效果轨道：在时间轴上添加 / 拖动 / 缩放药水片段，播放时会给角色附加对应状态效果（仅动作角色）。", "Potion-effect track: add / drag / resize potion clips on the timeline; they apply status effects to the character during playback (action character only).");
+        put("ae.pot.name", "名称", "Name");
+        put("ae.pot.effect", "效果显示名", "Effect display name");
+        put("ae.pot.namePh", "药水片段名称", "Potion clip name");
+        put("ae.pot.effectPh", "效果显示名（如 速度）", "Effect display name (e.g. Speed)");
+        put("ae.pot.speed", "速度", "Speed");
+        put("ae.pot.jump", "跳跃提升", "Jump Boost");
+        put("ae.pot.strength", "力量", "Strength");
+        put("ae.pot.invis", "隐身", "Invisibility");
+        put("ae.pot.fire", "抗火", "Fire Resistance");
         put("ae.loc.walk", "走路", "Walk");
         put("ae.loc.run", "奔跑", "Run");
         put("ae.loc.idle", "空闲", "Idle");
@@ -314,6 +325,12 @@ public final class EditorStrings
         put("track.audio", "音频", "Audio");
         put("track.audioEmpty", "音轨(暂无数据)", "Audio track (no data)");
         put("track.clip", "剪辑 ", "Clip ");
+        put("track.previewPrefix", "拖到此处将新建轨道 › ", "Drop here to create a track › ");
+        put("track.actorSection", "角色轨道", "Actor tracks");
+        put("track.actorHide", "隐藏", "Hide");
+        put("track.actorShow", "显示", "Show");
+        put("track.actorHint", "角色在序列视图中同样有效，轨道在下方", "Actors stay active in sequence view; their tracks are listed below");
+        put("clip.opHint", "拖动移动 · 拖两端改时长 · 单击选中 · 右键菜单", "Drag to move · drag edges to resize · click to select · right-click for menu");
 
         /* ----- camera status warnings ----- */
         put("cam.warnLostNow", "⚠ 相机丢失：当前帧没有相机覆盖，无法播放", "⚠ Camera missing: no camera covers the current frame, cannot play");
@@ -352,6 +369,49 @@ public final class EditorStrings
         put("ae.slotChest", "胸甲", "Chest");
         put("ae.slotLegs", "护腿", "Legs");
         put("ae.slotFeet", "靴子", "Feet");
+        put("dlg.deleteCharConfirm2", "」？将同时移除其轨道与关联引用，且不可撤销（可撤销上一步）。", "'? This also removes its track and references, and cannot be undone (the previous step can be undone).");
+        put("up.started", "已开始更新（MC 关闭后自动替换）", "Update started (auto-applied after MC closes)");
+        put("dlg.deleteSeq", "删除序列", "Delete Sequence");
+        put("dlg.deleteSeqMsg1", "确定删除序列「", "Delete sequence '");
+        put("dlg.deleteSeqMsg2", "」？此操作不可撤销。", "'? This cannot be undone.");
+        put("toast.addedScene", "已放入当前场景：", "Added to current scene: ");
+        put("toast.dragGroupToAction", "动作组只能拖到角色动作轨", "Action groups can only be dragged onto the character-action track");
+        put("toast.dropGroupToAction", "动作组只能放到角色动作轨", "Action groups can only be dropped on the character-action track");
+        put("toast.audioNotYet", "音轨暂未启用", "Audio track not enabled yet");
+        put("toast.cameraToCameraTrack", "相机只能放到「相机」轨", "Cameras can only go on the camera track");
+        put("toast.cameraTimeline", "已放入时间轴：相机 #", "Added to timeline: camera #");
+        put("toast.groupTimeline", "已加入时间轴：动作组 #", "Added to timeline: action group #");
+        put("toast.charToCharTrack", "角色只能放到角色轨", "Characters can only go on the character track");
+        put("toast.placeReorder", "已放入/重排时间轴：", "Placed/reordered on timeline: ");
+        put("toast.trackToCharTrack", "轨道只能重排到角色轨", "Tracks can only be reordered on the character track");
+        put("toast.reorderTrack", "已重排轨道：", "Reordered track: ");
+        put("toast.invalidDragType", "无效：只有相机/动作组能拖到时间轴", "Invalid: only cameras or action groups can be dropped here");
+        put("toast.invalidPosition", "无效位置：请拖到右侧画布或下方时间轴", "Invalid position: drop onto the canvas on the right or the timeline below");
+
+        /* ----- frame-count parentheses (dynamic, around counts) ----- */
+        put("ae.framesPrefix", "（共 ", " (");
+        put("ae.framesBracket", "（", " (");
+        put("ae.framesClose", "）", ")");
+
+        /* ----- splitter / action-editor tooltips ----- */
+        put("splitter.assetWidth", "拖动调整素材箱宽度", "Drag to resize the asset box");
+        put("splitter.timelineHeight", "拖动调整时间轴高度", "Drag to resize the timeline");
+        put("ae.composeTitle", "把当前动作轨道上的多个子动作组合成一个可复用的动作组", "Combine the sub-actions on the current action track into a reusable action group");
+        put("ae.groupTitle", "已合成的动作组：选中即加入当前角色时间轴，也可拖到下方时间轴", "Composed action groups: select to add to the current character timeline, or drag onto the timeline below");
+
+        /* ----- leash tool (拴绳) ----- */
+        put("leash.title", "拴绳工具", "Leash Tool");
+        put("leash.on", "开启", "Turn On");
+        put("leash.off", "关闭", "Turn Off");
+        put("leash.pickA", "Ctrl+点击选锚点 A", "Ctrl+Click to pick anchor A");
+        put("leash.pickB", "Ctrl+点击选锚点 B", "Ctrl+Click to pick anchor B");
+        put("leash.clear", "清除锚点", "Clear Anchors");
+        put("leash.selected", "已选角色", "Selected Character");
+        put("leash.bone", "骨骼", "Bone");
+        put("leash.none", "（无）", "(none)");
+        put("leash.bind", "拴绳", "Leash");
+        put("leash.unbind", "解除", "Unleash");
+        put("leash.setBone", "设骨骼", "Set Bone");
     }
 
     private static void put(String key, String zh, String en)
@@ -364,8 +424,9 @@ public final class EditorStrings
 
     /**
      * Build a JSON object mapping every string key to its value for the given
-     * language. Falls back to {@code zh_cn}, then to the key itself, so a missing
-     * translation never yields a blank label.
+     * language. Falls back to {@code en_gb} (the game's canonical default), then
+     * to {@code zh_cn}, then to the key itself, so a missing translation never
+     * yields a blank label and a non-zh/en locale degrades to readable English.
      */
     public static JsonObject stringsFor(String lang)
     {
@@ -376,6 +437,14 @@ public final class EditorStrings
             String key = e.getKey();
             Map<String, String> langs = e.getValue();
             String val = langs.get(lang);
+
+            if (val == null)
+            {
+                /* Fall back to en_gb (the game's canonical DEFAULT_LANGUAGE) so a
+                 * user on any other locale (de/fr/ru/...) sees readable English
+                 * rather than Chinese or a raw key. */
+                val = langs.get("en_gb");
+            }
 
             if (val == null)
             {

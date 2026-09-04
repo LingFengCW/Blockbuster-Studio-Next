@@ -25,6 +25,7 @@ import org.cef.browser.CefFrame;
 import org.cef.browser.CefMessageRouter;
 import org.cef.callback.CefQueryCallback;
 import org.cef.handler.CefDisplayHandlerAdapter;
+import org.cef.handler.CefLoadHandlerAdapter;
 import org.cef.handler.CefMessageRouterHandlerAdapter;
 
 import java.io.InputStream;
@@ -32,8 +33,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Base64;
+import java.util.List;
 import net.fabricmc.loader.api.FabricLoader;
+import lingfeng.bbsnext.client.GlTextureBridge;
+import mchorse.bbs_mod.ui.supporters.Supporters;
+import mchorse.bbs_mod.ui.supporters.Supporter;
 
 /**
  * MCEF (Minecraft Chromium Embedded Framework) HTML editor integration.
@@ -61,7 +67,9 @@ public class MCEFUI
 {
     private static MCEFApi api;
     private static MCEFBrowser browser;
-    private static EditorBridge bridge;
+    private static IHtmlBridge bridge;
+    private static UIOverlay activeOverlay;
+    private static String currentPageUrl;
     private static boolean initialized;
 
     /* The browser frame lives in MCEF's own native GpuTextureView; we draw it
@@ -80,6 +88,41 @@ public class MCEFUI
      * Click/release reuse it so the three event sources can never disagree. */
     private static double lastMouseX;
     private static double lastMouseY;
+
+    /* Editor layout fractions (0..1) reported by the page (title+menu+toolbar
+     * band, asset-panel width, timeline height). Previously used to carve a
+     * transparent "hole" in the editor so the 3D world showed through; now the
+     * world is instead pushed into the HTML centre as a PNG (see capturePreview),
+     * so these are retained only as reported metrics and are no longer read for
+     * compositing. */
+    private static float viewportTopFrac = 0.08f;
+    private static float viewportLeftFrac = 0.14f;
+    private static float viewportBottomFrac = 0.22f;
+
+    /* Live 3D-world preview push (delivered to the HTML centre as a PNG). */
+    private static int previewTick = 0;
+    private static int previewFrame = 0;
+    private static boolean previewToggle = false;
+
+    /* When a system-level (OS) Swing dialog is open we stop blitting the
+     * browser and stop pushing preview frames, so the native window is the
+     * only thing on screen and is never visually buried under the full-screen
+     * HTML editor. Toggled by EditorBridge.openNativeCreate. */
+    private static volatile boolean browserSuspended = false;
+
+    /** Pause/resume browser blitting (used while an OS-native dialog is open
+     *  so the native window is never buried under the full-screen HTML). */
+    public static void setBrowserSuspended(boolean suspended)
+    {
+        browserSuspended = suspended;
+    }
+
+    public static void setViewportMetrics(float top, float left, float bottom)
+    {
+        if (top > 0f && top < 1f) viewportTopFrac = top;
+        if (left > 0f && left < 1f) viewportLeftFrac = left;
+        if (bottom > 0f && bottom < 1f) viewportBottomFrac = bottom;
+    }
 
     /* -------- lifecycle -------- */
 
@@ -146,7 +189,7 @@ public class MCEFUI
      *  engine is not ready yet (caller should retry next frame).
      *  {@code width}/{@code height} are GUI (scaled) units; the browser
      *  viewport is sized in physical pixels so the texture stays sharp. */
-    public static boolean createBrowser(int width, int height, EditorBridge jsBridge)
+    public static boolean createBrowser(int width, int height, IHtmlBridge jsBridge)
     {
         MCEFApi mcef = getApi();
 
@@ -167,9 +210,15 @@ public class MCEFUI
 
         try
         {
-            browser = mcef.createBrowser(editorPageFileUrl(), true);
+            /* Opaque (transparent=false): a transparent OSR browser can report
+             * its first paint with empty dirty rects, which makes MCEF Modern's
+             * onPaintInternal return early and never upload a GPU texture - so
+             * getTextureView() stays null forever and the editor only shows the
+             * dark backdrop. Opaque guarantees a non-empty first paint. */
+            browser = mcef.createBrowser(jsBridge.pageUrl(), false);
             browser.resize(scale(width), scale(height));
             browser.setFocus(true);
+            currentPageUrl = jsBridge.pageUrl();
 
             installJsQuery(browser.getCefBrowser());
 
@@ -278,7 +327,7 @@ public class MCEFUI
                         {
                             try
                             {
-                                EditorBridge.handle(request, MCEFUI.bridge);
+                                MCEFUI.bridge.handle(request);
                             }
                             catch (Throwable t)
                             {
@@ -302,24 +351,41 @@ public class MCEFUI
                 public boolean onQuery(CefBrowser browser, CefFrame frame, long queryId, String request,
                     boolean persistent, CefQueryCallback callback)
                 {
-                    try
+                    Minecraft.getInstance().execute(() ->
                     {
-                        String result = EditorBridge.handle(request, MCEFUI.bridge);
-                        callback.success(result);
+                        try
+                        {
+                            String result = MCEFUI.bridge.handle(request);
 
-                        return true;
-                    }
-                    catch (Throwable t)
-                    {
-                        BBSMod.LOGGER.error("[MCEF] JSQuery failed: {} ({})", request, t.getMessage());
-                        callback.failure(0, t.getMessage());
+                            callback.success(result);
+                        }
+                        catch (Throwable t)
+                        {
+                            BBSMod.LOGGER.error("[MCEF] JSQuery failed: {} ({})", request, t.getMessage());
 
-                        return true;
-                    }
+                            callback.failure(0, t.getMessage());
+                        }
+                    });
+
+                    return true;
                 }
             }, false);
 
             cef.getClient().addMessageRouter(router);
+
+            /* Re-inject the sandboxed live-UI script whenever a page finishes
+             * loading, so it survives editor<->dashboard navigation. */
+            cef.getClient().addLoadHandler(new CefLoadHandlerAdapter()
+            {
+                @Override
+                public void onLoadEnd(CefBrowser b, CefFrame frame, int httpStatusCode)
+                {
+                    if (frame != null && frame.isMain())
+                    {
+                        lingfeng.bbsnext.update.LiveUi.injectIfReady();
+                    }
+                }
+            });
         }
         catch (Throwable t)
         {
@@ -337,7 +403,7 @@ public class MCEFUI
 
         try
         {
-            String json = EditorBridge.getStateJson(bridge);
+            String json = bridge.getStateJson();
             browser.getCefBrowser().executeJavaScript(
                 "window.bbsState = " + json + "; if (window.__onState) __onState();",
                 "", 0);
@@ -347,32 +413,93 @@ public class MCEFUI
         }
     }
 
-    /* -------- input (called from UIScreen) -------- */
-
-    /** Whether the given menu currently shows the HTML editor. */
-    public static boolean isActive(UIBaseMenu menu)
+    /** Run arbitrary JavaScript in the active page context. Used by the
+     *  sandboxed live-UI channel (LiveUi). The script can only touch the DOM
+     *  and the existing window.send() action channel - it has no native
+     *  filesystem / process access. Runs on the render thread. */
+    public static void injectScript(String js)
     {
-        if (browser == null || !(menu instanceof UIDashboard))
+        if (browser == null)
         {
-            return false;
+            return;
         }
 
-        UIDashboard dashboard = (UIDashboard) menu;
+        try
+        {
+            Minecraft.getInstance().execute(() ->
+            {
+                try
+                {
+                    browser.getCefBrowser().executeJavaScript(js, browser.getCefBrowser().getURL(), 1);
+                }
+                catch (Throwable t)
+                {
+                    BBSMod.LOGGER.error("[MCEF] injectScript failed", t);
+                }
+            });
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.error("[MCEF] injectScript schedule failed", t);
+        }
+    }
 
-        return dashboard.getPanels().panel instanceof UIFilmPanel panel
-            && panel.ultralightOverlay != null
-            && panel.ultralightOverlay.isVisible();
+    /* -------- input (called from UIScreen) -------- */
+
+    /** Whether any HTML overlay (editor or dashboard) is currently active and
+     *  should receive input / be composited. Gated by the live overlay so a
+     *  single browser instance can host either page. */
+    public static boolean isActive(UIBaseMenu menu)
+    {
+        /* Guard against the warm-up / teardown window: the overlay can be
+         * visible (so callers think input should route to the page) while the
+         * browser instance is still null - e.g. setActiveOverlay() ran but
+         * createBrowser() hasn't completed yet, or close() already nulled the
+         * browser while the overlay is still flagged visible. Routing events
+         * into a null browser NPEs, so require it here. */
+        return browser != null && activeOverlay != null && activeOverlay.isVisible();
+    }
+
+    public static void setActiveOverlay(UIOverlay overlay)
+    {
+        activeOverlay = overlay;
+
+        /* A single browser instance hosts both the editor and dashboard
+         * pages. When the active overlay changes, navigate to that page's
+         * URL (only if it differs from what is already loaded) so the right
+         * HTML is shown. No-op while the engine is still warming up. */
+        if (browser != null && overlay != null)
+        {
+            String url = overlay.getBridge().pageUrl();
+
+            if (!url.equals(currentPageUrl))
+            {
+                browser.getCefBrowser().loadURL(url);
+                currentPageUrl = url;
+            }
+        }
+    }
+
+    public static void clearActiveOverlay(UIOverlay overlay)
+    {
+        if (activeOverlay == overlay)
+        {
+            activeOverlay = null;
+        }
     }
 
     public static boolean onMouseClicked(UIBaseMenu menu, MouseButtonEvent event, boolean doubled)
     {
-        if (isActive(menu))
+        if (activeOverlay != null && activeOverlay.isVisible())
         {
-            lastMouseX = event.x();
-            lastMouseY = event.y();
+            if (browser != null)
+            {
+                lastMouseX = event.x();
+                lastMouseY = event.y();
 
-            browser.onMouseClicked(new MouseButtonEvent(
-                toBrowserX(event.x()), toBrowserY(event.y()), event.buttonInfo()), doubled);
+                browser.onMouseClicked(new MouseButtonEvent(
+                    toBrowserX(event.x()), toBrowserY(event.y()), event.buttonInfo()), doubled);
+            }
 
             return true;
         }
@@ -382,13 +509,16 @@ public class MCEFUI
 
     public static boolean onMouseReleased(UIBaseMenu menu, MouseButtonEvent event)
     {
-        if (isActive(menu))
+        if (activeOverlay != null && activeOverlay.isVisible())
         {
-            lastMouseX = event.x();
-            lastMouseY = event.y();
+            if (browser != null)
+            {
+                lastMouseX = event.x();
+                lastMouseY = event.y();
 
-            browser.onMouseReleased(new MouseButtonEvent(
-                toBrowserX(event.x()), toBrowserY(event.y()), event.buttonInfo()));
+                browser.onMouseReleased(new MouseButtonEvent(
+                    toBrowserX(event.x()), toBrowserY(event.y()), event.buttonInfo()));
+            }
 
             return true;
         }
@@ -398,12 +528,15 @@ public class MCEFUI
 
     public static boolean onMouseScrolled(UIBaseMenu menu, double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
     {
-        if (isActive(menu))
+        if (activeOverlay != null && activeOverlay.isVisible())
         {
-            lastMouseX = mouseX;
-            lastMouseY = mouseY;
+            if (browser != null)
+            {
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
 
-            browser.onMouseScrolled(toBrowserX(mouseX), toBrowserY(mouseY), verticalAmount);
+                browser.onMouseScrolled(toBrowserX(mouseX), toBrowserY(mouseY), verticalAmount);
+            }
 
             return true;
         }
@@ -413,12 +546,15 @@ public class MCEFUI
 
     public static boolean onMouseMoved(UIBaseMenu menu, double x, double y)
     {
-        if (isActive(menu))
+        if (activeOverlay != null && activeOverlay.isVisible())
         {
-            lastMouseX = x;
-            lastMouseY = y;
+            if (browser != null)
+            {
+                lastMouseX = x;
+                lastMouseY = y;
 
-            browser.onMouseMoved(toBrowserX(x), toBrowserY(y));
+                browser.onMouseMoved(toBrowserX(x), toBrowserY(y));
+            }
 
             return true;
         }
@@ -428,9 +564,12 @@ public class MCEFUI
 
     public static boolean onKeyPressed(UIBaseMenu menu, KeyEvent event)
     {
-        if (isActive(menu))
+        if (activeOverlay != null && activeOverlay.isVisible())
         {
-            browser.onKeyPressed(event);
+            if (browser != null)
+            {
+                browser.onKeyPressed(event);
+            }
 
             return true;
         }
@@ -440,9 +579,12 @@ public class MCEFUI
 
     public static boolean onKeyReleased(UIBaseMenu menu, KeyEvent event)
     {
-        if (isActive(menu))
+        if (activeOverlay != null && activeOverlay.isVisible())
         {
-            browser.onKeyReleased(event);
+            if (browser != null)
+            {
+                browser.onKeyReleased(event);
+            }
 
             return true;
         }
@@ -452,9 +594,12 @@ public class MCEFUI
 
     public static boolean onCharTyped(UIBaseMenu menu, CharacterEvent event)
     {
-        if (isActive(menu))
+        if (activeOverlay != null && activeOverlay.isVisible())
         {
-            browser.onCharTyped(event);
+            if (browser != null)
+            {
+                browser.onCharTyped(event);
+            }
 
             return true;
         }
@@ -525,21 +670,28 @@ public class MCEFUI
 
         try
         {
+            /* Draw the full opaque HTML editor page on top of the native UI.
+             * The live 3D world is delivered to the HTML centre as a PNG image
+             * (see capturePreview) so the editor "player" shows a real picture
+             * rather than a dead decoration - no transparent hole needed. */
             context.guiRenderState.addGuiElement(new BlitRenderState(
                 RenderPipelines.GUI_TEXTURED,
                 TextureSetup.singleTexture(view, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),
                 new Matrix3x2f(context.pose()),
-                0,
-                0,
-                width,
-                height,
-                0.0F,
-                1.0F,
-                0.0F,
-                1.0F,
+                0, 0, width, height,
+                0.0F, 1.0F, 0.0F, 1.0F,
                 0xFFFFFFFF,
-                context.scissorStack.peek()
-            ));
+                context.scissorStack.peek()));
+
+            /* Preview readback is paused while an OS-native dialog is open
+             * (browserSuspended) so camera/scene creation doesn't fight the
+             * PNG writer. The editor page itself keeps rendering - we must
+             * NOT skip the blit, or the screen shows the raw clear colour
+             * (a solid blue/black) behind the native window. */
+            if (!browserSuspended)
+            {
+                capturePreview();
+            }
         }
         catch (Throwable t)
         {
@@ -547,74 +699,331 @@ public class MCEFUI
         }
     }
 
+    /**
+     * Pushes the live 3D world (Minecraft's main render target) into the HTML
+     * editor centre as a PNG image, so the preview "player" shows a real
+     * picture. Throttled to keep the GPU readback cheap.
+     *
+     * <p>Backend-agnostic: {@code GlTextureBridge.captureMainRenderTarget}
+     * uses the vanilla {@code Screenshot.takeScreenshot(RenderTarget)} path,
+     * so the preview works on both the OpenGL and Vulkan backends. The PNG is
+     * written to a ping-pong pair of files (preview_a/b.png) so the browser
+     * always reloads the latest frame (no file:// cache staleness).
+     */
+    private static void capturePreview()
+    {
+        if ((previewTick++ % 4) != 0)
+        {
+            return;
+        }
+
+        if (currentPageUrl == null || !currentPageUrl.contains("editor_ui"))
+        {
+            return;
+        }
+
+        Minecraft mc = Minecraft.getInstance();
+
+        if (mc.level == null || mc.gameRenderer == null || mc.gameRenderer.mainRenderTarget() == null)
+        {
+            /* No world is loaded (e.g. the editor was opened from the title
+             * screen / dashboard with no level) so there is nothing to
+             * capture. Tell the page to show its placeholder instead of
+             * leaving the <img> on a broken/empty source. */
+            if (previewFrame != -1)
+            {
+                previewFrame = -1;
+                injectScript("window.__previewMode='none';");
+            }
+
+            return;
+        }
+
+        try
+        {
+            /* Backend-agnostic capture: Screenshot.takeScreenshot works on both
+             * OpenGL and Vulkan, so the live preview is no longer limited to
+             * the OpenGL backend. */
+            byte[] png = GlTextureBridge.captureMainRenderTarget(mc.gameRenderer.mainRenderTarget(), 640);
+
+            if (png == null)
+            {
+                return;
+            }
+
+            Path dir = FabricLoader.getInstance().getGameDir().resolve("bbs_editor");
+            Files.createDirectories(dir);
+
+            String name = previewToggle ? "preview_b.png" : "preview_a.png";
+            previewToggle = !previewToggle;
+
+            Files.write(dir.resolve(name), png);
+
+            if (previewFrame < 0)
+            {
+                previewFrame = 0;
+            }
+
+            previewFrame++;
+            injectScript("window.__previewMode='gl';window.__previewFrame=" + previewFrame + ";window.__previewFile='" + name + "';");
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.error("[MCEF] capturePreview failed", t);
+        }
+    }
+
     /* -------- page -------- */
 
     /** SVG icons bundled with the mod, extracted next to the HTML so the page
      *  can reference them with plain relative <img src="svg/xxx.svg"> (real
-     *  files, not inlined). Kept in sync with src/.../ultralight/svg/. */
+     *  files, not inlined). Kept in sync with src/.../editor/svg/. */
     private static final String[] SVG_FILES = {
         "work", "scene", "sequence", "character", "entity", "particle", "item",
         "backpack", "camera", "play", "pause", "tostart", "undo", "redo",
-        "save", "close", "plus", "trash", "settings", "target"
+        "save", "close", "plus", "trash", "settings", "target", "rename"
     };
 
-    /** Extract the editor HTML and its SVG icons to a real folder on disk and
-     *  load it via file:// so the page can reference external SVG files
-     *  (a data: URL page cannot resolve relative file references, and Chromium
-     *  blocks data: origins from loading file: resources). Falls back to a
-     *  data: URL if extraction fails. */
-    private static String editorPageFileUrl()
+    /** Extract every hosted HTML page (editor + dashboard) and the bundled SVG
+     *  icons to a real folder on disk so the pages can reference external SVG
+     *  files with plain relative <img src="svg/xxx.svg"> (a data: URL page
+     *  cannot resolve relative file references, and Chromium blocks data:
+     *  origins from loading file: resources). */
+    private static void extractPages()
     {
         try
         {
             Path dir = FabricLoader.getInstance().getGameDir().resolve("bbs_editor");
+
+            /* Wipe + rebuild the whole cache if this build's version stamp
+             * differs (or is missing). Without this, a silently-failed extract
+             * or CEF's file cache would keep serving an ancient editor_ui.html
+             * even after the jar was updated. */
+            ensureFreshCache(dir);
+
             Path svgDir = dir.resolve("svg");
+
             Files.createDirectories(svgDir);
 
-            try (InputStream in = MCEFUI.class.getResourceAsStream("/assets/bbs/ultralight/editor_ui.html"))
-            {
-                if (in == null)
-                {
-                    return editorPageDataUrl();
-                }
-
-                Files.copy(in, dir.resolve("editor_ui.html"), StandardCopyOption.REPLACE_EXISTING);
-            }
+            copyResource("/assets/bbs/editor/editor_ui.html", dir.resolve(versionedName("editor_ui.html")));
+            copyResource("/assets/bbs/editor/dashboard_ui.html", dir.resolve(versionedName("dashboard_ui.html")));
 
             for (String name : SVG_FILES)
             {
-                try (InputStream in = MCEFUI.class.getResourceAsStream("/assets/bbs/ultralight/svg/" + name + ".svg"))
-                {
-                    if (in != null)
-                    {
-                        Files.copy(in, svgDir.resolve(name + ".svg"), StandardCopyOption.REPLACE_EXISTING);
-                    }
-                }
+                copyResource("/assets/bbs/editor/svg/" + name + ".svg", svgDir.resolve(name + ".svg"));
             }
 
-            return dir.resolve("editor_ui.html").toUri().toString();
+            /* Supporter/developer avatar banners, referenced by the dashboard
+             * supporters page as <img src="banners/xxx.png">. */
+            try
+            {
+                Path bannerDir = dir.resolve("banners");
+
+                Files.createDirectories(bannerDir);
+
+                Supporters supporters = new Supporters();
+
+                supporters.setup();
+
+                copyBanners(bannerDir, supporters.getCCSupporters());
+                copyBanners(bannerDir, supporters.getDevelopers());
+            }
+            catch (Throwable t)
+            {
+                BBSMod.LOGGER.error("[MCEF] failed to extract banners", t);
+            }
         }
         catch (Throwable t)
         {
-            BBSMod.LOGGER.error("[MCEF] failed to extract editor page, falling back to data URL", t);
-
-            return editorPageDataUrl();
+            BBSMod.LOGGER.error("[MCEF] failed to extract pages", t);
         }
     }
 
-    /** Embed the editor HTML as a data: URL (works offline, no file server). */
-    private static String editorPageDataUrl()
+    /** Copy every supporter/developer banner PNG next to the HTML pages so the
+     *  dashboard can render their avatars with plain relative <img> tags. */
+    private static void copyBanners(Path bannerDir, List<Supporter> list)
+    {
+        for (Supporter s : list)
+        {
+            if (s.banner == null)
+            {
+                continue;
+            }
+
+            String path = s.banner.path;
+            String file = path.substring(path.lastIndexOf('/') + 1);
+
+            if (!file.isEmpty())
+            {
+                copyResource("/assets/bbs/assets/textures/banners/" + file, bannerDir.resolve(file));
+            }
+        }
+    }
+
+    /** Keep the on-disk HTML/SVG cache in lock-step with this build. If the
+     *  version stamp is missing or differs from the running mod version, wipe
+     *  the entire {@code bbs_editor} folder and recreate it, so no stale
+     *  editor_ui.html / dashboard_ui.html / svg linger. This is what prevented
+     *  the "old webpage keeps showing after an update" bug. */
+    private static void ensureFreshCache(Path dir)
+    {
+        String ver = currentModVersion();
+
+        try
+        {
+            Path stamp = dir.resolve(".bbs_version");
+            boolean stale = true;
+
+            if (Files.isDirectory(dir))
+            {
+                try
+                {
+                    String existing = Files.readString(stamp, StandardCharsets.UTF_8).trim();
+
+                    stale = !existing.equals(ver);
+                }
+                catch (Exception ignored)
+                {
+                    stale = true;
+                }
+            }
+
+            if (stale)
+            {
+                deleteRecursive(dir);
+                Files.createDirectories(dir);
+            }
+
+            Files.writeString(stamp, ver, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.warn("[MCEF] cache version check failed, forcing clean extract", t);
+
+            try
+            {
+                deleteRecursive(dir);
+                Files.createDirectories(dir);
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+    }
+
+    /** Recursively delete a folder (used to purge a stale cache). Never throws. */
+    private static void deleteRecursive(Path dir)
     {
         try
         {
-            var stream = MCEFUI.class.getResourceAsStream("/assets/bbs/ultralight/editor_ui.html");
+            if (Files.exists(dir))
+            {
+                try (var walk = Files.walk(dir))
+                {
+                    walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(p ->
+                        {
+                            try
+                            {
+                                Files.deleteIfExists(p);
+                            }
+                            catch (Exception ignored)
+                            {
+                            }
+                        });
+                }
+            }
+        }
+        catch (Throwable ignored)
+        {
+        }
+    }
 
+    /** Friendly mod version (e.g. "2.0.241"); falls back to "unknown". */
+    private static String currentModVersion()
+    {
+        try
+        {
+            return FabricLoader.getInstance()
+                .getModContainer("bbs-next")
+                .map(c -> c.getMetadata().getVersion().getFriendlyString())
+                .orElse("unknown");
+        }
+        catch (Throwable t)
+        {
+            return "unknown";
+        }
+    }
+
+    private static void copyResource(String resource, Path out)
+    {
+        try (InputStream in = MCEFUI.class.getResourceAsStream(resource))
+        {
+            if (in != null)
+            {
+                Files.copy(in, out, StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+        catch (Throwable ignored)
+        {
+        }
+    }
+
+    /** Resolve the absolute file:// URL for one of the hosted HTML pages,
+     *  extracting them first. Falls back to an inline data: URL if extraction
+     *  fails (e.g. the file is missing from the jar). */
+    public static String pageFileUrl(String fileName)
+    {
+        extractPages();
+
+        Path file = FabricLoader.getInstance().getGameDir().resolve("bbs_editor").resolve(versionedName(fileName));
+
+        if (Files.exists(file))
+        {
+            /* Version-stamped filename is the real cache-buster: Chromium keys
+             * its file:// cache on the full path, so a new build writing a
+             * differently-named file is always reloaded. A ?v= query string is
+             * unreliable here — CEF frequently ignores query strings for
+             * file:// resources, which is exactly what served the ancient
+             * editor_ui.html after an update. */
+            return file.toUri().toString();
+        }
+
+        return pageDataUrl("/assets/bbs/editor/" + fileName);
+    }
+
+    /** Stamp the running mod version into a hosted page's file name so each
+     *  build gets a distinct file:// path. CEF keys its file cache on the
+     *  full path, so this reliably busts stale HTML without relying on a
+     *  query string (which Chromium often ignores for file:// URLs). */
+    private static String versionedName(String fileName)
+    {
+        return versionedName(fileName, currentModVersion());
+    }
+
+    private static String versionedName(String fileName, String ver)
+    {
+        int dot = fileName.lastIndexOf('.');
+
+        if (dot < 0)
+        {
+            return fileName + "_" + ver;
+        }
+
+        return fileName.substring(0, dot) + "_" + ver + fileName.substring(dot);
+    }
+
+    /** Embed a classpath HTML resource as a data: URL (offline fallback). */
+    private static String pageDataUrl(String resource)
+    {
+        try (InputStream stream = MCEFUI.class.getResourceAsStream(resource))
+        {
             if (stream != null)
             {
-                String html = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-                String b64 = Base64.getEncoder().encodeToString(html.getBytes(StandardCharsets.UTF_8));
+                byte[] bytes = stream.readAllBytes();
 
-                return "data:text/html;charset=utf-8;base64," + b64;
+                return "data:text/html;charset=utf-8;base64," + Base64.getEncoder().encodeToString(bytes);
             }
         }
         catch (Exception ignored)
@@ -622,6 +1031,6 @@ public class MCEFUI
         }
 
         return "data:text/html;charset=utf-8;base64," + Base64.getEncoder().encodeToString(
-            "<html><body style='background:#222;color:#fff'>MCEF OK</body></html>".getBytes(StandardCharsets.UTF_8));
+            "<html><body style='background:#222;color:#fff'>MCEF page missing</body></html>".getBytes(StandardCharsets.UTF_8));
     }
 }
