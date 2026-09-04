@@ -3,7 +3,7 @@
 
 $gameDir = "D:\E\MC\.minecraft\versions\luzhi"
 $logFile = "$gameDir\logs\latest.log"
-$batFile = "C:\Users\hechengyu\Desktop\启动 luzhi.bat"
+$batFile = Join-Path $env:USERPROFILE "Desktop\启动 luzhi.bat"
 
 # Clear old log
 if (Test-Path $logFile) { Remove-Item $logFile -Force }
