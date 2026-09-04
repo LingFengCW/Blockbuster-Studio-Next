@@ -300,11 +300,11 @@ public class UIProjectMenu extends UIBaseMenu
 
     private void createProject()
     {
-        UIOverlay.addOverlay(this.context, new UINewProjectOverlayPanel((name, world) ->
+        UIOverlay.addOverlay(this.context, new UINewProjectOverlayPanel((name) ->
         {
             if (name != null && !name.trim().isEmpty())
             {
-                BBSProject created = ProjectManager.get().create(name.trim(), world);
+                BBSProject created = ProjectManager.get().create(name.trim());
 
                 this.refresh();
 

@@ -145,6 +145,8 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 });
             }, "CDNDownloadThread");
 
+            // daemon: blocks on network CDN download, must not stall JVM exit
+            thread.setDaemon(true);
             thread.start();
         });
 
@@ -171,6 +173,8 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 }
             }, "CDNUploadThread");
 
+            // daemon: blocks on network CDN upload, must not stall JVM exit
+            thread.setDaemon(true);
             thread.start();
         });
 

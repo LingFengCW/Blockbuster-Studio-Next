@@ -34,9 +34,11 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.UIRecordOverlayPanel;
+import mchorse.bbs_mod.ui.film.replays.UIReplayList;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
@@ -172,6 +174,7 @@ public class UIFilmController extends UIElement
         {
             this.panel.preview.openReplays();
         }).category(category);
+        this.keys().register(Keys.FILM_CONTROLLER_TOGGLE_REPLAY_MENU, this::toggleReplayMenu).category(category);
         this.keys().register(Keys.FILM_CONTROLLER_PREV_REPLAY, () -> this.switchReplay(-1)).active(hasTwoOrMoreReplays).category(category);
         this.keys().register(Keys.FILM_CONTROLLER_NEXT_REPLAY, () -> this.switchReplay(1)).active(hasTwoOrMoreReplays).category(category);
 
@@ -188,6 +191,47 @@ public class UIFilmController extends UIElement
 
         this.panel.replayEditor.setReplay(replay);
         UIUtils.playClick();
+    }
+
+    public void toggleReplayMenu()
+    {
+        if (this.controlled != null)
+        {
+            return;
+        }
+
+        UISimpleContextMenu menu = new UISimpleContextMenu();
+
+        menu.actions.scroll.scrollItemSize = 30;
+
+        this.getContext().replaceContextMenu((manager) ->
+        {
+            manager.custom(menu);
+            manager.autoKeys();
+
+            for (Replay replay : this.panel.getData().replays.getList())
+            {
+                int color = this.getReplay() == replay ? BBSSettings.primaryColor.get() : 0;
+
+                manager.action(new ReplayContextAction(replay, IKey.raw(replay.getName()), () ->
+                {
+                    this.panel.replayEditor.setReplay(replay, false, true);
+
+                    UIReplayList list = this.panel.replayEditor.replays.replays;
+
+                    list.setCurrentDirect(replay);
+
+                    int index = list.getIndex();
+
+                    if (index != -1)
+                    {
+                        list.scroll.scrollTo(index * list.scroll.scrollItemSize);
+                    }
+
+                    UIUtils.playClick();
+                }, color));
+            }
+        });
     }
 
     public boolean isInstantKeyframes()

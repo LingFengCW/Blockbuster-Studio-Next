@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.projects.Backpack;
+import mchorse.bbs_mod.projects.BBSProject;
 import mchorse.bbs_mod.projects.Scene;
 import mchorse.bbs_mod.projects.SceneManager;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -77,7 +78,7 @@ public class UIAssetBin extends UIElement
 
             m.action(create);
             m.action(mchorse.bbs_mod.ui.utils.icons.Icons.DOWNLOAD, UIKeys.ASSETS_IMPORT, this::importAsset);
-            m.action(mchorse.bbs_mod.ui.utils.icons.Icons.FILM, UIKeys.ASSETS_EXPORT, this::exportSequence);
+            m.action(mchorse.bbs_mod.ui.utils.icons.Icons.FILM, UIKeys.SCENES_NEW_SEQUENCE, this::newSequence);
             m.action(mchorse.bbs_mod.ui.utils.icons.Icons.USER, UIKeys.ASSETS_TO_BACKPACK, this::toBackpack);
         });
 
@@ -124,7 +125,7 @@ public class UIAssetBin extends UIElement
 
         for (Scene scene : list)
         {
-            UIButton row = new UIButton(IKey.raw("\uD83D\uDDFA\uFE0F " + scene.name), (b) -> this.panel.openScene(scene));
+            UIButton row = new UIButton(IKey.raw(scene.name), (b) -> this.panel.openScene(scene));
 
             row.context((menu) -> this.sceneContextMenu(menu, scenes, scene));
             row.h(20);
@@ -138,7 +139,7 @@ public class UIAssetBin extends UIElement
         {
             for (mchorse.bbs_mod.projects.Sequence sequence : sequences.getSequences())
             {
-                UIButton row = new UIButton(IKey.raw("\uD83E\uDDE9 " + sequence.name), (b) ->
+                UIButton row = new UIButton(IKey.raw(sequence.name), (b) ->
                 {
                     this.panel.openSequence(sequence);
                 });
@@ -159,8 +160,9 @@ public class UIAssetBin extends UIElement
 
         for (String item : items)
         {
-            UIButton row = new UIButton(IKey.raw(item), (b) -> {});
+            UIButton row = new UIButton(IKey.raw(item), (b) -> this.importBackpackItem(item));
 
+            row.context((menu) -> this.backpackContextMenu(menu, item));
             row.h(20);
             this.backpackList.add(row);
         }
@@ -318,7 +320,7 @@ public class UIAssetBin extends UIElement
         this.panel.newCharacter();
     }
 
-    private void exportSequence()
+    private void newSequence()
     {
         SceneManager scenes = SceneManager.get();
 
@@ -384,5 +386,65 @@ public class UIAssetBin extends UIElement
         }
 
         this.refresh();
+    }
+
+    /** Import a backpack row into the current project (form categories) or
+     * point the user to the HTML editor for camera / sequence / replay items
+     * whose importer lives there. */
+    private void importBackpackItem(String name)
+    {
+        SceneManager scenes = SceneManager.get();
+
+        if (scenes == null || scenes.getProject() == null)
+        {
+            this.getContext().notifyError(UIKeys.ASSETS_EMPTY);
+
+            return;
+        }
+
+        BBSProject project = scenes.getProject();
+        String type = Backpack.typeOf(name);
+
+        if (Backpack.TYPE_FORM.equals(type))
+        {
+            List<String> errors = Backpack.importCategory(project, name);
+
+            if (errors.isEmpty())
+            {
+                this.getContext().notifyInfo(IKey.raw("已导入「" + name + "」"));
+            }
+            else
+            {
+                this.getContext().notifyError(IKey.raw(errors.get(0)));
+            }
+        }
+        else
+        {
+            this.getContext().notifyInfo(IKey.raw("「" + name + "」请在网页编辑器的背包面板中导入"));
+        }
+
+        this.refresh();
+    }
+
+    /** Right-click menu for a backpack row: import / delete. */
+    private void backpackContextMenu(mchorse.bbs_mod.ui.utils.context.ContextMenuManager menu, String name)
+    {
+        menu.action(mchorse.bbs_mod.ui.utils.icons.Icons.DOWNLOAD, UIKeys.BACKPACK_IMPORT, () -> this.importBackpackItem(name));
+
+        menu.action(mchorse.bbs_mod.ui.utils.icons.Icons.TRASH, UIKeys.BACKPACK_DELETE, () ->
+        {
+            UIOverlay.addOverlay(this.getContext(), new UIConfirmOverlayPanel(
+                UIKeys.BACKPACK_DELETE,
+                UIKeys.PROJECTS_CONFIRM_DELETE.format(name),
+                (result) ->
+                {
+                    if (result)
+                    {
+                        Backpack.deleteItem(name);
+                        this.refresh();
+                    }
+                }
+            ));
+        });
     }
 }

@@ -33,7 +33,7 @@ public class UISequencePickOverlayPanel extends UIMessageBarOverlayPanel
 
             any = true;
 
-            UIButton button = new UIButton(IKey.raw("\uD83E\uDDE9 " + candidate.name), (b) ->
+            UIButton button = new UIButton(IKey.raw(candidate.name), (b) ->
             {
                 callback.accept(candidate);
                 this.removeFromParent();

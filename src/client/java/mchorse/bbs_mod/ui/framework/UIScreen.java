@@ -7,6 +7,7 @@ import mchorse.bbs_mod.importers.ImporterContext;
 import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
@@ -115,20 +116,8 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.init();
 
-        this.ensureTopBar();
-
         this.menu.resize(this.width, this.height);
     }
-
-    /**
-     * The window tool bar is now mounted at the MC window level - every
-     * screen (main menu, project library, editor, vanilla menus) gets the
-     * same top menu bar from BBSModClient's AFTER_INIT hook. Nothing is
-     * attached per-BBS-window anymore, so this method is intentionally a
-     * no-op to avoid double bars.
-     */
-    private void ensureTopBar()
-    {}
 
     @Override
     public void resize(int width, int height)

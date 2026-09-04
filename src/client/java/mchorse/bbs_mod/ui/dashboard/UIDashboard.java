@@ -28,7 +28,6 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
-import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
 import mchorse.bbs_mod.ui.supporters.UISupportersPanel;
 import mchorse.bbs_mod.ui.utility.UIUtilityOverlayPanel;
@@ -51,8 +50,6 @@ import java.util.List;
 public class UIDashboard extends UIBaseMenu
 {
     private UIDashboardPanels panels;
-
-    private static final int TOP_BAR_H = 0;
 
     public UIIcon settings;
 
@@ -90,7 +87,7 @@ public class UIDashboard extends UIBaseMenu
          * flex shorthand (x(0,0).y(0,0).w(1,0).h(1,0)) set no explicit
          * relative parent, so the flex resolver left the area at 0x0 and the
          * dashboard rendered nothing. full() anchors to the viewport. */
-        this.panels.full(this.viewport);
+        this.panels.relative(this.viewport).x(0, 0).y(0, 0).w(1F, 0).h(1F, 0);
         this.registerPanels();
 
         BBSMod.events.post(new RegisterDashboardPanelsEvent(this));
@@ -107,7 +104,6 @@ public class UIDashboard extends UIBaseMenu
         this.chalkboard = new UIChalkboard();
         this.chalkboard.full(this.getRoot());
 
-        this.panels.pinned.add(this.settings);
         this.getRoot().prepend(this.orbitUI);
         this.getRoot().add(this.orbitKeysUI);
         this.getRoot().add(this.chalkboard);

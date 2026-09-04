@@ -27,6 +27,8 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
     public UIToggle slim;
     public UISearchList<String> mobID;
     public UITextarea<TextLine> mobNBT;
+    public UITextarea<TextLine> mobGroup;
+    public UITextarea<TextLine> mobMorphDur;
 
     static
     {
@@ -64,7 +66,23 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
         this.mobNBT.background().h(160);
         this.mobNBT.wrap();
 
-        this.options.add(this.pick, this.slim, this.mobID, this.mobNBT);
+        this.mobGroup = new UITextarea<>((t) -> this.form.mobGroup.set(t));
+        this.mobGroup.background().h(60);
+        this.mobGroup.wrap();
+
+        this.mobMorphDur = new UITextarea<>((t) ->
+        {
+            try
+            {
+                this.form.mobMorphDur.set(Float.parseFloat(t.trim()));
+            }
+            catch (Exception e)
+            {}
+        });
+        this.mobMorphDur.background().h(20);
+        this.mobMorphDur.wrap();
+
+        this.options.add(this.pick, this.slim, this.mobID, this.mobGroup, this.mobMorphDur, this.mobNBT);
     }
 
     @Override
@@ -75,6 +93,8 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
         this.slim.setValue(this.form.slim.get());
         this.mobID.list.setCurrentScroll(this.form.mobID.get());
         this.mobNBT.setText(this.form.mobNBT.get());
+        this.mobGroup.setText(this.form.mobGroup.get());
+        this.mobMorphDur.setText(String.valueOf(this.form.mobMorphDur.get()));
     }
 }
 

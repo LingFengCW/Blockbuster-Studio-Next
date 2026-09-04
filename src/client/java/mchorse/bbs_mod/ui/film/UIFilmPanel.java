@@ -26,6 +26,7 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.projects.ProjectManager;
@@ -112,14 +113,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
      * goes straight into the HTML editor and must never trigger the base
      * UIDataDashboardPanel<Film> auto "select film" popup. */
     private boolean openDirectToHtml = false;
-
-    /* Remembered visibility of the dashboard chrome (bottom task bar + pinned
-     * icons) so it can be restored when the HTML editor closes. While the HTML
-     * editor is open the native chrome is hidden: it would otherwise sit dead
-     * under the full-screen browser (the browser consumes every input event
-     * while active), so the HTML page fully owns the dashboard. */
-    private boolean chromeTaskBarVisible = true;
-    private boolean chromePinnedVisible = true;
 
     public UIIcon duplicateFilm;
 
@@ -393,6 +386,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 BaseValue.edit(this.getData().inventory, (inv) -> inv.fromPlayer(Minecraft.getInstance().player));
             });
+
+            menu.action(Icons.GEAR, UIKeys.FILM_PLAYER_SETTINGS, () ->
+            {
+                UIOverlay.addOverlay(this.getContext(), new UIFilmPlayerSettingsOverlayPanel(this.data), 280, 0.8F);
+            });
+
+            menu.action(Icons.HELP, L10n.lang("bbs.ui.film.details.button"), () ->
+            {
+                UIOverlay.addOverlay(this.getContext(), new UIFilmDetailsOverlayPanel(this.data), 300, 260);
+            });
         });
 
         this.fill(null);
@@ -439,13 +442,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         /* Shift the whole editor area down below the top bar. Simple pixel
          * flex (panel width - 20px right icon bar) - no cross-resizer
          * dependencies that could leave the area at 0. */
-        this.editor.resetFlex().relative(this).x(0).y(58).w(1F, -20).h(1F, -58);
+        this.editor.resetFlex().relative(this).x(0).y(80).w(1F, -20).h(1F, -80);
 
         /* HTML (MCEF) editor overlay - full screen, replaces the entire
          * native editor UI while visible (the HTML page background is
          * opaque, except for the transparent viewport area that shows the
          * world preview underneath). */
-        this.ultralightOverlay = new lingfeng.bbsnext.mcef.UIOverlay(this);
+        this.ultralightOverlay = new lingfeng.bbsnext.mcef.UIOverlay(this, new lingfeng.bbsnext.mcef.EditorBridge(this));
         this.ultralightOverlay.relative(this).x(0).y(0).w(1F).h(1F);
         this.ultralightOverlay.setVisible(false);
         this.add(this.ultralightOverlay);
@@ -470,29 +473,35 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    /** 进世界保活标志：为 true 时 closeHtmlEditor 既不销毁浏览器也不挂起，
+     *  直接 no-op，浏览器实例永远活着、isVisible 保持 true，reopen 时无缝续上。
+     *  由 EditorBridge.enterSceneWorld 在 openWorld 前置位、reopenEditorUi 复位。 */
+    private boolean keepBrowserAlive = false;
+
+    public void setKeepBrowserAlive(boolean keep)
+    {
+        this.keepBrowserAlive = keep;
+    }
+
     /** Show the HTML editor overlay and hide every native (old) editor UI
      *  component, so only the HTML page (作品 / 场景 / 序列) is visible.
      *  Idempotent: calling it while already open is a no-op, which avoids
      *  re-remembering visibility (that would corrupt the restore state). */
     public void openHtmlEditor()
     {
-        if (this.ultralightOverlay == null || this.ultralightOverlay.isVisible())
+        if (this.ultralightOverlay == null)
+        {
+            return;
+        }
+
+        /* 若 overlay 已可见（含进世界保活期间一直保持可见），直接 no-op：
+         * 浏览器实例从未被销毁，无需重建、不丢页面状态、秒恢复。 */
+        if (this.ultralightOverlay.isVisible())
         {
             return;
         }
 
         this.ultralightOverlay.setVisible(true);
-
-        /* Hide the native dashboard chrome (bottom task bar + pinned icons).
-         * The full-screen HTML editor owns all navigation now; leaving the
-         * native chrome visible would just present dead, unclickable buttons
-         * (the browser consumes every input event while it is active). */
-        var dashboardPanels = this.dashboard.getPanels();
-
-        this.chromeTaskBarVisible = dashboardPanels.taskBar.isVisible();
-        this.chromePinnedVisible = dashboardPanels.pinned.isVisible();
-        dashboardPanels.taskBar.setVisible(false);
-        dashboardPanels.pinned.setVisible(false);
 
         /* HTML 编辑器模式：UIFilmPanel 底层仍是"影片(Film)"数据面板，构造时
          * fill(null)，基类会在首次 resize 自动弹出"选影片"面板、并在 data==null
@@ -531,7 +540,21 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     /** Restore the native editor UI that {@link #openHtmlEditor()} hid. */
     public void closeHtmlEditor()
     {
-        if (this.ultralightOverlay == null || !this.ultralightOverlay.isVisible())
+        if (this.ultralightOverlay == null)
+        {
+            return;
+        }
+
+        /* 进世界路径：浏览器实例永远保活——既不开 MCEFUI.close() 销毁，也不
+         * suspend。直接 no-op 即可，isVisible 保持 true，reopen 时 overlay 无缝
+         * 续上、页面状态(滚动/焦点/选区)完全不丢。只有真正关闭编辑器时才走
+         * 下面的销毁逻辑。 */
+        if (this.keepBrowserAlive)
+        {
+            return;
+        }
+
+        if (!this.ultralightOverlay.isVisible())
         {
             return;
         }
@@ -542,12 +565,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.nativeVisibility.clear();
-
-        /* Restore the native dashboard chrome that openHtmlEditor() hid. */
-        var dashboardPanels = this.dashboard.getPanels();
-
-        dashboardPanels.taskBar.setVisible(this.chromeTaskBarVisible);
-        dashboardPanels.pinned.setVisible(this.chromePinnedVisible);
 
         if (this.data == this.placeholderRef)
         {
@@ -619,19 +636,24 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    public boolean isUsingPlaceholderData()
+    {
+        return this.data == this.placeholderRef;
+    }
+
     /* ======== PR-style top bar: title bar + main menu bar ======== */
 
     private void setupTopBar()
     {
         /* ---- Title bar (project name - *work name) ---- */
         this.titleBar = new UIElement();
-        this.titleBar.relative(this).x(0).y(0).w(1F, -20).h(30);
+        this.titleBar.relative(this).x(0).y(22).w(1F, -20).h(30);
 
         this.titleBar.add(new UIRenderable(this::renderTitleBar));
 
         /* ---- Main menu bar (file / edit / view / ... ) ---- */
         this.menuBar = new UIElement();
-        this.menuBar.relative(this).x(0).y(30).w(1F, -20).h(28);
+        this.menuBar.relative(this).x(0).y(52).w(1F, -20).h(28);
 
         this.menuBar.add(new UIRenderable((context) ->
         {
@@ -711,81 +733,81 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             if (name.equals("文件"))
             {
-                m.action(Icons.ADD, IKey.raw("新建场景"), this::newScene);
-                m.action(Icons.SAVED, IKey.raw("保存"), this::forceSave);
-                m.action(Icons.FILM, IKey.raw("导出当前场景"), () ->
+                m.action(Icons.ADD, UIKeys.MENUBAR_SCENE_NEW, this::newScene);
+                m.action(Icons.SAVED, UIKeys.GENERAL_SAVE, this::forceSave);
+                m.action(Icons.FILM, UIKeys.FILM_EXPORT_SCENE, () ->
                 {
                     mchorse.bbs_mod.projects.SceneManager scenes = mchorse.bbs_mod.projects.SceneManager.get();
                     mchorse.bbs_mod.projects.Scene scene = scenes == null ? null : scenes.getCurrent();
 
                     if (scene != null && scenes.exportScene(scene) != null)
                     {
-                        this.getContext().notifySuccess(IKey.raw("已导出: " + scene.name));
+                        this.getContext().notifySuccess(UIKeys.FILM_EXPORT_SCENE_SUCCESS.format(scene.name));
                     }
                     else
                     {
-                        this.getContext().notifyError(IKey.raw("导出失败"));
+                        this.getContext().notifyError(UIKeys.FILM_EXPORT_SCENE_FAILED);
                     }
                 });
-                m.action(Icons.TRASH, IKey.raw("关闭当前作品"), this::disableContext);
+                m.action(Icons.TRASH, UIKeys.FILM_CLOSE_WORK, this::disableContext);
             }
             else if (name.equals("编辑"))
             {
-                m.action(Icons.EDIT, IKey.raw("撤销"), this::undo);
-                m.action(Icons.DUPE, IKey.raw("重做"), this::redo);
+                m.action(Icons.EDIT, UIKeys.MENUBAR_EDIT_UNDO, this::undo);
+                m.action(Icons.DUPE, UIKeys.MENUBAR_EDIT_REDO, this::redo);
             }
             else if (name.equals("视图"))
             {
-                m.action(Icons.SQUARE, IKey.raw("中心线"), BBSSettings.editorCenterLines.get(), () ->
+                m.action(Icons.SQUARE, UIKeys.FILM_VIEW_CENTER_LINE, BBSSettings.editorCenterLines.get(), () ->
                 {
                     BBSSettings.editorCenterLines.set(!BBSSettings.editorCenterLines.get());
                 });
-                m.action(Icons.LINE, IKey.raw("三分构图线"), BBSSettings.editorRuleOfThirds.get(), () ->
+                m.action(Icons.LINE, UIKeys.FILM_VIEW_THIRDS, BBSSettings.editorRuleOfThirds.get(), () ->
                 {
                     BBSSettings.editorRuleOfThirds.set(!BBSSettings.editorRuleOfThirds.get());
                 });
-                m.action(Icons.CURSOR, IKey.raw("准星"), BBSSettings.editorCrosshair.get(), () ->
+                m.action(Icons.CURSOR, UIKeys.FILM_VIEW_CROSSHAIR, BBSSettings.editorCrosshair.get(), () ->
                 {
                     BBSSettings.editorCrosshair.set(!BBSSettings.editorCrosshair.get());
                 });
-                m.action(Icons.REFRESH, IKey.raw("重置视角"), () -> this.dashboard.orbit.setup(this.getCamera()));
+                m.action(Icons.REFRESH, UIKeys.FILM_VIEW_RESET_CAMERA, () -> this.dashboard.orbit.setup(this.getCamera()));
             }
             else if (name.equals("轨道"))
             {
-                m.action(Icons.FRUSTUM, IKey.raw("打开相机时间轴"), () -> this.showPanel(this.cameraEditor));
-                m.action(Icons.SCENE, IKey.raw("打开回放编辑器"), () -> this.showPanel(this.replayEditor));
+                m.action(Icons.FRUSTUM, UIKeys.FILM_OPEN_CAMERA_EDITOR, () -> this.showPanel(this.cameraEditor));
+                m.action(Icons.SCENE, UIKeys.FILM_OPEN_REPLAY_EDITOR, () -> this.showPanel(this.replayEditor));
             }
             else if (name.equals("关键帧"))
             {
-                m.action(Icons.ARROW_LEFT, IKey.raw("上一帧"), () -> this.setCursor(this.getCursor() - 1));
-                m.action(Icons.ARROW_RIGHT, IKey.raw("下一帧"), () -> this.setCursor(this.getCursor() + 1));
-                m.action(Icons.CURSOR, IKey.raw("跳转到开头"), () -> this.setCursor(0));
+                m.action(Icons.ARROW_LEFT, UIKeys.FILM_KEYFRAME_PREV, () -> this.setCursor(this.getCursor() - 1));
+                m.action(Icons.ARROW_RIGHT, UIKeys.FILM_KEYFRAME_NEXT, () -> this.setCursor(this.getCursor() + 1));
+                m.action(Icons.CURSOR, UIKeys.FILM_KEYFRAME_TO_START, () -> this.setCursor(0));
             }
             else if (name.equals("录制"))
             {
-                m.action(Icons.PLANE, IKey.raw("切换飞行/录制模式"), this::toggleFlight);
-                m.action(Icons.SPHERE, IKey.raw("录制回放"), () -> this.preview.recordReplay.clickItself());
-                m.action(Icons.VIDEO_CAMERA, IKey.raw("录制视频"), () -> this.preview.recordVideo.clickItself());
+                m.action(Icons.PLANE, UIKeys.FILM_RECORD_TOGGLE_FLIGHT, this::toggleFlight);
+                m.action(Icons.SPHERE, UIKeys.FILM_RECORD_REPLAY, () -> this.preview.recordReplay.clickItself());
+                m.action(Icons.VIDEO_CAMERA, UIKeys.FILM_RECORD_VIDEO, () -> this.preview.recordVideo.clickItself());
             }
             else if (name.equals("渲染"))
             {
-                m.action(Icons.CAMERA, IKey.raw("截图导出"), () -> this.preview.recordVideo.clickItself());
+                m.action(Icons.CAMERA, UIKeys.FILM_SCREENSHOT, () -> this.preview.recordVideo.clickItself());
             }
             else if (name.equals("窗口"))
             {
-                m.action(Icons.FRUSTUM, IKey.raw("相机时间轴"), () -> this.showPanel(this.cameraEditor));
-                m.action(Icons.SCENE, IKey.raw("回放编辑器"), () -> this.showPanel(this.replayEditor));
-                m.action(Icons.ACTION, IKey.raw("动作编辑器"), () -> this.showPanel(this.actionEditor));
-                m.action(Icons.EDITOR, IKey.raw("HTML 界面 (Ultralight)"), this::toggleUltralight);
+                m.action(Icons.FRUSTUM, UIKeys.FILM_OPEN_CAMERA_EDITOR, () -> this.showPanel(this.cameraEditor));
+                m.action(Icons.SCENE, UIKeys.FILM_OPEN_REPLAY_EDITOR, () -> this.showPanel(this.replayEditor));
+                m.action(Icons.ACTION, UIKeys.FILM_OPEN_ACTION_EDITOR, () -> this.showPanel(this.actionEditor));
+                m.action(Icons.EDITOR, UIKeys.FILM_WINDOW_HTML, this::toggleUltralight);
             }
             else if (name.equals("设置"))
             {
-                m.action(Icons.SETTINGS, IKey.raw("打开设置"), () -> this.dashboard.settings.clickItself());
+                m.action(Icons.SETTINGS, UIKeys.FILM_SETTINGS_OPEN, () -> this.dashboard.settings.clickItself());
             }
         }
         else
         {
-            m.action(Icons.ADD, IKey.raw("新建场景"), this::newScene);
+            m.action(Icons.ADD, UIKeys.MENUBAR_SCENE_NEW, this::newScene);
         }
     }
 
@@ -1139,16 +1161,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         super.fillDefaultData(data);
 
-        IdleClip clip = new IdleClip();
-        Camera camera = new Camera();
-        Minecraft mc = Minecraft.getInstance();
-
-        camera.set(mc.player, MathUtils.toRad(mc.options.fov().get()));
-
-        clip.layer.set(8);
-        clip.duration.set(BBSSettings.getDefaultDuration());
-        clip.fromCamera(camera);
-        data.camera.addClip(clip);
+        /* No default camera is added anymore — a scene starts with no camera,
+         * and the user must create one from the asset bin (素材箱 › 新建相机)
+         * before the film can be played (see checkShowNoCamera). */
 
         this.newFilm = true;
     }
@@ -1716,7 +1731,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     }
 
     /**
-     * Create a brand new scene (with background world picker) and open it
+     * Create a brand new scene (name only — no background world) and open it
      * in the editor. Shared by the asset bin and the editor context menu.
      */
     public void newScene()
@@ -1728,7 +1743,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        lingfeng.bbsnext.mcef.NativeDialog.sceneDialog((name, background) ->
+        lingfeng.bbsnext.mcef.NativeDialog.sceneDialog((name, world) ->
         {
             /* The NativeDialog callback fires on the Swing EDT; hop back to
              * the Minecraft main thread before touching BBS project data. */
@@ -1746,7 +1761,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     sceneName = UIKeys.SCENES_DEFAULT_NAME.format(scenes.getScenes().size() + 1).get();
                 }
 
-                mchorse.bbs_mod.projects.Scene scene = scenes.create(sceneName, background);
+                mchorse.bbs_mod.projects.Scene scene = scenes.create(sceneName, world);
                 this.assetBin.refresh();
                 this.openScene(scene);
             });

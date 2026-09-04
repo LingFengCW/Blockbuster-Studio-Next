@@ -32,8 +32,8 @@ public class UISequenceOverlayPanel extends UIMessageBarOverlayPanel
         this.sequence = sequence;
         this.manager = SequenceManager.get();
 
-        UIButton addScene = new UIButton(IKey.raw("+ " + UIKeys.ASSETS_PROJECT.get()), (b) -> this.addSceneRef());
-        UIButton addSeq = new UIButton(IKey.raw("+ \uD83E\uDDE9 Seq"), (b) -> this.addSequenceRef());
+        UIButton addScene = new UIButton(IKey.raw("+ " + UIKeys.SEQUENCE_ADD_SCENE.get()), (b) -> this.addSceneRef());
+        UIButton addSeq = new UIButton(IKey.raw("+ " + UIKeys.SEQUENCE_ADD_SEQUENCE.get()), (b) -> this.addSequenceRef());
 
         var bar = UI.row(4);
 
@@ -57,20 +57,20 @@ public class UISequenceOverlayPanel extends UIMessageBarOverlayPanel
 
         for (Sequence.SequenceRef ref : this.sequence.refs)
         {
-            String icon = switch (ref.type)
+            String type = switch (ref.type)
             {
-                case Sequence.SequenceRef.SCENE -> "\uD83D\uDDFA\uFE0F";
-                case Sequence.SequenceRef.SEQUENCE -> "\uD83E\uDDE9";
-                case Sequence.SequenceRef.AUDIO -> "\uD83D\uDD0A";
-                default -> "\uD83C\uDF9E\uFE0F";
+                case Sequence.SequenceRef.SCENE -> UIKeys.SEQUENCE_REF_SCENE.get();
+                case Sequence.SequenceRef.SEQUENCE -> UIKeys.SEQUENCE_REF_SEQUENCE.get();
+                case Sequence.SequenceRef.AUDIO -> UIKeys.SEQUENCE_REF_AUDIO.get();
+                default -> UIKeys.SEQUENCE_REF_UNKNOWN.get();
             };
             String trim = ref.in >= 0 ? "  [" + ref.in + ".." + ref.out + "]" : "";
-            String label = icon + " " + this.resolveName(ref) + trim;
+            String label = type + " " + this.resolveName(ref) + trim;
 
             UIButton row = new UIButton(IKey.raw(label), (b) -> {});
 
             row.h(20);
-            row.context((menu) -> menu.action(Icons.TRASH, IKey.raw("Break link"), () ->
+            row.context((menu) -> menu.action(Icons.TRASH, UIKeys.SEQUENCE_BREAK_LINK, () ->
             {
                 this.manager.removeRef(this.sequence, ref);
                 this.refreshRows();
