@@ -1,0 +1,105 @@
+PNC LICENSE (Public‑Not‑Commercial)
+Copyright (c) 2026 LingFeng (何承宇)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, and distribute the Software, subject to
+the following conditions:
+
+Definitions
+- "Derivative Work": Any work that includes, incorporates, or is derived from the Software,
+whether modified or unmodified, including source‑code and binary distributions.
+NOTE: Software that merely invokes the public API of the Software without copying, modifying,
+or incorporating any source code of the Software shall NOT be considered a Derivative Work.
+- "Closed‑source derivative work": A derivative work where the complete source code is
+not made publicly available to recipients.
+- "Valid source line": A line containing executable source code logic. Blank lines, line breaks,
+whitespace‑only indentation adjustments, comments, and annotation lines shall NOT be counted
+as valid source lines.
+- "Commercial activity": Any activity intended to generate direct or indirect monetary gain,
+including but not limited to: charging fees for access, paid subscriptions, paid features,
+in‑app advertising, paid consulting services, paid hosting services.
+Exclusions: voluntary donations (no obligation to provide premium benefits in return),
+official project promotion, creation and distribution of official development documentation.
+- "Original unmodified source file": The exact source file published by the original author,
+without any edits.
+
+1. No individual or entity may defame, slander, or disparage the original author
+or the original project in any form, including public statements, media, code comments,
+documentation, or any digital or physical medium.
+This clause does NOT prohibit legitimate criticism, bug reports, issue reports, or fair‑use commentary
+regarding the Software. Malicious false statements intended to harm reputation are prohibited.
+
+2. When distributing an open‑source derivative work based upon the Software,
+there is no mandatory requirement to include the full text of this PNC License,
+nor mandatory attribution to the original author. The distributor is not required
+to carry copies of the original source files.
+
+3. When distributing a closed‑source derivative work, the original author shall be
+clearly acknowledged within accompanying documentation, including but not limited to
+user manuals, readme files, and distribution notes. Such attribution shall be
+reasonably discoverable by end‑users; it shall not be hidden in deep‑level file directories,
+and shall appear in at least one of the software’s about screen, README document, or release notes.
+
+4. No commercial activity may be carried out in the name of the original author
+or the original project without prior explicit written consent. Written consent
+includes signed physical documents, digitally signed electronic communications.
+Oral consent shall not be deemed valid.
+
+5. Modification quantification rules:
+For the purpose of this License, the percentage‑based rules are contractual terms of this agreement,
+and do NOT override statutory copyright law. Even if a file meets the 50% modification threshold,
+if the work still constitutes substantial similarity to the original Software under applicable copyright law,
+the original author retains all statutory copyright rights.
+
+Counting shall be performed on a per‑file basis, against the original unmodified version
+of the source file provided by the original author.
+
+For each source file derived from the Software:
+If modifications to the file exceed fifty percent (50%) of the file’s valid source lines,
+such file shall be deemed independently authored code of the modifier under this License.
+The modifier may apply any open‑source or proprietary license to such files, and no attribution to the
+original author is required under this License.
+
+If modifications to a source file are fifty percent (50%) or less of valid source lines,
+the derivative work containing this file may only be distributed under the MIT License,
+BSD 3‑Clause License, or this PNC License.
+
+Aggregate code calculation rule:
+The aggregate ratio is calculated as:
+(total valid source lines of unmodified / partially‑modified original source files (modifications ≤ 50%))
+DIVIDED BY
+(total valid source lines of entire derivative codebase, including all third‑party library source code incorporated)
+
+Any derivative work where this aggregate ratio is more than thirty percent (30%) shall
+not be utilised, distributed, or operated for any Commercial activity as defined above.
+
+The following activities are exempt from the commercial restriction set forth above:
+official project promotion, and the creation and distribution of official development documentation.
+
+Redistribution rule for binaries:
+- Unmodified original binary builds of the Software: may be freely distributed via public online channels.
+- Modified derivative binary builds of the Software: may NOT be redistributed via public online download channels
+(mirror sites, third‑party app stores, public file hosting services) without prior written permission from original author.
+Local compilation, personal offline packaging for private use, and internal team distribution
+are not subject to this online‑distribution prohibition.
+
+5‑A. Ratio Calculator Requirement
+Any distributor exercising rights under this PNC License shall retain the complete source code
+of the ratio‑calculation logic conforming to the base specification defined in Section 5.
+The distributor may extend this calculator by adding additional metrics, custom rules, dead‑code detection logic,
+or other supplementary functionality. However, the original base calculation logic of the calculator SHALL NOT
+be removed, altered, or deleted. All extensions must be appended on top of the original base implementation.
+
+In case of dispute, the result produced by the original author’s reference counting tool shall prevail.
+Distributors are not required to bundle the calculator program inside every binary artifact;
+the source code of the calculator logic must be available upon reasonable request for dispute resolution.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
