@@ -5,8 +5,15 @@ import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 
+import java.util.UUID;
+
 public abstract class Clip extends ValueGroup
 {
+    /** Stable asset id (8 hex chars). Lets camera groups and sequences
+     *  reference a clip even after it is reordered or other clips are
+     *  removed — index alone is not stable. Generated in the constructor,
+     *  so legacy saves (no "id" field) get one automatically on load. */
+    public final ValueString id = new ValueString("id", newId());
     public final ValueBoolean enabled = new ValueBoolean("enabled", true);
     public final ValueString title = new ValueString("title", "");
     public final ValueInt layer = new ValueInt("layer", 0, 0, Integer.MAX_VALUE);
@@ -18,12 +25,18 @@ public abstract class Clip extends ValueGroup
     {
         super("");
 
+        this.add(this.id);
         this.add(this.enabled);
         this.add(this.title);
         this.add(this.layer);
         this.add(this.tick);
         this.add(this.duration);
         this.add(this.envelope);
+    }
+
+    private static String newId()
+    {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 
     public boolean isGlobal()
@@ -49,6 +62,10 @@ public abstract class Clip extends ValueGroup
         Clip clip = this.create();
 
         clip.copy(this);
+
+        /* Give the copy its own asset id so duplicated clips stay distinct
+         * when referenced by camera groups / sequences. */
+        clip.id.set(newId());
 
         return clip;
     }

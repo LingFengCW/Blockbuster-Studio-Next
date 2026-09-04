@@ -6,45 +6,44 @@ import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.BezierUtils;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
-import org.joml.Vector4f;
+import org.joml.Vector3f;
 
-public class Vector4fKeyframeFactory implements IKeyframeFactory<Vector4f>
+public class Vector3fKeyframeFactory implements IKeyframeFactory<Vector3f>
 {
-    private Vector4f i = new Vector4f();
+    private Vector3f i = new Vector3f();
 
     @Override
-    public Vector4f fromData(BaseType data)
+    public Vector3f fromData(BaseType data)
     {
-        return data.isList() ? DataStorageUtils.vector4fFromData(data.asList()) : new Vector4f();
+        return data.isList() ? DataStorageUtils.vector3fFromData(data.asList()) : new Vector3f();
     }
 
     @Override
-    public BaseType toData(Vector4f value)
+    public BaseType toData(Vector3f value)
     {
-        return DataStorageUtils.vector4fToData(value);
+        return DataStorageUtils.vector3fToData(value);
     }
 
     @Override
-    public Vector4f createEmpty()
+    public Vector3f createEmpty()
     {
-        return new Vector4f();
+        return new Vector3f();
     }
 
     @Override
-    public Vector4f copy(Vector4f value)
+    public Vector3f copy(Vector3f value)
     {
-        return new Vector4f(value);
+        return new Vector3f(value);
     }
 
     @Override
-    public Vector4f interpolate(Keyframe<Vector4f> preA, Keyframe<Vector4f> a, Keyframe<Vector4f> b, Keyframe<Vector4f> postB, IInterp interpolation, float x)
+    public Vector3f interpolate(Keyframe<Vector3f> preA, Keyframe<Vector3f> a, Keyframe<Vector3f> b, Keyframe<Vector3f> postB, IInterp interpolation, float x)
     {
         if (interpolation.has(Interpolations.BEZIER))
         {
             this.i.x = (float) BezierUtils.get(a.getValue().x, b.getValue().x, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x);
             this.i.y = (float) BezierUtils.get(a.getValue().y, b.getValue().y, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x);
             this.i.z = (float) BezierUtils.get(a.getValue().z, b.getValue().z, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x);
-            this.i.w = (float) BezierUtils.get(a.getValue().w, b.getValue().w, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x);
 
             return this.i;
         }
@@ -53,12 +52,11 @@ public class Vector4fKeyframeFactory implements IKeyframeFactory<Vector4f>
     }
 
     @Override
-    public Vector4f interpolate(Vector4f preA, Vector4f a, Vector4f b, Vector4f postB, IInterp interpolation, float x)
+    public Vector3f interpolate(Vector3f preA, Vector3f a, Vector3f b, Vector3f postB, IInterp interpolation, float x)
     {
         this.i.x = (float) interpolation.interpolate(IInterp.context.set(preA.x, a.x, b.x, postB.x, x));
         this.i.y = (float) interpolation.interpolate(IInterp.context.set(preA.y, a.y, b.y, postB.y, x));
         this.i.z = (float) interpolation.interpolate(IInterp.context.set(preA.z, a.z, b.z, postB.z, x));
-        this.i.w = (float) interpolation.interpolate(IInterp.context.set(preA.w, a.w, b.w, postB.w, x));
 
         return this.i;
     }

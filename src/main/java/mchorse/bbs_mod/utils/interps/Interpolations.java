@@ -105,7 +105,13 @@ public class Interpolations
         @Override
         public double interpolate(InterpContext context)
         {
-            return Lerps.cubicHermite(context.a0, context.a, context.b, context.b0, context.x);
+            double x1 = context.args.v1 != 0 ? context.args.v1 : 0.25D;
+            double y1 = context.args.v2 != 0 ? context.args.v2 : 0.1D;
+            double x2 = context.args.v3 != 0 ? context.args.v3 : 0.25D;
+            double y2 = context.args.v4 != 0 ? context.args.v4 : 1.0D;
+            double t = Lerps.bezierEase(x1, y1, x2, y2, context.x);
+
+            return Lerps.lerp(context.a, context.b, t);
         }
     };
 

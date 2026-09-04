@@ -14,6 +14,8 @@ public class BezierUtils
         double w = bTick - aTick;
         double h = bValue - aValue;
 
+        if (w == 0) return aValue + h * x;
+
         /* In case if there is no slope whatsoever */
         if (h == 0) h = 0.00001;
 

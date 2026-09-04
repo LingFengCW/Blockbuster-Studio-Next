@@ -6,7 +6,7 @@ import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-public class TransformKeyframeFactory implements IKeyframeFactory<Transform>
+public class PoseTransformKeyframeFactory implements IKeyframeFactory<Transform>
 {
     private Transform i = new Transform();
 

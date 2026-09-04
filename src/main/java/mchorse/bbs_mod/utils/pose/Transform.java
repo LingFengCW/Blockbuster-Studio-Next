@@ -6,6 +6,7 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.joml.Matrices;
+import mchorse.bbs_mod.utils.keyframes.BezierUtils;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -42,6 +43,30 @@ public class Transform implements IMapSerializable
         target.x = (float) interp.interpolate(IInterp.context.set(preA.x, a.x, b.x, postB.x, x));
         target.y = (float) interp.interpolate(IInterp.context.set(preA.y, a.y, b.y, postB.y, x));
         target.z = (float) interp.interpolate(IInterp.context.set(preA.z, a.z, b.z, postB.z, x));
+    }
+
+    public void bezierLerp(Transform a, Transform b, float aTick, float bTick, float aRx, float aRy, float bLx, float bLy, float x)
+    {
+        this.translate.x = (float) BezierUtils.get(a.translate.x, b.translate.x, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.translate.y = (float) BezierUtils.get(a.translate.y, b.translate.y, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.translate.z = (float) BezierUtils.get(a.translate.z, b.translate.z, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.scale.x = (float) BezierUtils.get(a.scale.x, b.scale.x, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.scale.y = (float) BezierUtils.get(a.scale.y, b.scale.y, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.scale.z = (float) BezierUtils.get(a.scale.z, b.scale.z, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.rotate.x = (float) BezierUtils.get(a.rotate.x, b.rotate.x, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.rotate.y = (float) BezierUtils.get(a.rotate.y, b.rotate.y, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.rotate.z = (float) BezierUtils.get(a.rotate.z, b.rotate.z, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.rotate2.x = (float) BezierUtils.get(a.rotate2.x, b.rotate2.x, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.rotate2.y = (float) BezierUtils.get(a.rotate2.y, b.rotate2.y, aTick, bTick, aRx, aRy, bLx, bLy, x);
+        this.rotate2.z = (float) BezierUtils.get(a.rotate2.z, b.rotate2.z, aTick, bTick, aRx, aRy, bLx, bLy, x);
+    }
+
+    public void add(Transform transform)
+    {
+        this.translate.add(transform.translate);
+        this.scale.mul(transform.scale);
+        this.rotate.add(transform.rotate);
+        this.rotate2.add(transform.rotate2);
     }
 
     public void identity()

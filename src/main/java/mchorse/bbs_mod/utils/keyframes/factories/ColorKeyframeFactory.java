@@ -6,6 +6,9 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.IInterp;
+import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.keyframes.BezierUtils;
+import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 public class ColorKeyframeFactory implements IKeyframeFactory<Color>
 {
@@ -38,6 +41,22 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
     public Color copy(Color value)
     {
         return value.copy();
+    }
+
+    @Override
+    public Color interpolate(Keyframe<Color> preA, Keyframe<Color> a, Keyframe<Color> b, Keyframe<Color> postB, IInterp interpolation, float x)
+    {
+        if (interpolation.has(Interpolations.BEZIER))
+        {
+            this.i.r = (float) MathUtils.clamp(BezierUtils.get(a.getValue().r, b.getValue().r, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x), 0F, 1F);
+            this.i.g = (float) MathUtils.clamp(BezierUtils.get(a.getValue().g, b.getValue().g, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x), 0F, 1F);
+            this.i.b = (float) MathUtils.clamp(BezierUtils.get(a.getValue().b, b.getValue().b, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x), 0F, 1F);
+            this.i.a = (float) MathUtils.clamp(BezierUtils.get(a.getValue().a, b.getValue().a, a.getTick(), b.getTick(), a.rx, a.ry, b.lx, b.ly, x), 0F, 1F);
+
+            return this.i;
+        }
+
+        return IKeyframeFactory.super.interpolate(preA, a, b, postB, interpolation, x);
     }
 
     @Override

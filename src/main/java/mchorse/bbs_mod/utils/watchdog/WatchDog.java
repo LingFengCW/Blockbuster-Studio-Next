@@ -86,6 +86,8 @@ public class WatchDog implements Runnable
     public void start()
     {
         this.thread = new Thread(this);
+        // daemon: runs an infinite poll loop, must not stall JVM exit
+        this.thread.setDaemon(true);
 
         this.thread.start();
     }
