@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>BBS 作品库</title>
+<style>
+:root{ --tab:projects; }
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",Consolas,monospace;user-select:none;}
+body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13px;display:flex;flex-direction:column;}
+.ico{width:14px;height:14px;flex:0 0 auto;display:inline-block;vertical-align:middle;}
+/* 顶部标题栏 */
+.title-bar{height:30px;background:#2c2c30;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid #111;font-size:13px;gap:8px;}
+.title-btn{margin-left:auto;padding:3px 10px;background:#38383c;border-radius:3px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:5px;}
+.title-btn:hover{background:#094872;}
+/* 主菜单 */
+.main-menu{height:28px;background:#242426;display:flex;border-bottom:1px solid #111;}
+.menu-top-item{padding:4px 16px;font-size:13px;cursor:pointer;position:relative;}
+.menu-top-item:hover{background:#094872;}
+.menu-dropdown{position:absolute;top:100%;left:0;background:#2c2c30;border:1px solid #555;min-width:160px;display:none;z-index:50;}
+.menu-top-item:hover .menu-dropdown{display:block;}
+.menu-item{padding:5px 12px;font-size:12px;cursor:pointer;}
+.menu-item:hover{background:#094872;}
+/* 顶部细工具栏（与编辑器同款） */
+.toolbar-slim{height:30px;background:#1f2229;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #111;}
+.toolbar-slim button{display:flex;align-items:center;gap:5px;background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:4px 14px;font-size:12px;cursor:pointer;}
+.toolbar-slim button:hover{background:#094872;color:#fff;}
+.toolbar-slim button.active{background:#094872;color:#fff;border-color:#4096ff;}
+.toolbar-slim .sep{width:1px;height:18px;background:#353a45;margin:0 4px;}
+.toolbar-slim .hint{color:#666;font-size:11px;margin-left:auto;}
+/* 内容区 */
+.content{flex:1;overflow-y:auto;padding:16px;}
+.view{display:none;}
+.view.active{display:block;}
+.section-title{font-size:13px;color:#cfe3ff;margin:4px 0 12px;border-bottom:1px solid #333;padding-bottom:6px;}
+/* 作品库 */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+.proj-card{background:linear-gradient(160deg,#2c3440,#1d222b);border:1px solid #353a45;border-radius:6px;height:96px;position:relative;cursor:pointer;overflow:hidden;display:flex;align-items:flex-end;padding:10px;}
+.proj-card:hover{border-color:#4096ff;}
+.proj-card .nm{font-size:14px;font-weight:bold;color:#fff;text-shadow:0 1px 3px #000;}
+.proj-card .meta{position:absolute;top:8px;left:10px;font-size:11px;color:#9aa6b3;}
+.proj-card .acts{position:absolute;top:6px;right:8px;display:none;gap:6px;}
+.proj-card:hover .acts{display:flex;}
+.proj-card .acts span{cursor:pointer;color:#cdd3db;font-size:13px;padding:0 2px;}
+.proj-card .acts span:hover{color:#fff;}
+.proj-card .acts .del:hover{color:#ff8888;}
+.proj-new{background:#1d2a22;border:1px dashed #2f7d4f;border-radius:6px;height:96px;display:flex;align-items:center;justify-content:center;color:#7fe0a3;cursor:pointer;font-size:13px;gap:6px;}
+.proj-new:hover{background:#223528;}
+/* 支持者（banner 为横幅图，非头像——与 legacy UISupporterBanner 一致） */
+.sup-group-title{font-size:13px;color:#ffd27c;letter-spacing:1px;margin:16px 0 10px;}
+.sup-grid{display:flex;flex-wrap:wrap;gap:12px;}
+.sup-card{width:250px;background:#2c2c30;border:1px solid #353a45;border-radius:8px;overflow:hidden;cursor:default;}
+.sup-card.link{cursor:pointer;}
+.sup-card.link:hover{border-color:#4096ff;}
+.sup-banner{height:88px;background:linear-gradient(135deg,#3a3f4a,#26262b);position:relative;}
+.sup-banner img{width:100%;height:100%;object-fit:cover;display:block;}
+.sup-banner.noban{background:linear-gradient(135deg,#3a3f4a,#26262b);}
+.sup-name{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:14px;color:#e6e6e6;}
+.sup-name a{color:#9ecbff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sup-tag{margin-left:auto;font-size:11px;padding:2px 9px;border-radius:9px;background:#353a45;color:#9aa6b3;flex:0 0 auto;}
+/* 设置 */
+.set-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #2a2a2e;gap:12px;}
+.set-row .lbl{font-size:13px;}
+.set-row .desc{font-size:11px;color:#888;margin-top:2px;}
+.set-row .grow{flex:1;}
+.toggle{width:44px;height:24px;border-radius:12px;background:#3a3a40;position:relative;cursor:pointer;transition:background .15s;flex:0 0 auto;}
+.toggle.on{background:#2f8f4f;}
+.toggle .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;}
+.toggle.on .knob{left:22px;}
+.ver{font-size:12px;color:#9aa6b3;padding:10px 0;}
+.btn{background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:6px 14px;font-size:12px;cursor:pointer;}
+.btn:hover{background:#094872;color:#fff;}
+/* 新建弹窗 */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9000;}
+.modal-mask.show{display:flex;}
+.modal{background:#242426;border:1px solid #555;border-radius:6px;padding:18px;width:360px;}
+.modal h3{font-size:14px;margin-bottom:14px;}
+.modal input,.modal select{width:100%;background:#1a1d23;border:1px solid #444;color:#e6e6e6;border-radius:3px;padding:7px;font-size:13px;margin-bottom:12px;font-family:inherit;}
+.modal .row{display:flex;gap:8px;justify-content:flex-end;}
+/* 更新提示（左下角，任何 BBS 界面） */
+.update-toast{position:fixed;left:16px;bottom:16px;width:300px;background:#1e2733;border:1px solid #2f6f9f;border-radius:6px;padding:12px 14px;z-index:9999;display:none;box-shadow:0 6px 20px rgba(0,0,0,.5);}
+.update-toast.show{display:block;}
+.update-toast .t{font-size:13px;color:#9ecbff;font-weight:bold;}
+.update-toast .s{font-size:11px;color:#9aa6b3;margin:4px 0 10px;}
+.update-toast .row{display:flex;gap:8px;}
+.update-toast .row .x{margin-left:auto;cursor:pointer;color:#9aa6b3;}
+.update-toast .row .x:hover{color:#fff;}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1d6f42;color:#fff;padding:6px 16px;border-radius:4px;font-size:12px;z-index:99999;opacity:.95;}
+.toast.error{background:#a03030;}
+</style>
+</head>
+<body>
+
+<div class="title-bar">
+  <img class="ico" src="svg/work.svg">
+  <span>BBS 作品库</span>
+  <div class="title-btn" id="btnTitle"><img class="ico" src="svg/close.svg"> 返回标题</div>
+</div>
+
+<div class="main-menu">
+  <div class="menu-top-item">文件<div class="menu-dropdown">
+    <div class="menu-item" data-a="backToTitle">返回标题界面</div>
+  </div></div>
+  <div class="menu-top-item">视图<div class="menu-dropdown">
+    <div class="menu-item" data-a="setTab" data-tab="projects">作品库</div>
+    <div class="menu-item" data-a="setTab" data-tab="supporters">支持者</div>
+    <div class="menu-item" data-a="setTab" data-tab="settings">设置</div>
+  </div></div>
+</div>
+
+<div class="toolbar-slim">
+  <button data-tab="projects"><img class="ico" src="svg/work.svg"> 作品库</button>
+  <button data-tab="supporters"><img class="ico" src="svg/character.svg"> 支持者</button>
+  <button data-tab="settings"><img class="ico" src="svg/settings.svg"> 设置</button>
+  <span class="sep"></span>
+  <span class="hint">BBS · Blockbuster Studio Next</span>
+</div>
+
+<div class="content">
+  <!-- 作品库 -->
+  <div class="view active" id="view-projects">
+    <div class="section-title">我的作品</div>
+    <div class="proj-grid" id="projGrid"></div>
+  </div>
+
+  <!-- 支持者 -->
+  <div class="view" id="view-supporters">
+    <div class="section-title">感谢以下支持者 ❤</div>
+    <div id="supWrap"></div>
+  </div>
+
+  <!-- 设置 -->
+  <div class="view" id="view-settings">
+    <div class="section-title">设置</div>
+    <div class="set-row">
+      <div class="grow">
+        <div class="lbl">自动更新</div>
+        <div class="desc">发现新版本时自动下载并暂存，确认后于 MC 关闭时替换</div>
+      </div>
+      <div class="toggle" id="tgAuto" data-key="autoUpdate"><div class="knob"></div></div>
+    </div>
+    <div class="set-row">
+      <div class="grow">
+        <div class="lbl">更新推送</div>
+        <div class="desc">有新版时在本界面左下角弹出提示</div>
+      </div>
+      <div class="toggle" id="tgPush" data-key="updatePush"><div class="knob"></div></div>
+    </div>
+    <div class="set-row">
+      <div class="grow">
+        <div class="lbl">实时 UI（实验）</div>
+        <div class="desc">从仓库拉取沙箱脚本，仅可改动界面，让你不更新也能体验新版界面（默认关闭）</div>
+      </div>
+      <div class="toggle" id="tgLive" data-key="liveUi"><div class="knob"></div></div>
+    </div>
+    <div class="ver" id="verLine"></div>
+    <button class="btn" id="btnCheck">立即检查更新</button>
+  </div>
+</div>
+
+<!-- 新建作品弹窗 -->
+<div class="modal-mask" id="modal">
+  <div class="modal">
+    <h3>新建作品</h3>
+    <input id="npName" placeholder="作品名称">
+    <div class="row">
+      <button class="btn" id="npCancel">取消</button>
+      <button class="btn" id="npOk" style="background:#2f7d4f;">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- 更新提示 -->
+<div class="update-toast" id="upToast">
+  <div class="t" id="upTitle">新版本可用</div>
+  <div class="s" id="upSub"></div>
+  <div class="row">
+    <button class="btn" id="upBtn">更新</button>
+    <span class="x" id="upX">忽略</span>
+  </div>
+</div>
+
+<script>
+var curTab = 'projects';
+function send(a, p){ p = p || {}; p.a = a; console.log('BBS_ACTION:' + JSON.stringify(p)); }
+function toast(msg, err){ var t = document.createElement('div'); t.className = 'toast' + (err ? ' error' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); }
+
+/* 切换 tab */
+function setTab(tab){
+  curTab = tab;
+  document.documentElement.style.setProperty('--tab', tab);
+  document.querySelectorAll('.toolbar-slim button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
+  document.querySelectorAll('.view').forEach(function(v){ v.classList.toggle('active', v.id === 'view-' + tab); });
+}
+
+/* 渲染作品库（key 缓存：状态每 150ms 推送一次，避免全量重建 DOM） */
+var projKey = '';
+function renderProjects(s){
+  var grid = document.getElementById('projGrid');
+  var key = JSON.stringify(s.projects || []);
+  if(key === projKey) return;
+  projKey = key;
+  grid.innerHTML = '';
+  var neu = document.createElement('div');
+  neu.className = 'proj-new';
+  neu.innerHTML = '<img class="ico" src="svg/plus.svg"> 新建作品';
+  neu.onclick = openNewModal;
+  grid.appendChild(neu);
+  (s.projects || []).forEach(function(p){
+    var c = document.createElement('div');
+    c.className = 'proj-card';
+    c.innerHTML = '<div class="meta">' + (p.createdAt || '') + '</div>' +
+      '<div class="nm">' + escapeHtml(p.name) + '</div>' +
+      '<div class="acts"><span class="rn" title="重命名">✎</span><span class="del" title="删除">✕</span></div>';
+    c.onclick = function(){ send('openProject', { id: p.id }); };
+    c.querySelector('.del').onclick = function(e){ e.stopPropagation(); if(confirm('删除作品「' + p.name + '」？')) send('deleteProject', { id: p.id }); };
+    c.querySelector('.rn').onclick = function(e){ e.stopPropagation(); var n = prompt('重命名为：', p.name); if(n && n.trim()) send('renameProject', { id: p.id, name: n.trim() }); };
+    grid.appendChild(c);
+  });
+}
+
+/* 渲染支持者：banner 是横幅图（非头像），失败显示渐变占位；
+   平台徽标取自链接域名，点击卡片经 send('openLink') 用系统浏览器打开。
+   用 key 缓存避免每次状态推送(150ms)重建 DOM 导致图片反复加载抽搐。 */
+var supKey = '';
+function renderSupporters(groups){
+  var wrap = document.getElementById('supWrap');
+  var key = JSON.stringify(groups || {});
+  if(key === supKey) return;
+  supKey = key;
+  wrap.innerHTML = '';
+  var defs = [['developers','开发者'], ['cc','内容创作者'], ['super','超级支持者'], ['early','BBS 抢先体验']];
+  defs.forEach(function(d){
+    var list = (groups && groups[d[0]]) || [];
+    if(!list.length) return;
+    var t = document.createElement('div'); t.className = 'sup-group-title'; t.textContent = d[1];
+    wrap.appendChild(t);
+    var grid = document.createElement('div'); grid.className = 'sup-grid';
+    list.forEach(function(sup){
+      var card = document.createElement('div');
+      card.className = 'sup-card' + (sup.link ? ' link' : '');
+      if(sup.banner){
+        var b = document.createElement('div'); b.className = 'sup-banner';
+        var img = document.createElement('img'); img.src = sup.banner; img.alt = '';
+        img.onerror = function(){ b.classList.add('noban'); img.remove(); };
+        b.appendChild(img); card.appendChild(b);
+      }
+      var nameRow = document.createElement('div'); nameRow.className = 'sup-name';
+      if(sup.link){
+        var a = document.createElement('a'); a.href = sup.link; a.title = sup.link; a.textContent = sup.name;
+        nameRow.appendChild(a);
+        var tag = document.createElement('span'); tag.className = 'sup-tag'; tag.textContent = plat(sup.link);
+        nameRow.appendChild(tag);
+        card.onclick = function(){ send('openLink', { url: sup.link }); };
+      } else { nameRow.appendChild(document.createTextNode(sup.name)); }
+      card.appendChild(nameRow);
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
+  });
+}
+function plat(link){
+  if(link.indexOf('bilibili') >= 0) return 'B站';
+  if(link.indexOf('youtube') >= 0) return 'YT';
+  if(link.indexOf('twitter') >= 0 || link.indexOf('//x.com') >= 0) return 'X';
+  if(link.indexOf('douyin') >= 0 || link.indexOf('tiktok') >= 0) return '抖音';
+  if(link.indexOf('kuaishou') >= 0) return '快手';
+  return '链接';
+}
+
+/* 渲染设置 */
+function renderSettings(s){
+  var st = s.settings || { autoUpdate:false, updatePush:true };
+  document.getElementById('tgAuto').classList.toggle('on', !!st.autoUpdate);
+  document.getElementById('tgPush').classList.toggle('on', !!st.updatePush);
+  document.getElementById('tgLive').classList.toggle('on', !!st.liveUi);
+  document.getElementById('verLine').textContent = '当前版本：' + (s.localVersion || '?');
+}
+
+/* 更新提示 */
+function renderUpdate(s){
+  var t = document.getElementById('upToast');
+  if(!s.update){ t.classList.remove('show'); return; }
+  document.getElementById('upTitle').textContent = '发现新版本 ' + s.update.version;
+  document.getElementById('upSub').textContent = (s.update.releaseName || '') + (s.update.staged ? '（已下载，待安装）' : '（点击下载并安装）');
+  document.getElementById('upBtn').textContent = s.update.staged ? '安装更新' : '下载并更新';
+  t.classList.add('show');
+}
+
+function renderAll(){
+  var s = window.bbsState;
+  if(!s) return;
+  if(s.localVersion === undefined) s.localVersion = '?';
+  renderProjects(s);
+  renderSupporters(s.supporters);
+  renderSettings(s);
+  renderUpdate(s);
+  setTab(curTab);
+}
+window.__onState = renderAll;
+
+/* 新建作品弹窗 */
+function openNewModal(){
+  document.getElementById('npName').value = '';
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('npName').focus();
+}
+function closeModal(){ document.getElementById('modal').classList.remove('show'); }
+document.getElementById('npCancel').onclick = closeModal;
+document.getElementById('npOk').onclick = function(){
+  var name = document.getElementById('npName').value.trim();
+  if(!name){ toast('请输入作品名称', true); return; }
+  send('createProject', { name: name });
+  closeModal();
+};
+
+/* 顶部/菜单/按钮 */
+document.querySelectorAll('.toolbar-slim button').forEach(function(b){ b.onclick = function(){ setTab(b.getAttribute('data-tab')); }; });
+document.querySelectorAll('.main-menu .menu-item').forEach(function(it){
+  it.onclick = function(e){ e.stopPropagation(); var a = it.getAttribute('data-a'); if(a === 'setTab'){ setTab(it.getAttribute('data-tab')); } else { send(a, {}); } };
+});
+document.getElementById('btnTitle').onclick = function(){ send('backToTitle'); };
+document.getElementById('btnCheck').onclick = function(){ send('checkUpdate'); toast('正在检查更新…'); };
+document.getElementById('tgAuto').onclick = function(){ var k = this.getAttribute('data-key'); var on = !this.classList.contains('on'); this.classList.toggle('on', on); send('setSetting', { key:k, value:on }); };
+document.getElementById('tgPush').onclick = function(){ var k = this.getAttribute('data-key'); var on = !this.classList.contains('on'); this.classList.toggle('on', on); send('setSetting', { key:k, value:on }); };
+document.getElementById('tgLive').onclick = function(){ var k = this.getAttribute('data-key'); var on = !this.classList.contains('on'); this.classList.toggle('on', on); send('setSetting', { key:k, value:on }); if(on){ toast('已开启实时 UI，将从仓库拉取界面脚本'); } };
+document.getElementById('upBtn').onclick = function(){ send('updateNow'); toast('已开始更新（MC 关闭后自动替换）'); };
+document.getElementById('upX').onclick = function(){ send('dismissUpdate'); document.getElementById('upToast').classList.remove('show'); };
+
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+renderAll();
+</script>
+</body>
+</html>

@@ -200,32 +200,63 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         texture.bind();
         texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
 
-        /* Front */
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, 1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, 1F);
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, pose, 1F);
+        /* GUI PiP phase must not open a render pass. Submit the quad through
+         * the active collector (its render type already carries the bridged
+         * BBS texture) instead of drawing it manually. */
+        net.minecraft.client.renderer.SubmitNodeCollector collector = mchorse.bbs_mod.client.PipGeometry.getCollector();
 
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, 1F);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, pose, 1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, 1F);
+        if (collector != null)
+        {
+            /* Snapshot the final model matrix: the collector runs the geometry
+             * callback later, possibly after the caller's stack is popped. */
+            PoseStack snapshot = new PoseStack();
+            snapshot.last().pose().set(matrices.last().pose());
+            snapshot.last().normal().set(matrices.last().normal());
 
-        /* Back */
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, pose, -1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, -1F);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, -1F);
+            collector.submitCustomGeometry(matrices, mchorse.bbs_mod.client.PipGeometry.getModelRenderType(textureLink), (cbPose, consumer) ->
+            {
+                this.fillQuad(format, consumer, snapshot.last().pose(), snapshot.last(), color, overlay, light);
+            });
 
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, -1F);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, pose, -1F);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, -1F);
+            return;
+        }
 
         // [MC 26.2] RenderSystem.defaultBlendFunc/enableBlend/BufferRenderer removed
         texture.setFilterMipmap(false, false);
+
+        this.fillQuad(format, builder, matrix, pose, color, overlay, light);
 
         /* Draw the filled quad through the 26.2 pipeline with the BBS
          * texture bound to Sampler0 (without this the quad never appears). */
         Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT,
             textureLink == null ? null : mchorse.bbs_mod.client.PipGeometry.bridgeView(textureLink),
             textureLink == null ? null : mchorse.bbs_mod.client.PipGeometry.bridgeSampler());
+    }
+
+    /**
+     * Emit the billboard's front/back triangles into the given vertex
+     * consumer. Shared by the world (BufferBuilder) and GUI PiP (collector
+     * consumer) paths so the geometry is built identically in both.
+     */
+    private void fillQuad(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, PoseStack.Pose pose, Color color, int overlay, int light)
+    {
+        /* Front */
+        this.fill(format, consumer, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, 1F);
+        this.fill(format, consumer, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, 1F);
+        this.fill(format, consumer, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, pose, 1F);
+
+        this.fill(format, consumer, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, 1F);
+        this.fill(format, consumer, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, pose, 1F);
+        this.fill(format, consumer, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, 1F);
+
+        /* Back */
+        this.fill(format, consumer, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, pose, -1F);
+        this.fill(format, consumer, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, -1F);
+        this.fill(format, consumer, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, -1F);
+
+        this.fill(format, consumer, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, pose, -1F);
+        this.fill(format, consumer, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, pose, -1F);
+        this.fill(format, consumer, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, pose, -1F);
     }
 
     private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, Color color, float u, float v, int overlay, int light, PoseStack.Pose pose, float nz)
