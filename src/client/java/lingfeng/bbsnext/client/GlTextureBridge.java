@@ -1,16 +1,27 @@
 package lingfeng.bbsnext.client;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.imageio.ImageIO;
 
 /**
  * Bridges raw OpenGL textures (as produced by BBS's own world/film
@@ -22,8 +33,10 @@ import java.util.Map;
  * can no longer be blitted. This class reads the GL texture back on the CPU
  * and registers it as a DynamicTexture (cached per GL id + size).
  *
- * GL-only: on Vulkan backends there is no current GL context, so the bridge
- * returns null and the caller falls back to a solid fill.
+ * The GL-only {@link #getOrCreate} bridge (used for BBS's own FBO textures)
+ * still requires an OpenGL context; the editor live-preview capture
+ * ({@link #captureMainRenderTarget}) is backend-agnostic and works on both
+ * OpenGL and Vulkan via the vanilla screenshot readback.
  */
 public class GlTextureBridge
 {
@@ -219,7 +232,7 @@ public class GlTextureBridge
         }
     }
 
-    private static boolean hasGlContext()
+    public static boolean hasGlContext()
     {
         try
         {
@@ -229,5 +242,152 @@ public class GlTextureBridge
         {
             return false;
         }
+    }
+
+    /**
+     * Reads a GL texture (by id) back to the CPU and returns it as PNG bytes,
+     * downscaled so the longer side is at most {@code maxSide}. Used to push
+     * the live 3D world into the HTML editor preview. Returns null when no GL
+     * context is available (Vulkan backend) or the readback is empty.
+     *
+     * <p>The GL readback is bottom-up RGBA; we flip vertically and convert to
+     * ARGB so the produced PNG is upright.
+     */
+    public static byte[] captureTextureToPng(int glId, int width, int height, int maxSide)
+    {
+        if (!hasGlContext() || glId < 0 || width <= 0 || height <= 0 || maxSide <= 0)
+        {
+            return null;
+        }
+
+        ByteBuffer buffer = readPixels(glId, width, height);
+
+        if (buffer == null)
+        {
+            return null;
+        }
+
+        int tgtW = Math.min(maxSide, width);
+        int tgtH = Math.max(1, Math.round((float) tgtW * height / width));
+
+        int[] argb = new int[tgtW * tgtH];
+
+        for (int ty = 0; ty < tgtH; ty++)
+        {
+            int sy = (height - 1) - (int) ((ty + 0.5F) * height / tgtH);
+
+            for (int tx = 0; tx < tgtW; tx++)
+            {
+                int sx = (int) ((tx + 0.5F) * width / tgtW);
+                int src = (sy * width + sx) * 4;
+
+                int r = buffer.get(src) & 0xFF;
+                int g = buffer.get(src + 1) & 0xFF;
+                int b = buffer.get(src + 2) & 0xFF;
+                int a = buffer.get(src + 3) & 0xFF;
+
+                argb[ty * tgtW + tx] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        }
+
+        BufferedImage image = new BufferedImage(tgtW, tgtH, BufferedImage.TYPE_INT_ARGB);
+        image.setRGB(0, 0, tgtW, tgtH, argb, 0, tgtW);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        try
+        {
+            ImageIO.write(image, "png", baos);
+        }
+        catch (IOException e)
+        {
+            return null;
+        }
+
+        return baos.toByteArray();
+    }
+
+    /**
+     * Captures Minecraft's main render target (the live 3D world) into a PNG,
+     * downscaled so the longer side is at most {@code maxSide}. This is how the
+     * HTML editor's centre "player" gets a real picture of the world instead of
+     * a dead decoration.
+     *
+     * <p>Backend-agnostic: it uses the vanilla {@link Screenshot#takeScreenshot}
+     * readback, the same code path the F2 screenshot takes, which works on both
+     * the OpenGL and the Vulkan renderers. The returned image is already
+     * screen-upright, so no vertical flip is applied (unlike the raw GL
+     * readback used elsewhere). Returns null for any failure (null target,
+     * empty readback, encode error, etc).
+     */
+    public static byte[] captureMainRenderTarget(RenderTarget rt, int maxSide)
+    {
+        if (rt == null || maxSide <= 0)
+        {
+            return null;
+        }
+
+        /* MC 26.2: Screenshot.takeScreenshot is callback-based and
+         * backend-agnostic (works on both OpenGL and Vulkan). The provided
+         * NativeImage is only valid inside the callback, so we encode + scale
+         * it here and stash the resulting bytes in a holder. */
+        final byte[][] holder = new byte[1][];
+
+        Screenshot.takeScreenshot(rt, image -> {
+            try
+            {
+                int w = image.getWidth();
+                int h = image.getHeight();
+
+                if (w <= 0 || h <= 0)
+                {
+                    return;
+                }
+
+                /* Let Minecraft's own PNG writer produce a correctly oriented
+                 * (screen-upright) image, then decode + scale on the CPU. We do
+                 * not close `image` here: the screenshot utility owns its
+                 * lifetime and releases it after the callback returns. */
+                Path tmp = Files.createTempFile("bbs_preview", ".png");
+
+                try
+                {
+                    image.writeToFile(tmp);
+
+                    BufferedImage full = ImageIO.read(tmp.toFile());
+
+                    if (full == null)
+                    {
+                        return;
+                    }
+
+                    int tgtW = Math.min(maxSide, w);
+                    int tgtH = Math.max(1, Math.round((float) tgtW * h / w));
+
+                    BufferedImage scaled = new BufferedImage(tgtW, tgtH, BufferedImage.TYPE_INT_ARGB);
+                    Graphics2D g = scaled.createGraphics();
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g.drawImage(full, 0, 0, tgtW, tgtH, null);
+                    g.dispose();
+
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+                    if (ImageIO.write(scaled, "png", baos))
+                    {
+                        holder[0] = baos.toByteArray();
+                    }
+                }
+                finally
+                {
+                    Files.deleteIfExists(tmp);
+                }
+            }
+            catch (Throwable t)
+            {
+                /* swallow; holder stays null */
+            }
+        });
+
+        return holder[0];
     }
 }
