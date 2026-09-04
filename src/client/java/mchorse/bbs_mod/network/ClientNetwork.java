@@ -13,6 +13,7 @@ import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.items.GunProperties;
 import mchorse.bbs_mod.morphing.Morph;
@@ -23,7 +24,6 @@ import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
-import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.repos.RepositoryOperation;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -41,6 +41,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.core.BlockPos;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -270,8 +271,8 @@ public class ClientNetwork
                     UIScreen.open(dashboard);
                 }
 
-                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
-                BBSModClient.getFormCategories().getRecentForms().getCategories().get(0).addForm(finalForm);
+                List<FormCategory> categories = BBSModClient.getFormCategories().getRecentForms().getCategories();
+                if (!categories.isEmpty()) categories.get(0).addForm(finalForm);
                 dashboard.context.notifyInfo(UIKeys.FORMS_SHARED_NOTIFICATION.format(finalForm.getDisplayName()));
             });
         });

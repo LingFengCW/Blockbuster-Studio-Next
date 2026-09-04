@@ -225,21 +225,36 @@ public class Texture
          * loading the texture.
          *
          * https://www.khronos.org/opengl/wiki/Pixel_Transfer#Pixel_layout */
+        int prevAlign = GL11.glGetInteger(GL11.GL_UNPACK_ALIGNMENT);
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
 
         this.setFormat(pixels.bits == 4 ? TextureFormat.RGBA_U8 : TextureFormat.RGB_U8);
         this.uploadTexture(target, level, pixels.width, pixels.height, pixels.getBuffer());
+
+        /* Restore the unpack alignment we changed so subsequent texture
+         * uploads by Minecraft / Iris / Sodium are not misaligned. */
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, prevAlign);
 
         pixels.delete();
     }
 
     public void uploadTexture(int target, int level, int w, int h, ByteBuffer buffer)
     {
+        int prevRowLength = GL11.glGetInteger(GL11.GL_UNPACK_ROW_LENGTH);
+        int prevSkipPixels = GL11.glGetInteger(GL11.GL_UNPACK_SKIP_PIXELS);
+        int prevSkipRows = GL11.glGetInteger(GL11.GL_UNPACK_SKIP_ROWS);
+
         GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, w);
         GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
         GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
 
         GL11.glTexImage2D(target, level, this.format.internal, w, h, 0, this.format.format, this.format.type, buffer);
+
+        /* Restore the pixel-store state we changed so subsequent texture
+         * uploads by Minecraft / Iris / Sodium are not misaligned. */
+        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, prevRowLength);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, prevSkipPixels);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, prevSkipRows);
 
         if (level == 0)
         {

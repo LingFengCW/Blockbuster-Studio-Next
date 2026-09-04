@@ -43,6 +43,14 @@ public class Draw
         com.mojang.blaze3d.textures.GpuTextureView textureView,
         com.mojang.blaze3d.textures.GpuSampler sampler)
     {
+        /* GUI PiP phase must never open a render pass - skip and drop the
+         * geometry instead of crashing (deep callers submit via collector). */
+        if (mchorse.bbs_mod.client.PipGeometry.getCollector() != null)
+        {
+            mchorse.bbs_mod.client.PipGeometry.debug("drawBufferInGui", "Draw.drawBuffer called during GUI PiP - skipped");
+            return;
+        }
+
         MeshData mesh = builder.buildOrThrow();
         MeshData.DrawState drawState = mesh.drawState();
         Minecraft mc = Minecraft.getInstance();
@@ -102,6 +110,14 @@ public class Draw
 
     public static void drawBuffer(BufferBuilder builder, RenderPipeline pipeline)
     {
+        /* GUI PiP phase must never open a render pass - skip and drop the
+         * geometry instead of crashing (deep callers submit via collector). */
+        if (mchorse.bbs_mod.client.PipGeometry.getCollector() != null)
+        {
+            mchorse.bbs_mod.client.PipGeometry.debug("drawBufferInGui", "Draw.drawBuffer called during GUI PiP - skipped");
+            return;
+        }
+
         MeshData mesh = builder.buildOrThrow();
         MeshData.DrawState drawState = mesh.drawState();
         VertexFormat format = drawState.format();

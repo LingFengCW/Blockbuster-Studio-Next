@@ -2,6 +2,7 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import com.mojang.blaze3d.platform.Window;
+import lingfeng.bbsnext.mcef.EditorBridge;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,17 +23,15 @@ public class WindowMixin
     @Shadow
     private int height;
 
-    private static final String BBS_TITLE = "Blockbuster Studio Next";
-
     /**
-     * Intercept every call to Window.setTitle and replace the title with
-     * our custom one, so MC (loading screen, world name, server name etc.)
-     * can never overwrite it.
+     * Intercept every call to Window.setTitle and replace the title with the
+     * live BBS project + save-status title, so MC (loading screen, world name,
+     * server name etc.) can never overwrite it.
      */
     @Inject(method = "setTitle", at = @At("HEAD"), cancellable = true)
     public void onSetTitle(CallbackInfo ci)
     {
-        GLFW.glfwSetWindowTitle(this.handle, BBS_TITLE);
+        GLFW.glfwSetWindowTitle(this.handle, EditorBridge.getWindowTitle());
         ci.cancel();
     }
 

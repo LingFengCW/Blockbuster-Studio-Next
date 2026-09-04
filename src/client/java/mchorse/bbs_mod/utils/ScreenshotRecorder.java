@@ -86,7 +86,10 @@ public class ScreenshotRecorder
 
         ScreenshotRunner runner = new ScreenshotRunner(width, height, pixels, output);
 
-        new Thread(runner).start();
+        // daemon: one-shot background PNG write (slow IO), fire-and-forget
+        Thread screenshotThread = new Thread(runner);
+        screenshotThread.setDaemon(true);
+        screenshotThread.start();
     }
 
     /**

@@ -8,11 +8,6 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.selectors.ISelectorOwnerProvider;
 import mchorse.bbs_mod.selectors.SelectorOwner;
-import mchorse.bbs_mod.ui.dashboard.UIDashboard;
-import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
-import mchorse.bbs_mod.ui.framework.UIBaseMenu;
-import mchorse.bbs_mod.ui.framework.UIScreen;
-import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -72,18 +67,6 @@ public class MorphRenderer
 
     private static boolean canRender()
     {
-        UIBaseMenu menu = UIScreen.getCurrentMenu();
-        
-        if (menu instanceof UIDashboard dashboard)
-        {
-            UIDashboardPanel panel = dashboard.getPanels().panel;
-
-            if (panel instanceof UIMorphingPanel morphingPanel)
-            {
-                return !morphingPanel.palette.editor.isEditing();
-            }
-        }
-
         return true;
     }
 

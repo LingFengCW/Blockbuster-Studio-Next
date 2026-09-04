@@ -16,6 +16,8 @@
         "MouseHandlerMixin",
         "OptionInstanceMixin",
         "WindowMixin",
+        "SelectWorldScreenMixin",
+        "CreateWorldScreenMixin",
         "iris.CustomUniformsAccessor",
         "iris.CustomUniformsBuilderMixin",
         "iris.IrisMixin",

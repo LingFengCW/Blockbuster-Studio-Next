@@ -144,7 +144,7 @@ public class TextureManager implements IWatchDogListener
 
     public Texture createTexture(Link link)
     {
-        return this.createTexture(link);
+        return this.createTexture(link, 0);
     }
 
     public Texture createTexture(Link link, int filter)
