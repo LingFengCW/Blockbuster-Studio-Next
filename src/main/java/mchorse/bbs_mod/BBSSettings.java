@@ -114,7 +114,7 @@ public class BBSSettings
 
     public static int primaryColor(int alpha)
     {
-        return primaryColor.get() | alpha;
+        return primaryColor == null ? (Colors.ACTIVE | alpha) : (primaryColor.get() | alpha);
     }
 
     public static int getDefaultDuration()

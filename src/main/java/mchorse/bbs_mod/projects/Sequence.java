@@ -36,6 +36,8 @@ public class Sequence
         public static final String SEQUENCE = "sequence";
         public static final String MCPR = "mcpr";
         public static final String AUDIO = "audio";
+        public static final String CAMERA = "camera";
+        public static final String CAMERAGROUP = "cameragroup";
 
         public String type;
         public String id;

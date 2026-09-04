@@ -6,6 +6,7 @@ import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.DamageActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.LocomotionActionClip;
+import mchorse.bbs_mod.actions.types.RecordedPathActionClip;
 import mchorse.bbs_mod.actions.types.ScriptActionClip;
 import mchorse.bbs_mod.actions.types.blocks.BreakBlockActionClip;
 import mchorse.bbs_mod.actions.types.blocks.InteractBlockActionClip;
@@ -79,6 +80,7 @@ import mchorse.bbs_mod.settings.SettingsBuilder;
 import mchorse.bbs_mod.settings.SettingsManager;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import lingfeng.bbsnext.film.replays.ActionGroup;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.factory.MapFactory;
@@ -501,7 +503,9 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("damage"), DamageActionClip.class, new ClipFactoryData(Icons.SKULL, Colors.CURSOR))
             .register(Link.bbs("swipe"), SwipeActionClip.class, new ClipFactoryData(Icons.LIMB, Colors.ORANGE))
             .register(Link.bbs("locomotion"), LocomotionActionClip.class, new ClipFactoryData(Icons.USER, Colors.GREEN))
-            .register(Link.bbs("script"), ScriptActionClip.class, new ClipFactoryData(Icons.PROCESSOR, Colors.MAGENTA));
+            .register(Link.bbs("recorded_path"), RecordedPathActionClip.class, new ClipFactoryData(Icons.POINTER, 0x00b3a4))
+            .register(Link.bbs("script"), ScriptActionClip.class, new ClipFactoryData(Icons.PROCESSOR, Colors.MAGENTA))
+            .register(Link.bbs("action_group"), ActionGroup.class, new ClipFactoryData(Icons.LIST, Colors.ORANGE));
 
         setupConfig(Icons.PROCESSOR, "bbs", new File(settingsFolder, "bbs.json"), BBSSettings::register);
 

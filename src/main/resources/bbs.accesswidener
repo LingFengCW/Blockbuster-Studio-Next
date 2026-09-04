@@ -11,3 +11,6 @@ mutable field net/minecraft/client/Minecraft framebuffer Lnet/minecraft/client/g
 
 accessible method net/minecraft/client/gui/screens/TitleScreen createNormalMenuOptions (II)I
 accessible method net/minecraft/client/gui/screens/Screen addRenderableWidget (Lnet/minecraft/client/gui/components/Renderable;)Lnet/minecraft/client/gui/components/Renderable;
+
+accessible field net/minecraft/client/renderer/special/SpecialModelRenderers ID_MAPPER Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;
+mutable field net/minecraft/client/renderer/special/SpecialModelRenderers ID_MAPPER Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;

@@ -51,6 +51,9 @@ public class Backpack
     public static final String TYPE_FORM = "form";
     public static final String TYPE_SCENE = "scene";
     public static final String TYPE_SEQUENCE = "sequence";
+    public static final String TYPE_REPLAY = "replay";
+    public static final String TYPE_CAMERA = "camera";
+    public static final String TYPE_CAMERAGROUP = "cameragroup";
 
     /**
      * One backpack item: the folder name (unique key), its type and the

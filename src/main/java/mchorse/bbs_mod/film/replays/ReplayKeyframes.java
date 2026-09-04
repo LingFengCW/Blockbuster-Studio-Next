@@ -250,15 +250,15 @@ public class ReplayKeyframes extends ValueGroup
 
         if (position)
         {
-            entity.setVelocity(this.vX.interpolate(tick).floatValue(), this.vY.interpolate(tick).floatValue(), this.vZ.interpolate(tick).floatValue());
-            entity.setFallDistance(this.fall.interpolate(tick).floatValue());
+            entity.setVelocity(this.vX.sample(tick).floatValue(), this.vY.sample(tick).floatValue(), this.vZ.sample(tick).floatValue());
+            entity.setFallDistance(this.fall.sample(tick).floatValue());
 
             KeyframeSegment<Double> x = this.x.findSegment(tick);
-            Vector2d xx = this.getPrev(x, this.x.interpolate(tick - 1), tick);
+            Vector2d xx = this.getPrev(x, this.x.sample(tick - 1), tick);
             KeyframeSegment<Double> y = this.y.findSegment(tick);
-            Vector2d yy = this.getPrev(y, this.y.interpolate(tick - 1), tick);
+            Vector2d yy = this.getPrev(y, this.y.sample(tick - 1), tick);
             KeyframeSegment<Double> z = this.z.findSegment(tick);
-            Vector2d zz = this.getPrev(z, this.z.interpolate(tick - 1), tick);
+            Vector2d zz = this.getPrev(z, this.z.sample(tick - 1), tick);
 
             entity.setPosition(xx.x, yy.x, zz.x);
             entity.setPrevX(xx.y);
@@ -269,13 +269,13 @@ public class ReplayKeyframes extends ValueGroup
         if (rotation)
         {
             KeyframeSegment<Double> yaw = this.yaw.findSegment(tick);
-            Vector2d yyaw = this.getPrev(yaw, this.yaw.interpolate(tick - 1), tick);
+            Vector2d yyaw = this.getPrev(yaw, this.yaw.sample(tick - 1), tick);
             KeyframeSegment<Double> pitch = this.pitch.findSegment(tick);
-            Vector2d ppitch = this.getPrev(pitch, this.pitch.interpolate(tick - 1), tick);
+            Vector2d ppitch = this.getPrev(pitch, this.pitch.sample(tick - 1), tick);
             KeyframeSegment<Double> headYaw = this.headYaw.findSegment(tick);
-            Vector2d hheadYaw = this.getPrev(headYaw, this.headYaw.interpolate(tick - 1), tick);
+            Vector2d hheadYaw = this.getPrev(headYaw, this.headYaw.sample(tick - 1), tick);
             KeyframeSegment<Double> bodyYaw = this.bodyYaw.findSegment(tick);
-            Vector2d bbodyYaw = this.getPrev(bodyYaw, this.bodyYaw.interpolate(tick - 1), tick);
+            Vector2d bbodyYaw = this.getPrev(bodyYaw, this.bodyYaw.sample(tick - 1), tick);
 
             entity.setYaw((float) yyaw.x);
             entity.setPitch((float) ppitch.x);
@@ -289,49 +289,49 @@ public class ReplayKeyframes extends ValueGroup
         }
 
         /* Motion and fall distance */
-        entity.setSneaking(this.sneaking.interpolate(tick) != 0D);
-        entity.setSprinting(this.sprinting.interpolate(tick) != 0D);
-        entity.setOnGround(this.grounded.interpolate(tick) != 0D);
-        entity.setHurtTimer(this.damage.interpolate(tick).intValue());
+        entity.setSneaking(this.sneaking.sample(tick) != 0D);
+        entity.setSprinting(this.sprinting.sample(tick) != 0D);
+        entity.setOnGround(this.grounded.sample(tick) != 0D);
+        entity.setHurtTimer(this.damage.sample(tick).intValue());
 
         float[] sticks = entity.getExtraVariables();
 
         if (leftStick)
         {
-            sticks[0] = this.stickLeftX.interpolate(tick).floatValue();
-            sticks[1] = this.stickLeftY.interpolate(tick).floatValue();
+            sticks[0] = this.stickLeftX.sample(tick).floatValue();
+            sticks[1] = this.stickLeftY.sample(tick).floatValue();
         }
 
         if (rightStick)
         {
-            sticks[2] = this.stickRightX.interpolate(tick).floatValue();
-            sticks[3] = this.stickRightY.interpolate(tick).floatValue();
+            sticks[2] = this.stickRightX.sample(tick).floatValue();
+            sticks[3] = this.stickRightY.sample(tick).floatValue();
         }
 
         if (triggers)
         {
-            sticks[4] = this.triggerLeft.interpolate(tick).floatValue();
-            sticks[5] = this.triggerRight.interpolate(tick).floatValue();
+            sticks[4] = this.triggerLeft.sample(tick).floatValue();
+            sticks[5] = this.triggerRight.sample(tick).floatValue();
         }
 
         if (extra1)
         {
-            sticks[6] = this.extra1X.interpolate(tick).floatValue();
-            sticks[7] = this.extra1Y.interpolate(tick).floatValue();
+            sticks[6] = this.extra1X.sample(tick).floatValue();
+            sticks[7] = this.extra1Y.sample(tick).floatValue();
         }
 
         if (extra2)
         {
-            sticks[8] = this.extra2X.interpolate(tick).floatValue();
-            sticks[9] = this.extra2Y.interpolate(tick).floatValue();
+            sticks[8] = this.extra2X.sample(tick).floatValue();
+            sticks[9] = this.extra2Y.sample(tick).floatValue();
         }
 
-        entity.setEquipmentStack(EquipmentSlot.MAINHAND, this.mainHand.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.OFFHAND, this.offHand.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.HEAD, this.armorHead.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.CHEST, this.armorChest.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.LEGS, this.armorLegs.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.FEET, this.armorFeet.interpolate(tick));
+        entity.setEquipmentStack(EquipmentSlot.MAINHAND, this.mainHand.sample(tick));
+        entity.setEquipmentStack(EquipmentSlot.OFFHAND, this.offHand.sample(tick));
+        entity.setEquipmentStack(EquipmentSlot.HEAD, this.armorHead.sample(tick));
+        entity.setEquipmentStack(EquipmentSlot.CHEST, this.armorChest.sample(tick));
+        entity.setEquipmentStack(EquipmentSlot.LEGS, this.armorLegs.sample(tick));
+        entity.setEquipmentStack(EquipmentSlot.FEET, this.armorFeet.sample(tick));
     }
 
     /**
