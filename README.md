@@ -78,17 +78,17 @@ env -i PATH="/d/Program Files/Java/jdk-26.0.1/bin:/usr/bin:/bin" \
 
 ## 许可证 / License
 
-本项目采用**双许可证**结构（混合 MIT 原作 + PNC 二次分发），详见 [`NOTICE.md`](NOTICE.md)：
+本项目遵循 MIT 的「按作者归属」原则：原作代码归原作者，本项目代码归本项目维护者。详见 [`NOTICE.md`](NOTICE.md)：
 
-- **原作（McHorse 的 BBS mod）未修改或轻度修改（≤50% 有效源码行）部分**：MIT — 见 [`LICENSE-MIT`](LICENSE-MIT)
-- **新增代码与全部修改（包 `lingfeng.bbsnext.*` 及改动 >50% 的文件）**：PNC（Public‑Not‑Commercial，公开‑非商业）— 见 [`LICENSE`](LICENSE)（英文）/ [`LICENSE.zh-CN`](LICENSE.zh-CN)
+- **原作（McHorse 的 BBS mod）**：MIT — 见 [`LICENSE-MIT`](LICENSE-MIT)
+- **本项目（包 `lingfeng.bbsnext.*` 及新增 / 重写文件）**：PNC（Public‑Not‑Commercial，公开‑非商业）— 见 [`LICENSE`](LICENSE)（英文）/ [`LICENSE.zh-CN`](LICENSE.zh-CN)
 
-PNC 关键条款摘要：
+PNC 关键条款摘要（仅约束本项目专有部分）：
 - 闭源分发须在 README / 关于页 / 更新日志显著标注原作者（McHorse）；
-- 整体聚合比例 > 30% 时不得用于任何商业行为；
+- 未经原作者书面许可不得用于任何商业行为；
 - 修改后的衍生二进制未经原作者书面许可不得公开渠道分发（本地编译 / 自用除外）。
 
-比率计算器（履行 PNC §5‑A）位于 [`tools/pnc_ratio.py`](tools/pnc_ratio.py)。
+PNC §5‑A 比率计算逻辑保留于 [`tools/pnc_ratio.py`](tools/pnc_ratio.py)。
 
 ---
 
