@@ -4662,6 +4662,8 @@ public class EditorBridge implements IHtmlBridge
             if (e instanceof LivingEntity le)
             {
                 freplay.applyActions(le, SuperFakePlayer.get(world), ffilm, ftick);
+                /* 应用 material/form（含现代 morph 换形）切片，与生产路径 BaseFilmController 每帧 applyClientActions 一致，否则预览时换形/材质变化不显示 */
+                freplay.applyClientActions(ftick, new MCEntity(e), ffilm);
                 freplay.keyframes.apply(ftick, new MCEntity(e));
             }
         });
@@ -4728,6 +4730,8 @@ public class EditorBridge implements IHtmlBridge
                 if (e instanceof LivingEntity le)
                 {
                     freplay.applyActions(le, SuperFakePlayer.get(world), ffilm, t);
+                    /* 应用 material/form（含现代 morph 换形）切片，与生产路径 BaseFilmController 每帧 applyClientActions 一致，否则预览时换形/材质变化不显示 */
+                    freplay.applyClientActions(t, new MCEntity(e), ffilm);
                     freplay.keyframes.apply(t, new MCEntity(e));
                 }
             });
