@@ -71,6 +71,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     private String lastNBT = "";
     private boolean lastSlim;
 
+    private String activeId = "";
+    private long morphClockMs = 0;
+    private long lastMorphMs = -1;
+
     public float prevInteractionHandSwing;
     private float yRotOHead;
     private float xRotO;
@@ -169,7 +173,47 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     }
 
     public void ensureEntity()
-    {        String id = this.form.mobID.get();
+    {
+        String group = this.form.mobGroup.get();
+        String id;
+
+        if (group != null && !group.trim().isEmpty())
+        {
+            String[] models = group.split("\\|");
+
+            if (models.length > 0)
+            {
+                long now = System.currentTimeMillis();
+
+                if (this.lastMorphMs >= 0)
+                {
+                    this.morphClockMs += (now - this.lastMorphMs);
+                }
+
+                this.lastMorphMs = now;
+
+                float dur = Math.max(0.1F, this.form.mobMorphDur.get());
+                int idx = (int) (this.morphClockMs / (dur * 1000F)) % models.length;
+
+                if (idx < 0)
+                {
+                    idx += models.length;
+                }
+
+                id = models[idx].trim();
+            }
+            else
+            {
+                id = this.form.mobID.get();
+            }
+        }
+        else
+        {
+            this.lastMorphMs = -1;
+            id = this.form.mobID.get();
+        }
+
+        this.activeId = id;
         String nbt = this.form.mobNBT.get();
         boolean slim = this.form.slim.get();
 
@@ -225,7 +269,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             mchorse.bbs_mod.client.PipGeometry.debug("mobCreate", "ensureEntity: entity type not found for " + id);
         }
 
-        if (this.entity == null && this.form.isPlayer())
+        if (this.entity == null && (this.form.isPlayer() || this.activeId.equals("minecraft:player")))
         {
             this.entity = new RemotePlayer(Minecraft.getInstance().level, slim ? SLIM : WIDE);
         }
@@ -279,7 +323,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         }
         catch (Exception e)
         {
-            PipGeometry.debug("mobCreate", "factory fallback failed for " + this.form.mobID.get() + ": " + e.getMessage());        }
+            PipGeometry.debug("mobCreate", "factory fallback failed for " + this.activeId + ": " + e.getMessage());        }
 
         return null;
     }
@@ -313,7 +357,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             PoseStackUtils.multiply(stack, uiMatrix);
             stack.scale(scale, scale, scale);
 
-            if (!this.form.mobID.get().equals("minecraft:ender_dragon"))
+            if (!this.activeId.equals("minecraft:ender_dragon"))
             {
                 stack.mulPose(com.mojang.math.Axis.YP.rotation(MathUtils.PI));
             }
@@ -391,7 +435,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             context.stack.pushPose();
 
-            if (this.form.mobID.get().equals("minecraft:ender_dragon"))
+            if (this.activeId.equals("minecraft:ender_dragon"))
             {
                 context.stack.mulPose(com.mojang.math.Axis.YP.rotation(MathUtils.PI));
             }
@@ -418,33 +462,67 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
                 if (model != null)
                 {
-                    EntityRenderState state = livingRenderer.createRenderState();
-                    livingRenderer.extractRenderState(this.entity, state, context.getTransition());
-                    model.setupAnim(state);
+                    /* GUI PiP phase must not open a render pass. Submit the
+                     * entity model through the engine's collector (mirrors
+                     * FormThumbnailRenderer.renderMobThumb): pin the entity to
+                     * the origin so submit() draws it inside the PiP cell, then
+                     * extract the render state and submit into the collector. */
+                    net.minecraft.client.renderer.SubmitNodeCollector collector = mchorse.bbs_mod.client.PipGeometry.getCollector();
 
-                    ByteBufferBuilder byteBuf = new ByteBufferBuilder(65536);
-                    BufferBuilder builder = new BufferBuilder(byteBuf, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP);
-
-                    context.stack.pushPose();
-                    this.applyTransforms(context.stack, false, context.getTransition());
-
-                    if (this.form.mobID.get().equals("minecraft:ender_dragon"))
+                    if (collector != null)
                     {
-                        context.stack.mulPose(com.mojang.math.Axis.YP.rotation(MathUtils.PI));
-                    }
+                        context.stack.pushPose();
+                        this.applyTransforms(context.stack, false, context.getTransition());
 
-                    if (this.entity instanceof LivingEntity entity)
+                        if (this.activeId.equals("minecraft:ender_dragon"))
+                        {
+                            context.stack.mulPose(com.mojang.math.Axis.YP.rotation(MathUtils.PI));
+                        }
+
+                        this.entity.setPos(0D, 0D, 0D);
+                        this.entity.setYRot(0F);
+                        this.entity.setXRot(0F);
+                        this.entity.setYHeadRot(0F);
+
+                        EntityRenderState state = livingRenderer.createRenderState();
+                        livingRenderer.extractRenderState(this.entity, state, context.getTransition());
+
+                        net.minecraft.client.renderer.state.level.CameraRenderState cameraState = new net.minecraft.client.renderer.state.level.CameraRenderState();
+
+                        livingRenderer.submit(state, context.stack, collector, cameraState);
+
+                        context.stack.popPose();
+                    }
+                    else
                     {
-                        int u = context.overlay & '\uffff';
-                        int v = context.overlay >> 16 & '\uffff';
+                        EntityRenderState state = livingRenderer.createRenderState();
+                        livingRenderer.extractRenderState(this.entity, state, context.getTransition());
+                        model.setupAnim(state);
 
-                        entity.hurtTime = v != 10 ? 100 : 0;
+                        ByteBufferBuilder byteBuf = new ByteBufferBuilder(65536);
+                        BufferBuilder builder = new BufferBuilder(byteBuf, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP);
+
+                        context.stack.pushPose();
+                        this.applyTransforms(context.stack, false, context.getTransition());
+
+                        if (this.activeId.equals("minecraft:ender_dragon"))
+                        {
+                            context.stack.mulPose(com.mojang.math.Axis.YP.rotation(MathUtils.PI));
+                        }
+
+                        if (this.entity instanceof LivingEntity entity)
+                        {
+                            int u = context.overlay & '\uffff';
+                            int v = context.overlay >> 16 & '\uffff';
+
+                            entity.hurtTime = v != 10 ? 100 : 0;
+                        }
+
+                        model.renderToBuffer(context.stack, builder, context.light, context.overlay, 0xFFFFFFFF);
+                        context.stack.popPose();
+
+                        Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT);
                     }
-
-                    model.renderToBuffer(context.stack, builder, context.light, context.overlay, 0xFFFFFFFF);
-                    context.stack.popPose();
-
-                    Draw.drawBuffer(builder, RenderPipelines.ENTITY_TRANSLUCENT);
                 }
             }
 

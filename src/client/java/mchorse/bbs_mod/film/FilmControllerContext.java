@@ -51,11 +51,6 @@ public class FilmControllerContext
         this.relative = false;
     }
 
-    public void clipData()
-    {
-        // stub - was clear() in older API
-    }
-
     public void setup(int tick, float transition)
     {
         this.reset();

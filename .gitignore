@@ -53,3 +53,30 @@ pem.txt
 pemdir/
 pemdir2/
 examples/
+
+# local data / generated artifacts (not project source)
+.workbuddy/
+.tmp/
+tmp_render/
+build_out.txt
+
+# build reports / logs at repo root (not source)
+/build_*.txt
+/build_*.log
+/build_err_last.txt
+/build_errors*.txt
+/build_out.txt
+/build_output.txt
+/build_leash*.txt
+/build_leash*.log
+/build_offline*.txt
+/build_offline*.log
+/build_236.log
+/build_last.log
+/build_latest.log
+
+# design / working docs: local reference only, never pushed to remote
+/docs/*.md
+/leash_requirement_spec.md
+/overview.md
+/report.md

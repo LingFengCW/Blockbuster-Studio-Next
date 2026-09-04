@@ -6,6 +6,8 @@ import io.netty.util.collection.IntObjectMap;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
+import lingfeng.bbsnext.film.replays.LeashStore;
+import lingfeng.bbsnext.mcef.EditorBridge;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -37,6 +39,7 @@ import net.minecraft.client.Camera;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.network.chat.Component;
@@ -431,15 +434,58 @@ public abstract class BaseFilmController
                     {
                         Entity anEntity = Minecraft.getInstance().level.getEntity(entityId);
 
-                        if (anEntity instanceof ActorEntity actor)
+                    if (anEntity instanceof ActorEntity actor)
+                    {
+                        /* Leashed actors are positioned by the server-side leash
+                           tick (tickLeash on ServerLevel); client keyframe motion
+                           would fight the leash pull, so only drive position for
+                           non-leashed stand-ins. The bone offset is refreshed every
+                           frame so the rope attaches at the chosen bone. */
+                        if (actor.getLeashData() == null)
                         {
-                            /* Force synchronize entity angles */
-                            actor.setYRot(replay.keyframes.yaw.interpolate(ticks).floatValue());
-                            actor.setYHeadRot(replay.keyframes.headYaw.interpolate(ticks).floatValue());
-                            actor.setYBodyRot(replay.keyframes.bodyYaw.interpolate(ticks).floatValue());
-                            actor.setXRot(replay.keyframes.pitch.interpolate(ticks).floatValue());
-                            replay.applyClientActions(ticks, new MCEntity(anEntity), this.film);
+                            actor.setPos(entity.getX(), entity.getY(), entity.getZ());
                         }
+                        else if (!actor.getLeashBone().isEmpty())
+                        {
+                            actor.setLeashOffset(EditorBridge.computeBoneOffset(actor, actor.getLeashBone()));
+                        }
+
+                        actor.setYRot(replay.keyframes.yaw.interpolate(ticks).floatValue());
+                        actor.setYHeadRot(replay.keyframes.headYaw.interpolate(ticks).floatValue());
+                        actor.setYBodyRot(replay.keyframes.bodyYaw.interpolate(ticks).floatValue());
+                        actor.setXRot(replay.keyframes.pitch.interpolate(ticks).floatValue());
+
+                        /* Timeline-windowed leash: show/hide the rope (and drive
+                           server tickLeash physics) by the playback tick window.
+                           Only acts on window transitions to stay cheap. */
+                        LeashStore.LeashLink leashLink = LeashStore.get(this.film.getId(), replay.getId());
+
+                        if (leashLink != null && actor instanceof Leashable l)
+                        {
+                            boolean inWin = leashLink.inWindow(ticks);
+                            boolean currentlyLeashed = actor.getLeashData() != null;
+
+                            if (inWin != currentlyLeashed)
+                            {
+                                Map<String, Integer> amap = this.getActors();
+                                Level lvl = Minecraft.getInstance().level;
+                                Entity holder = (lvl != null && amap != null) ? EditorBridge.resolveHolder(this.film.getId(), leashLink, lvl, amap) : null;
+
+                                if (inWin && holder != null)
+                                {
+                                    l.setLeashedTo(holder, true);
+                                    EditorBridge.applyLeashOnServer(actor.getId(), holder.getId(), true);
+                                }
+                                else if (!inWin)
+                                {
+                                    l.removeLeash();
+                                    EditorBridge.applyLeashOnServer(actor.getId(), -1, false);
+                                }
+                            }
+                        }
+
+                        replay.applyClientActions(ticks, new MCEntity(anEntity), this.film);
+                    }
                         else if (anEntity instanceof Player player)
                         {
                             double x = replay.keyframes.x.interpolate(ticks);

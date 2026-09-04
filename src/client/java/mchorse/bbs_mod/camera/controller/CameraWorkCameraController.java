@@ -34,6 +34,12 @@ public abstract class CameraWorkCameraController implements ICameraController
         return this.position;
     }
 
+    /** Set when the current tick has no base camera covering it ("相机丢失"). */
+    public boolean cameraLost = false;
+
+    /** Set when the current tick is covered by two or more base cameras (重叠). */
+    public boolean cameraOverlap = false;
+
     protected void apply(Camera camera, int ticks, float transition)
     {
         if (camera != null)
@@ -44,9 +50,58 @@ public abstract class CameraWorkCameraController implements ICameraController
         this.context.clipData.clear();
         this.context.setup(ticks, transition);
 
-        for (Clip clip : this.context.clips.getClips(ticks))
+        this.cameraLost = false;
+        this.cameraOverlap = false;
+
+        /* Walk clips in insertion order so "earliest created" = first match. */
+        Clip baseCamera = null;
+        int baseCount = 0;
+
+        for (Clip clip : this.context.clips.get())
         {
-            this.context.apply(clip, this.position);
+            if (!clip.isInside(ticks) || !clip.enabled.get())
+            {
+                continue;
+            }
+
+            if (isBaseCamera(clip))
+            {
+                baseCount++;
+
+                if (baseCamera == null)
+                {
+                    baseCamera = clip;
+                }
+            }
+        }
+
+        if (baseCamera == null)
+        {
+            /* No base camera covers this tick: keep the last known position. */
+            this.cameraLost = true;
+        }
+        else
+        {
+            if (baseCount > 1)
+            {
+                this.cameraOverlap = true;
+            }
+
+            this.context.apply(baseCamera, this.position);
+        }
+
+        /* Apply modifiers (and misc clips) on top of the chosen base camera. */
+        for (Clip clip : this.context.clips.get())
+        {
+            if (!clip.isInside(ticks) || !clip.enabled.get())
+            {
+                continue;
+            }
+
+            if (!isBaseCamera(clip))
+            {
+                this.context.apply(clip, this.position);
+            }
         }
 
         AudioClientClip.manageSounds(this.context);
@@ -57,6 +112,12 @@ public abstract class CameraWorkCameraController implements ICameraController
         {
             this.position.apply(camera);
         }
+    }
+
+    /** A "base camera" is one that sets an absolute camera position (overwrite package). */
+    private static boolean isBaseCamera(Clip clip)
+    {
+        return clip.getClass().getName().startsWith("mchorse.bbs_mod.camera.clips.overwrite.");
     }
 
     @Override
