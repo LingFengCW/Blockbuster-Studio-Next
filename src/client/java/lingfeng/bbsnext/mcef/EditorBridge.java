@@ -55,6 +55,8 @@ import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.camera.clips.CameraClipContext;
 import mchorse.bbs_mod.camera.clips.misc.AudioClip;
 import mchorse.bbs_mod.camera.data.Position;
+import mchorse.bbs_mod.camera.OrbitCamera;
+import mchorse.bbs_mod.camera.controller.OrbitCameraController;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.actions.types.LocomotionActionClip;
@@ -196,6 +198,13 @@ public class EditorBridge implements IHtmlBridge
     private static Film aePreviewFilm = null;
     private static Replay aePreviewReplayRef = null;
     private static int aePreviewEntityId = -1;
+    /** 预览时拖动 3D 视口（#mainViewport）所用的轨道相机控制器；仅预览播放且指针落在
+     *  视口矩形内时接管 MC 相机，停止预览即移除，绝不破坏编辑器常态输入。 */
+    private static OrbitCamera aePreviewOrbit = null;
+    private static OrbitCameraController aePreviewOrbitCtrl = null;
+    /** #mainViewport 在浏览器（全屏）坐标系下的矩形，由 HTML 端布局变化时上报。 */
+    private static int vpX = 0, vpY = 0, vpW = 0, vpH = 0;
+    private static boolean vpValid = false;
     /** Stable replay id backing {@code actionEditorReplay} so undo/redo and
      *  deletions keep the action editor pinned to the right replay. */
     private static String actionEditorReplayId = null;
@@ -1747,6 +1756,16 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "aePreviewScrub":
                 aePreviewScrub(panel, req.has("tick") ? req.get("tick").getAsInt() : 0);
+                break;
+            case "aeViewport":
+                if (req.has("x") && req.has("y") && req.has("w") && req.has("h"))
+                {
+                    vpX = req.get("x").getAsInt();
+                    vpY = req.get("y").getAsInt();
+                    vpW = req.get("w").getAsInt();
+                    vpH = req.get("h").getAsInt();
+                    vpValid = vpW > 0 && vpH > 0;
+                }
                 break;
             case "aeAddMaterial":
                 aeAddMaterial(panel, req.has("type") ? req.get("type").getAsString() : null);
@@ -4754,6 +4773,7 @@ public class EditorBridge implements IHtmlBridge
     private static void aePreviewStop(UIFilmPanel panel)
     {
         aePreviewPlaying = false;
+        aePreviewCameraDisable();
         if (aePreviewThread != null)
         {
             try
@@ -4781,6 +4801,87 @@ public class EditorBridge implements IHtmlBridge
         aePreviewTick = Math.max(0, Math.min(tick, aePreviewDuration));
         aePreviewApplyAt(aePreviewTick);
         aePreviewPushTick(aePreviewTick, aePreviewDuration, aePreviewPlaying);
+    }
+
+    /* ---------- 预览时拖动 3D 视口旋转/缩放相机 ---------- */
+
+    /** 指针是否落在 #mainViewport 矩形内（浏览器全屏坐标，与鼠标事件同坐标系）。 */
+    private static boolean aePreviewInViewport(double x, double y)
+    {
+        return vpValid && x >= vpX && x <= vpX + vpW && y >= vpY && y <= vpY + vpH;
+    }
+
+    /** 确保轨道相机已创建并挂入 cameraController（从当前游戏相机视角起步，
+     *  避免跳动）。仅在预览播放且指针位于视口内时由输入线程调用。 */
+    private static void aePreviewEnsureOrbit()
+    {
+        if (aePreviewOrbit == null)
+        {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null) return;
+            Camera bbsCam = new Camera();
+            bbsCam.set(mc.player, MathUtils.toRad(mc.options.fov().get()));
+            aePreviewOrbit = new OrbitCamera();
+            aePreviewOrbit.setup(bbsCam);
+        }
+        if (aePreviewOrbitCtrl == null)
+        {
+            aePreviewOrbitCtrl = new OrbitCameraController(aePreviewOrbit, 1000);
+            BBSModClient.getCameraController().add(aePreviewOrbitCtrl);
+        }
+    }
+
+    /** 在 3D 视口内按下左键：开始轨道拖拽（旋转），吞掉事件不让 HTML 收到。 */
+    public static boolean aePreviewCameraStart(double x, double y)
+    {
+        if (!aePreviewPlaying || !aePreviewInViewport(x, y)) return false;
+        aePreviewEnsureOrbit();
+        if (aePreviewOrbit == null) return false;
+        aePreviewOrbit.start((int) x, (int) y);
+        return true;
+    }
+
+    /** 拖拽中：旋转轨道相机，吞掉事件。 */
+    public static boolean aePreviewCameraDrag(double x, double y)
+    {
+        if (aePreviewOrbit == null || !aePreviewOrbit.isDragging()) return false;
+        aePreviewOrbit.drag((int) x, (int) y);
+        return true;
+    }
+
+    /** 松开左键：结束拖拽。 */
+    public static boolean aePreviewCameraEnd()
+    {
+        if (aePreviewOrbit == null || !aePreviewOrbit.isDragging()) return false;
+        aePreviewOrbit.release();
+        return true;
+    }
+
+    /** 在 3D 视口内滚轮：沿视线方向推拉（dolly），吞掉事件。 */
+    public static boolean aePreviewCameraScroll(double x, double y, double delta)
+    {
+        if (!aePreviewPlaying || !aePreviewInViewport(x, y)) return false;
+        aePreviewEnsureOrbit();
+        if (aePreviewOrbit == null) return false;
+        org.joml.Vector3f look = aePreviewOrbit.getLook();
+        float k = (float) (delta * 0.15F);
+        aePreviewOrbit.position.add(look.x * k, look.y * k, look.z * k);
+        return true;
+    }
+
+    /** 停止预览时移除轨道相机控制器，交还游戏相机。 */
+    private static void aePreviewCameraDisable()
+    {
+        if (aePreviewOrbitCtrl != null)
+        {
+            BBSModClient.getCameraController().remove(aePreviewOrbitCtrl);
+            aePreviewOrbitCtrl = null;
+        }
+        if (aePreviewOrbit != null)
+        {
+            aePreviewOrbit.release();
+            aePreviewOrbit = null;
+        }
     }
 
     /** The replay index whose action-editor state is currently shown, either

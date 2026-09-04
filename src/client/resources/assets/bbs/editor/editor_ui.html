@@ -3215,7 +3215,23 @@ function renderAeDock(s){
   if(maxBtn) maxBtn.onclick = function(){ send('openActionEditor', { index: fc.index }); };
   initAePreviewBar();
   updateAePlayhead();
+  reportAeViewport();
 }
+
+/* 将 3D 视口（#mainViewport）在浏览器全屏坐标系下的矩形上报给 Java 端，
+ * 供「预览时拖动视口旋转相机」的指针命中判定使用。仅在矩形变化时上报。 */
+var __lastVpKey = '';
+function reportAeViewport(){
+  var v = document.getElementById('mainViewport');
+  if(!v) return;
+  var r = v.getBoundingClientRect();
+  var key = Math.round(r.left)+','+Math.round(r.top)+','+Math.round(r.width)+','+Math.round(r.height);
+  if(key === __lastVpKey) return;
+  __lastVpKey = key;
+  send('aeViewport', { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) });
+}
+window.addEventListener('resize', reportAeViewport);
+setInterval(reportAeViewport, 200);
 function adToggle(labelText, checked, onchange){
   var w = document.createElement('label'); w.className = 'modal-check';
   var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!checked;

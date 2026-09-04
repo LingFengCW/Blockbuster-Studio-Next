@@ -492,6 +492,12 @@ public class MCEFUI
     {
         if (activeOverlay != null && activeOverlay.isVisible())
         {
+            /* 预览播放时，在 3D 视口内按下左键 → 启动轨道相机拖拽（旋转），吞掉事件 */
+            if (event.buttonInfo().button() == 0 && EditorBridge.aePreviewCameraStart(toBrowserX(event.x()), toBrowserY(event.y())))
+            {
+                return true;
+            }
+
             if (browser != null)
             {
                 lastMouseX = event.x();
@@ -511,6 +517,12 @@ public class MCEFUI
     {
         if (activeOverlay != null && activeOverlay.isVisible())
         {
+            /* 结束轨道相机拖拽（若正在拖拽），吞掉事件 */
+            if (EditorBridge.aePreviewCameraEnd())
+            {
+                return true;
+            }
+
             if (browser != null)
             {
                 lastMouseX = event.x();
@@ -530,6 +542,12 @@ public class MCEFUI
     {
         if (activeOverlay != null && activeOverlay.isVisible())
         {
+            /* 预览播放时，在 3D 视口内滚轮 → 沿视线推拉相机（dolly），吞掉事件 */
+            if (EditorBridge.aePreviewCameraScroll(toBrowserX(mouseX), toBrowserY(mouseY), verticalAmount))
+            {
+                return true;
+            }
+
             if (browser != null)
             {
                 lastMouseX = mouseX;
@@ -548,6 +566,12 @@ public class MCEFUI
     {
         if (activeOverlay != null && activeOverlay.isVisible())
         {
+            /* 预览播放时，轨道相机拖拽进行中 → 旋转相机，吞掉事件 */
+            if (EditorBridge.aePreviewCameraDrag(toBrowserX(x), toBrowserY(y)))
+            {
+                return true;
+            }
+
             if (browser != null)
             {
                 lastMouseX = x;
