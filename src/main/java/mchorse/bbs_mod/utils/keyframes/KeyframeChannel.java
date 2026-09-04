@@ -22,6 +22,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 {
     private IKeyframeFactory<T> factory;
 
+    private int lastIndex = -1;
+
     public KeyframeChannel(String id, IKeyframeFactory<T> factory)
     {
         super(id);
@@ -75,7 +77,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         return segment;
     }
 
-    public T interpolate(float ticks)
+    public T sample(float ticks)
     {
         T orDefault = null;
 
@@ -83,10 +85,10 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         else if (this.factory == KeyframeFactories.DOUBLE) orDefault = (T) Double.valueOf(0D);
         else if (this.factory == KeyframeFactories.INTEGER) orDefault = (T) Integer.valueOf(0);
 
-        return this.interpolate(ticks, orDefault);
+        return this.sample(ticks, orDefault);
     }
 
-    public T interpolate(float ticks, T orDefault)
+    public T sample(float ticks, T orDefault)
     {
         KeyframeSegment<T> segment = this.findSegment(ticks);
 
@@ -100,11 +102,36 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         return segment.createInterpolated();
     }
 
+    public T interpolate(float ticks)
+    {
+        return this.sample(ticks);
+    }
+
+    public T interpolate(float ticks, T orDefault)
+    {
+        return this.sample(ticks, orDefault);
+    }
+
     /**
      * Find a keyframe segment at given ticks
      */
     public KeyframeSegment<T> findSegment(float ticks)
     {
+        if (this.lastIndex >= 0)
+        {
+            Keyframe<T> b = this.list.get(this.lastIndex);
+            Keyframe<T> a = this.lastIndex - 1 >= 0 ? this.list.get(this.lastIndex - 1) : b;
+
+            if (ticks >= a.getTick() && (a == b || ticks < b.getTick()))
+            {
+                KeyframeSegment<T> segment = new KeyframeSegment<>();
+                segment.fill(a, b, this.lastIndex);
+                segment.setup(ticks);
+
+                return segment;
+            }
+        }
+
         /* No keyframes, no values */
         if (this.list.isEmpty())
         {
@@ -157,6 +184,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         KeyframeSegment<T> segment = new KeyframeSegment<>(a, b);
 
         segment.setup(ticks);
+        this.lastIndex = low;
 
         return segment;
     }
@@ -165,6 +193,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void removeAll()
     {
+        this.lastIndex = -1;
         this.preNotify();
         this.list.clear();
         this.postNotify();
@@ -172,6 +201,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void remove(int index)
     {
+        this.lastIndex = -1;
+
         if (index < 0 || index > this.list.size() - 1)
         {
             return;
@@ -185,6 +216,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void insertSpace(int where, int ticks)
     {
+        this.lastIndex = -1;
+
         KeyframeSegment<T> segment = this.findSegment(where);
 
         if (segment == null || where > segment.b.getTick())
@@ -230,6 +263,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
      */
     public int insert(float tick, T value)
     {
+        this.lastIndex = -1;
+
         this.preNotify();
 
         Keyframe<T> prev;
@@ -280,6 +315,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void sort()
     {
+        this.lastIndex = -1;
+
         this.list.sort((a, b) -> (int) (a.getTick() - b.getTick()));
 
         this.sync();
@@ -287,6 +324,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void simplify()
     {
+        this.lastIndex = -1;
+
         if (this.list.size() <= 2)
         {
             return;
@@ -321,6 +360,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void moveX(float offset)
     {
+        this.lastIndex = -1;
+
         this.preNotify();
 
         for (Keyframe<T> keyframe : this.list)
@@ -334,7 +375,11 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     @Override
     protected Keyframe<T> create(String id)
     {
-        return new Keyframe<>(id, this.factory);
+        Keyframe<T> keyframe = new Keyframe<>(id, this.factory);
+
+        keyframe.setValue(this.factory.createEmpty());
+
+        return keyframe;
     }
 
     @Override
@@ -351,6 +396,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     @Override
     public void fromData(BaseType data)
     {
+        this.lastIndex = -1;
+
         if (!data.isMap())
         {
             return;
@@ -368,6 +415,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void copyKeyframes(KeyframeChannel<T> channel)
     {
+        this.lastIndex = -1;
+
         this.list.clear();
 
         for (Keyframe<T> keyframe : channel.getKeyframes())
@@ -383,6 +432,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     public void copyOver(KeyframeChannel channel, int tick)
     {
+        this.lastIndex = -1;
+
         if (this.factory != channel.factory || channel.isEmpty())
         {
             return;

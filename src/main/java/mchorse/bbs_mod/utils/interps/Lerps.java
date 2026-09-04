@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.utils.interps;
 
+import mchorse.bbs_mod.utils.MathUtils;
+
 /**
  * Interpolation methods
  *
@@ -266,6 +268,60 @@ public class Lerps
         double t5 = lerp(t2, t3, t);
 
         return lerp(t4, t5, t);
+    }
+
+    /**
+     * Solve CSS-style cubic bezier easing: given progress p (X, 0..1) find the
+     * output Y by inverting X(t)=p with Newton-Raphson and a bisection fallback.
+     */
+    public static double bezierEase(double x1, double y1, double x2, double y2, double p)
+    {
+        if (p <= 0) return 0;
+        if (p >= 1) return 1;
+
+        double t = p;
+
+        for (int i = 0; i < 8; i++)
+        {
+            double cx = bezier(0, x1, x2, 1, t) - p;
+
+            if (Math.abs(cx) < 1e-6) return bezier(0, y1, y2, 1, t);
+
+            double mt = 1 - t;
+            double d = 3 * mt * (mt - 2 * t) * x1 + 3 * t * (2 * mt - t) * x2 + 3 * t * t;
+
+            if (Math.abs(d) < 1e-6) break;
+
+            t -= cx / d;
+            t = MathUtils.clamp(t, 0, 1);
+        }
+
+        double cx = bezier(0, x1, x2, 1, t);
+
+        if (Math.abs(cx - p) > 1e-4)
+        {
+            double lo = cx < p ? t : 0;
+            double hi = cx < p ? 1 : t;
+
+            for (int i = 0; i < 30; i++)
+            {
+                double mid = (lo + hi) * 0.5;
+                double xm = bezier(0, x1, x2, 1, mid);
+
+                if (Math.abs(xm - p) < 1e-6)
+                {
+                    t = mid;
+                    break;
+                }
+
+                if (xm < p) lo = mid;
+                else hi = mid;
+
+                t = mid;
+            }
+        }
+
+        return bezier(0, y1, y2, 1, t);
     }
 
     /**

@@ -57,6 +57,19 @@ public class KeyframeSegment <T>
         }
     }
 
+    public void fill(Keyframe<T> a, Keyframe<T> b, int bIndex)
+    {
+        this.a = a;
+        this.b = b;
+
+        KeyframeChannel<T> channel = (KeyframeChannel<T>) a.getParent();
+        Keyframe<T> preA = channel.get(bIndex - 2);
+        Keyframe<T> postB = channel.get(bIndex + 1);
+
+        this.preA = preA == null ? a : preA;
+        this.postB = postB == null ? b : postB;
+    }
+
     public void setup(float ticks)
     {
         float forcedDuration = this.a.getDuration();

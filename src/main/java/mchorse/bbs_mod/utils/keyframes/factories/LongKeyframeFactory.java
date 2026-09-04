@@ -1,44 +1,44 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
 import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.data.types.FloatType;
+import mchorse.bbs_mod.data.types.LongType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.BezierUtils;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-public class FloatKeyframeFactory implements IKeyframeFactory<Float>
+public class LongKeyframeFactory implements IKeyframeFactory<Long>
 {
     @Override
-    public Float fromData(BaseType data)
+    public Long fromData(BaseType data)
     {
-        return data.isNumeric() ? data.asNumeric().floatValue() : 0F;
+        return data.isNumeric() ? data.asNumeric().longValue() : 0L;
     }
 
     @Override
-    public BaseType toData(Float value)
+    public BaseType toData(Long value)
     {
-        return new FloatType(value);
+        return new LongType(value);
     }
 
     @Override
-    public Float createEmpty()
+    public Long createEmpty()
     {
-        return 0F;
+        return 0L;
     }
 
     @Override
-    public Float copy(Float value)
+    public Long copy(Long value)
     {
         return value;
     }
 
     @Override
-    public Float interpolate(Keyframe<Float> preA, Keyframe<Float> a, Keyframe<Float> b, Keyframe<Float> postB, IInterp interpolation, float x)
+    public Long interpolate(Keyframe<Long> preA, Keyframe<Long> a, Keyframe<Long> b, Keyframe<Long> postB, IInterp interpolation, float x)
     {
         if (interpolation.has(Interpolations.BEZIER))
         {
-            return (float) BezierUtils.get(
+            return (long) BezierUtils.get(
                 a.getValue(), b.getValue(),
                 a.getTick(), b.getTick(),
                 a.rx, a.ry,
@@ -51,13 +51,13 @@ public class FloatKeyframeFactory implements IKeyframeFactory<Float>
     }
 
     @Override
-    public Float interpolate(Float preA, Float a, Float b, Float postB, IInterp interpolation, float x)
+    public Long interpolate(Long preA, Long a, Long b, Long postB, IInterp interpolation, float x)
     {
-        return (float) interpolation.interpolate(IInterp.context.set(preA, a, b, postB, x));
+        return (long) interpolation.interpolate(IInterp.context.set(preA, a, b, postB, x));
     }
 
     @Override
-    public double getY(Float value)
+    public double getY(Long value)
     {
         return value;
     }
@@ -65,6 +65,6 @@ public class FloatKeyframeFactory implements IKeyframeFactory<Float>
     @Override
     public Object yToValue(double y)
     {
-        return (float) y;
+        return (long) y;
     }
 }

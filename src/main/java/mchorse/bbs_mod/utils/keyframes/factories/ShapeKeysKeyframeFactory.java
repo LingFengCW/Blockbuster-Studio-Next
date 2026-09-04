@@ -54,10 +54,10 @@ public class ShapeKeysKeyframeFactory implements IKeyframeFactory<ShapeKeys>
 
         for (String key : keys)
         {
-            Float fpreA = preA.shapeKeys.get(key);
-            Float fa = a.shapeKeys.get(key);
-            Float fb = b.shapeKeys.get(key);
-            Float fpostB = postB.shapeKeys.get(key);
+            Float fpreA = preA == null ? null : preA.shapeKeys.get(key);
+            Float fa = a == null ? null : a.shapeKeys.get(key);
+            Float fb = b == null ? null : b.shapeKeys.get(key);
+            Float fpostB = postB == null ? null : postB.shapeKeys.get(key);
 
             this.i.shapeKeys.put(key, (float) interpolation.interpolate(
                 IInterp.context.set(
