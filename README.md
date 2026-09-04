@@ -3,7 +3,7 @@
 一个基于 **Fabric** 的 Minecraft 26.2 模组，用于在游戏内制作动画与电影（MC 视频 / 动画制作工具）。
 A Fabric Minecraft 26.2 mod for creating animations and cinematics inside the game.
 
-本项目派生自 [McHorse 的 BBS mod](https://github.com/mchorse/bbs)（MIT），已移植到 Minecraft 26.2（Fabric /  Vulkan 渲染后端），由 [LingFengCW（泠沨）](https://github.com/LingFengCW) 维护。
+本项目派生自 [McHorse 的 BBS mod](https://github.com/mchorse/bbs-mod)（MIT），已移植到 Minecraft 26.2（Fabric /  Vulkan 渲染后端），由 [LingFengCW（泠沨）](https://github.com/LingFengCW) 维护。
 
 ---
 
@@ -95,4 +95,4 @@ PNC 关键条款摘要：
 ## 链接 / Links
 
 - [GitHub](https://github.com/LingFengCW/Blockbuster-Studio-Next)
-- [上游原版 Upstream (MIT)](https://github.com/mchorse/bbs)
+- [上游原版 Upstream (MIT)](https://github.com/mchorse/bbs-mod)
