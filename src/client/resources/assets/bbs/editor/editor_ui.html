@@ -186,7 +186,7 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
 .bbs-dialog-title{font-weight:bold;flex:1 1 auto;}
 .bbs-dialog-close{cursor:pointer;color:var(--c-text-3);font-size:15px;line-height:1;}
 .bbs-dialog-close:hover{color:var(--c-text);}
-.bbs-dialog-body{margin-top:6px;color:var(--c-text-2);line-height:1.45;word-break:break-word;}
+.bbs-dialog-body{margin-top:6px;color:var(--c-text-2);line-height:1.45;word-break:break-word;white-space:pre-wrap;}
 .bbs-dialog-bar{margin-top:8px;height:4px;background:var(--c-bg-sub);border-radius:2px;overflow:hidden;}
 .bbs-dialog-bar-fill{height:100%;background:var(--c-accent);width:0;transition:width .2s ease;}
 /* F1: dialog 输入框 / 按钮（专业软件风格，右上角通知式） */
@@ -2192,12 +2192,31 @@ function renderLeashPanel(s){
 function leashBind(){ var s=window.bbsState||{}; var fc=s.focusedCharacter; if(!fc) return; var bone=document.getElementById('lpBone'); send('leashBind', { replayId: fc.id, bone: bone?bone.value:'' }); }
 function leashSetBone(){ var s=window.bbsState||{}; var fc=s.focusedCharacter; if(!fc) return; var bone=document.getElementById('lpBone'); send('leashSetBone', { replayId: fc.id, bone: bone?bone.value:'' }); }
 
+/* 试用版警告：编辑器首次就绪（进入仪表盘）弹一次，提示这是试用/源代码/非官方/老分支构建 */
+function showTrialWarning(){
+  if (window.__trialWarned) return;
+  window.__trialWarned = true;
+  dialog({
+    type: 'alert',
+    title: '试用版 · 非官方构建',
+    msg: '本版本为 BBS‑NEXT（泠瀑）试用构建，仅供测试，请注意：\n\n' +
+         '· 试用版（Trial）：功能仍在开发中，未达正式发布质量；\n' +
+         '· 源代码构建（Source build）：由开发分支直接打包，未经发布流程验证；\n' +
+         '· 非官方（Unofficial）：不属于上游 mchorse/bbs-mod 的官方版本；\n' +
+         '· 较旧分支（Old branch）：基于阶段性开发分支，可能含未完成功能与已知问题；\n' +
+         '· 存档与配置结构仍可能变动，请勿用于重要正式项目；\n' +
+         '· 发现问题请反馈维护者 泠沨（LingFengCW）。\n\n' +
+         '点击「我已知晓」继续。',
+    buttons: [{ id: 'ok', label: '我已知晓', style: 'primary' }],
+    duration: 0
+  });
+}
 function renderAll(){
   var s = window.bbsState;
   applyStaticI18n();
   renderRename(s);
   if(!s) return;
-  if(!window.__bbsReady){ window.__bbsReady = true; var boot = document.getElementById('bbsBoot'); if(boot){ boot.classList.add('hide'); setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 220); } }
+  if(!window.__bbsReady){ window.__bbsReady = true; showTrialWarning(); var boot = document.getElementById('bbsBoot'); if(boot){ boot.classList.add('hide'); setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 220); } }
   /* Selecting a scene enters that scene's bound real-save world preview in
      place (editor overlay stays on top, UI is not lost). Only a scene can
      bind a world; a scene with none just switches without entering. While
