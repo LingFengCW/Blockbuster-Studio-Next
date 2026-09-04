@@ -52,10 +52,12 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.FLOAT, UIFloatKeyframeFactory::new);
         register(KeyframeFactories.DOUBLE, UIDoubleKeyframeFactory::new);
         register(KeyframeFactories.INTEGER, UIIntegerKeyframeFactory::new);
+        register(KeyframeFactories.LONG, UILongKeyframeFactory::new);
         register(KeyframeFactories.LINK, UILinkKeyframeFactory::new);
         register(KeyframeFactories.POSE, UIPoseKeyframeFactory::new);
         register(KeyframeFactories.STRING, UIStringKeyframeFactory::new);
         register(KeyframeFactories.TRANSFORM, UITransformKeyframeFactory::new);
+        register(KeyframeFactories.VECTOR3F, UIVector3fKeyframeFactory::new);
         register(KeyframeFactories.VECTOR4F, UIVector4fKeyframeFactory::new);
         register(KeyframeFactories.BLOCK_STATE, UIBlockStateKeyframeFactory::new);
         register(KeyframeFactories.ITEM_STACK, UIItemStackKeyframeFactory::new);

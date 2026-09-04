@@ -396,7 +396,7 @@ public class UIReplayList extends UIList<Replay>
         UIOverlay.addOverlay(this.getContext(), panel);
     }
 
-    private void copyReplay()
+    public void copyReplay()
     {
         MapType replays = new MapType();
         ListType replayList = new ListType();
@@ -411,7 +411,7 @@ public class UIReplayList extends UIList<Replay>
         Window.setClipboard(replays, "_CopyReplay");
     }
 
-    private void pasteReplay(MapType data)
+    public void pasteReplay(MapType data)
     {
         Film film = this.panel.getData();
         ListType replays = data.getList("replays");
@@ -662,7 +662,7 @@ public class UIReplayList extends UIList<Replay>
         }
     }
 
-    private void removeReplay()
+    public void removeReplay()
     {
         if (this.isDeselected())
         {
@@ -683,6 +683,31 @@ public class UIReplayList extends UIList<Replay>
         this.update();
         this.panel.replayEditor.setReplay(size == 0 ? null : this.list.get(index));
         this.updateFilmEditor();
+    }
+
+    public void copySelectedReplay()
+    {
+        if (this.isDeselected())
+        {
+            return;
+        }
+
+        this.copyReplay();
+    }
+
+    public void pasteReplayFromClipboard()
+    {
+        MapType data = Window.getClipboardMap("_CopyReplay");
+
+        if (data != null)
+        {
+            this.pasteReplay(data);
+        }
+    }
+
+    public void removeSelectedReplay()
+    {
+        this.removeReplay();
     }
 
     @Override

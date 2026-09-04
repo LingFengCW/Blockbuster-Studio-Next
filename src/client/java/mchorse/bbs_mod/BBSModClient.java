@@ -1,5 +1,7 @@
 package mchorse.bbs_mod;
 
+import lingfeng.bbsnext.mcef.MCEFUI;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -22,7 +24,9 @@ import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.GunProjectileEntityRenderer;
 import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
+import mchorse.bbs_mod.client.renderer.item.GunSpecialRenderer;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
+import mchorse.bbs_mod.client.renderer.item.ModelBlockSpecialRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
@@ -64,7 +68,6 @@ import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.projects.UIProjectMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockEditorMenu;
-import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.ui.utils.keys.KeybindSettings;
@@ -91,6 +94,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.special.SpecialModelRenderers;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -132,7 +136,6 @@ public class BBSModClient implements ClientModInitializer
     private static KeyMapping keyRecordReplay;
     private static KeyMapping keyRecordVideo;
     private static KeyMapping keyOpenReplays;
-    private static KeyMapping keyOpenMorphing;
     private static KeyMapping keyDemorph;
     private static KeyMapping keyTeleport;
     private static KeyMapping keyZoom;
@@ -408,6 +411,16 @@ public class BBSModClient implements ClientModInitializer
     @Override
     public void onInitializeClient()
     {
+        /* BBS NEXT 启动横幅：在 bbs-next 任何其他日志之前先打印，让启动器控制台
+         * 最先看到的就是这个 banner；最后一行署名 by 泠沨。 */
+        System.out.println("██████╗ ██████╗ ███████╗      ███╗   ██╗");
+        System.out.println("██╔══██╗██╔══██╗██╔════╝      ████╗  ██║");
+        System.out.println("██████╔╝██████╔╝███████╗█████╗██╔██╗ ██║");
+        System.out.println("██╔══██╗██╔══██╗╚════██║╚════╝██║╚██╗██║");
+        System.out.println("██████╔╝██████╔╝███████║      ██║ ╚████║");
+        System.out.println("╚═════╝ ╚═════╝ ╚══════╝      ╚═╝  ╚═══╝");
+        System.out.println("                                          by 泠沨");
+
         AssetProvider provider = BBSMod.getProvider();
 
         textures = new TextureManager(provider);
@@ -471,7 +484,14 @@ public class BBSModClient implements ClientModInitializer
 
         BBSMod.events.post(new RegisterClientSettingsEvent());
 
-        BBSSettings.language.postCallback((v, f) -> reloadLanguage(getLanguageKey()));
+        BBSSettings.language.postCallback((v, f) ->
+        {
+            reloadLanguage(getLanguageKey());
+            /* Re-push the editor state so the HTML page re-renders with the
+             * newly selected language (window.bbsState.strings). Guarded inside
+             * MCEFUI: a no-op unless the editor browser is actually open. */
+            MCEFUI.pushState();
+        });
         BBSSettings.editorSeconds.postCallback((v, f) ->
         {
             if (dashboard != null && dashboard.getPanels().panel instanceof UIFilmPanel panel)
@@ -511,7 +531,6 @@ public class BBSModClient implements ClientModInitializer
         keyRecordReplay = this.createKey("record_replay", GLFW.GLFW_KEY_RIGHT_ALT);
         keyRecordVideo = this.createKey("record_video", GLFW.GLFW_KEY_F4);
         keyOpenReplays = this.createKey("open_replays", GLFW.GLFW_KEY_RIGHT_SHIFT);
-        keyOpenMorphing = this.createKey("open_morphing", GLFW.GLFW_KEY_B);
         keyDemorph = this.createKey("demorph", GLFW.GLFW_KEY_PERIOD);
         keyTeleport = this.createKey("teleport", GLFW.GLFW_KEY_Y);
         keyZoom = this.createKeyMouse("zoom", 2);
@@ -743,7 +762,8 @@ public class BBSModClient implements ClientModInitializer
             /* The native Win32 menu bar is gone: its WM_COMMAND callbacks
              * ran on the window message thread and stalled the main thread,
              * and hot-reloading it across screens never worked. The in-game
-             * top bar (UITopBar) is mounted on every UIBaseMenu instead. */
+             * native toolbar (UITopBar) was dead code and has since been
+             * removed. */
 
             /* MC 26.2: init is deferred because ExtraFormSection.initiate() creates an
              * ItemStack which requires data components to be bound. CLIENT_STARTED fires
@@ -781,9 +801,9 @@ public class BBSModClient implements ClientModInitializer
 
         BlockEntityRendererRegistry.register(BBSMod.MODEL_BLOCK_ENTITY, ModelBlockEntityRenderer::new);
 
-        /* Item renderers */
-        /* registerItemRenderer removed */;
-        /* registerItemRenderer removed */;
+        /* Item renderers (MC 26.2 SpecialModelRenderer registration) */
+        SpecialModelRenderers.ID_MAPPER.put(Identifier.parse("bbs:model_block"), ModelBlockSpecialRenderer.MAP_CODEC);
+        SpecialModelRenderers.ID_MAPPER.put(Identifier.parse("bbs:gun"), GunSpecialRenderer.MAP_CODEC);
 
         /* Create folders */
         BBSMod.getAudioFolder().mkdirs();

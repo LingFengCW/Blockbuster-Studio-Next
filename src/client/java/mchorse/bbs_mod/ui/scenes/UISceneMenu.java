@@ -201,7 +201,25 @@ public class UISceneMenu extends UIBaseMenu
 
         for (Sequence sequence : list)
         {
-            UIButton button = new UIButton(IKey.constant(sequence.name), (b) -> this.select(sequence));
+            final long[] lastClick = {0L};
+
+            UIButton button = new UIButton(IKey.constant(sequence.name), (b) ->
+            {
+                long now = System.currentTimeMillis();
+
+                /* Double-click (within 350ms) opens the sequence in the
+                 * editor; a single click just selects/highlights it. */
+                if (now - lastClick[0] < 350)
+                {
+                    lastClick[0] = 0;
+                    this.openSequence(sequence);
+                }
+                else
+                {
+                    lastClick[0] = now;
+                    this.select(sequence);
+                }
+            });
 
             button.h(24);
 
@@ -243,7 +261,25 @@ public class UISceneMenu extends UIBaseMenu
 
         for (Scene scene : list)
         {
-            UIButton button = new UIButton(IKey.constant(scene.name), (b) -> this.select(scene));
+            final long[] lastClick = {0L};
+
+            UIButton button = new UIButton(IKey.constant(scene.name), (b) ->
+            {
+                long now = System.currentTimeMillis();
+
+                /* Double-click (within 350ms) opens the scene in the editor;
+                 * a single click just selects/highlights it. */
+                if (now - lastClick[0] < 350)
+                {
+                    lastClick[0] = 0;
+                    this.openScene(scene);
+                }
+                else
+                {
+                    lastClick[0] = now;
+                    this.select(scene);
+                }
+            });
 
             button.h(24);
 
@@ -374,6 +410,11 @@ public class UISceneMenu extends UIBaseMenu
 
                 this.refresh();
                 this.select(sequence);
+
+                /* Open the new sequence in the editor right away, matching the
+                 * scene-create behaviour (land on a clean editor, not the
+                 * previously-open work). */
+                this.openSequence(sequence);
             }
         ));
     }
@@ -389,7 +430,7 @@ public class UISceneMenu extends UIBaseMenu
             return;
         }
 
-        lingfeng.bbsnext.mcef.NativeDialog.sceneDialog((name, background) ->
+        lingfeng.bbsnext.mcef.NativeDialog.sceneDialog((name, world) ->
         {
             if (name == null)
             {
@@ -407,10 +448,16 @@ public class UISceneMenu extends UIBaseMenu
                     sceneName = UIKeys.SCENES_DEFAULT_NAME.format(scenes.getScenes().size() + 1).get();
                 }
 
-                Scene scene = scenes.create(sceneName, background);
+                Scene scene = scenes.create(sceneName, world);
 
                 this.refresh();
                 this.select(scene);
+
+                /* Open the freshly created scene in the editor right away, so
+                 * the user lands on a clean (empty) scene instead of the
+                 * previously-open one - otherwise the editor would still show
+                 * the old scene's cameras/clips and look "stale". */
+                this.openScene(scene);
             });
         });
     }

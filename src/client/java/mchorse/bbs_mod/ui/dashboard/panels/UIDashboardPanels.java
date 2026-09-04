@@ -4,15 +4,12 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.events.UIEvent;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
-import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.utils.Area;
-import mchorse.bbs_mod.ui.utils.ScrollDirection;
-import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.Direction;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.ArrayList;
@@ -22,10 +19,6 @@ public class UIDashboardPanels extends UIElement
 {
     public List<UIDashboardPanel> panels = new ArrayList<>();
     public UIDashboardPanel panel;
-
-    public UIElement taskBar;
-    public UIElement pinned;
-    public UIScrollView panelButtons;
 
     public static void renderHighlight(Batcher2D batcher, Area area)
     {
@@ -45,28 +38,6 @@ public class UIDashboardPanels extends UIElement
 
     public UIDashboardPanels()
     {
-        this.taskBar = new UIElement();
-        this.taskBar.relative(this).y(1F, -20).w(1F).h(20);
-        this.pinned = new UIElement();
-        this.pinned.relative(this.taskBar).h(20).row(0).resize();
-        this.panelButtons = new UIScrollView(ScrollDirection.HORIZONTAL);
-        this.panelButtons.relative(this.pinned).x(1F, 5).h(20).wTo(this.taskBar.area, 1F).column(0).scroll();
-        this.panelButtons.scroll.cancelScrolling().noScrollbar();
-        this.panelButtons.scroll.scrollSpeed = 5;
-        this.panelButtons.preRender((context) ->
-        {
-            int selectedTab = this.panels.indexOf(this.panel);
-
-            if (selectedTab >= 0 && selectedTab < this.panelButtons.getChildren().size())
-            {
-                UIElement icon = (UIElement) this.panelButtons.getChildren().get(selectedTab);
-
-                renderHighlight(context.batcher, icon.area);
-            }
-        });
-
-        this.taskBar.add(new UIRenderable(this::renderBackground), this.pinned, this.panelButtons);
-        this.add(this.taskBar);
     }
 
     public <T> T getPanel(Class<T> clazz)
@@ -129,7 +100,7 @@ public class UIDashboardPanels extends UIElement
 
     private void setPanelPlacement(UIDashboardPanel panel)
     {
-        panel.resetFlex().relative(this).w(1F).h(1F, -20);
+        panel.resetFlex().relative(this).w(1F).h(1F);
     }
 
     public UIIcon registerPanel(UIDashboardPanel panel, IKey tooltip, Icon icon)
@@ -138,9 +109,9 @@ public class UIDashboardPanels extends UIElement
     }
 
     /**
-     * Register a panel, optionally without a task-bar icon. Hidden panels
-     * stay switchable via {@link #setPanel}/{@link #getPanel} (the editor
-     * is opened by picking a work, not from the task bar).
+     * Register a panel. The bottom task-bar chrome that used to host the panel
+     * tabs has been removed (everything is driven from the HTML overlay now),
+     * but panels stay switchable via {@link #getPanel}/{@link #setPanel}.
      */
     public UIIcon registerPanel(UIDashboardPanel panel, IKey tooltip, Icon icon, boolean hidden)
     {
@@ -150,21 +121,7 @@ public class UIDashboardPanels extends UIElement
 
         this.panels.add(panel);
 
-        if (!hidden)
-        {
-            this.panelButtons.add(button);
-        }
-
         return button;
-    }
-
-    protected void renderBackground(UIContext context)
-    {
-        Area area = this.taskBar.area;
-        Area a = this.pinned.area;
-
-        context.batcher.box(area.x, area.y, area.ex(), area.ey(), Colors.CONTROL_BAR);
-        context.batcher.box(a.ex() + 2, a.y + 3, a.ex() + 3, a.ey() - 3, 0x44ffffff);
     }
 
     public static class PanelEvent extends UIEvent<UIDashboardPanels>
