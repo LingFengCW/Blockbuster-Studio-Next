@@ -2,6 +2,7 @@ package lingfeng.bbsnext.mcef;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Films;
@@ -23,6 +24,10 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
 import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.renderers.FormRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
+import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.entity.ActorEntity;
@@ -63,6 +68,8 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import lingfeng.bbsnext.camera.CameraPathRecorder;
 import lingfeng.bbsnext.client.GlTextureBridge;
 import lingfeng.bbsnext.film.replays.MaterialClip;
+import lingfeng.bbsnext.film.replays.PotionClip;
+import lingfeng.bbsnext.film.replays.PotionClips;
 import lingfeng.bbsnext.film.replays.ActionGroup;
 import lingfeng.bbsnext.film.replays.ActionGroupLibrary;
 import lingfeng.bbsnext.film.replays.TrackPropStore;
@@ -74,16 +81,34 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Display.BlockDisplay;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.item.Items;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.level.storage.LevelStorageSource;
+import lingfeng.bbsnext.film.replays.LeashStore;
+import lingfeng.bbsnext.film.replays.LeashBoneStore;
+import lingfeng.bbsnext.film.replays.LeashUndo;
+// MC Camera referenced inline as net.minecraft.client.Camera to avoid single-type-name clash with mchorse.bbs_mod.camera.Camera
+import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Leashable;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -114,6 +139,13 @@ public class EditorBridge implements IHtmlBridge
     /** ID of the sequence that click-to-add drops assets into. Set when the
      *  user selects a sequence in the asset tree (enterSequence). */
     private static String activeSequenceId = null;
+    /** World folder names reserved by BBS for preview use. They must never
+     *  surface in the scene world-picker, singleplayer, or new-world creation.
+     *  Extend by adding more names to the equality chain below. */
+    private static boolean isReservedWorld(String name)
+    {
+        return name != null && "bbs_preview".equals(name);
+    }
     /** Index of the timeline clip the user last selected (via clipOp select or
      *  by clicking a clip/track block). Used as the fallback target for
      *  clipOp delete/split when the request carries no explicit index — e.g.
@@ -135,6 +167,11 @@ public class EditorBridge implements IHtmlBridge
     private static String actionEditorSelectedChannel = null;
     /** Index of the material clip selected in the material timeline (-1 = none). */
     private static int actionEditorSelectedMaterial = -1;
+    /** Index of the potion clip selected in the potion timeline (-1 = none). */
+    private static int actionEditorSelectedPotion = -1;
+    /** Per-replay lane-visibility flags for the action-editor count control
+     *  (material / action / potion). Keyed by stable replay id. */
+    private static final Map<String, Map<String, Boolean>> actionEditorLaneVisible = new HashMap<>();
     /** Index of the character (Replay) currently focused in the asset-detail
      *  panel (-1 = none). The panel shares the action editor's state, so both
      *  the panel and the modal read from the same focused/open replay. */
@@ -151,6 +188,12 @@ public class EditorBridge implements IHtmlBridge
      *  be buried by the OS and the button would appear dead). */
     private static int equipReplay = -1;
     private static JsonObject renameReq = null; /* {kind:"camera"|"cameragroup", target, current} -> HTML rename modal */
+    /** Per-dialog result callbacks keyed by dialog id. Java callers register a
+     *  Consumer here (via {@link #registerDialogCallback}) before invoking
+     *  {@link #showDialog(JsonObject)}; when the HTML page sends back a
+     *  "dialogResult" action the matching callback is removed and invoked with
+     *  the raw result request. Keyed by id so each dialog gets its own handler. */
+    private static final java.util.Map<String, java.util.function.Consumer<com.google.gson.JsonObject>> dialogCallbacks = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Gson GSON = new Gson();
 
     /**
@@ -169,15 +212,138 @@ public class EditorBridge implements IHtmlBridge
      *  openWorld; cleared on exitPreviewWorld / closeEditor). Drives the
      *  inWorld flag the HTML page reads to toggle the preview-world buttons. */
     private static boolean inWorld = false;
-    /** True only while this editor owns the live preview world (bbs_preview
-     *  entered via enterPreviewWorld, or a scene world via enterSceneWorld).
+    /** True only while this editor owns the live world the user entered from
+     *  the editor (a scene's bound singleplayer world via enterSceneWorld).
      *  Drives the "owningPreviewWorld" flag the HTML page reads to decide
-     *  whether the exit-preview-world button is shown. False the moment the
+     *  whether the exit-world button is shown. False the moment the
      *  world is torn down so the button can never outlive the world. */
     private static boolean owningPreviewWorld = false;
+    /** Folder name of the singleplayer world the editor most recently opened
+     *  through enterSceneWorld, or null when no editor-owned world is loaded.
+     *  The editor overlay sits on top of a still-running world, so mc.level is
+     *  a useless "am I in the target world" probe; this is the only reliable
+     *  one and lets a scene switch decide between no-op and full reload. */
+    private static volatile String loadedPreviewWorldName = null;
+    /** Deadline guarding a scene-to-scene world switch. openWorld is
+     *  asynchronous and its completion callback is never invoked when the
+     *  target folder is missing (vanilla shows its own error screen instead),
+     *  so the guard is time-bounded rather than a plain boolean and thus can
+     *  never wedge the editor permanently. */
+    private static volatile long worldSwitchUntil = 0L;
+    private static final long WORLD_SWITCH_TIMEOUT_MS = 60000L;
     /** Re-entrancy guard for exitPreviewWorld: a double fire (e.g. button
      *  + shortcut, or rapid toggles) must not re-enter the teardown path. */
     private static boolean exitingPreviewWorld = false;
+
+    /* Leash (D1) editing state. Anchors are picked via screen raycast and hold the
+     * authoritative screen coords (Java projects the world point) plus the picked
+     * replay id / bone, so the HTML overlay can draw the rope preview without
+     * recomputing projection (which is only an fov=60 approximation in JS). */
+    private static boolean leashToolOn = false;
+    private static LeashAnchor leashAnchorA = new LeashAnchor();
+    private static LeashAnchor leashAnchorB = new LeashAnchor();
+
+    /* v3 timeline-clip pending state (replaces the old dual-anchor model). */
+    private static String leashMode = "idle";        // idle | pickHolder | pickTarget | pickBone
+    private static String leashClipRange = "idle";   // idle | awaitingStart | awaitingEnd
+    private static String leashTargetReplayId = "";  // PICK_TARGET chosen replay
+    private static int leashPendingStart = -1;       // CLIP_RANGE start tick
+    private static int leashPendingEnd = -1;         // CLIP_RANGE end tick
+    private static String leashPendingBone = "";     // PICK_BONE chosen marker ("" = whole body)
+
+    /* Runtime-only BlockDisplay endpoints for proxy (empty-world-point) holders.
+       Keyed by "filmId/leashedReplayId" to match LeashStore. The BlockDisplay
+       entity is never serialised; only its world position is persisted (F5). */
+    private static final Map<String, Integer> leashProxies = new HashMap<>();
+
+    private static String leashKey(String filmId, String leashedReplayId)
+    {
+        return filmId + "/" + leashedReplayId;
+    }
+
+    /* Spawn a vanilla BlockDisplay as a visible proxy endpoint. Runs on the
+       ServerLevel so the integrated server syncs it to the client for rendering. */
+    private static void spawnProxy(ServerLevel level, String key, double x, double y, double z)
+    {
+        if (level == null || key == null) return;
+        Integer existing = leashProxies.get(key);
+        if (existing != null && level.getEntity(existing) != null) return;
+        EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.get(Identifier.parse("minecraft:block_display")).orElseThrow().value();
+        BlockDisplay b = new BlockDisplay((EntityType<? extends BlockDisplay>) type, level);
+        b.setPos(x, y, z);
+        BlockState marker = Blocks.GLASS.defaultBlockState();
+        b.setBlockState(marker);
+        level.addFreshEntity(b);
+        leashProxies.put(key, b.getId());
+    }
+
+    private static void clearProxy(String key, Level level)
+    {
+        if (key == null) return;
+        Integer id = leashProxies.remove(key);
+        if (id != null && level != null)
+        {
+            Entity e = level.getEntity(id);
+            if (e != null) e.discard();
+        }
+    }
+
+    /* Resolve the holder Entity for a link. Proxy holders materialise (or reuse)
+       a BlockDisplay at the persisted world position; replay holders resolve to
+       the preview actor. Returns null if neither is available yet. */
+    public static Entity resolveHolder(String filmId, LeashStore.LeashLink link, Level level, Map<String, Integer> map)
+    {
+        if (link == null || level == null) return null;
+        if (link.isProxy())
+        {
+            String key = leashKey(filmId, link.leashedReplayId);
+            Integer id = leashProxies.get(key);
+            Entity e = id != null ? level.getEntity(id) : null;
+            if (e != null) return e;
+            if (level instanceof ServerLevel sl)
+            {
+                spawnProxy(sl, key, link.holderX, link.holderY, link.holderZ);
+                Integer nid = leashProxies.get(key);
+                return nid != null ? level.getEntity(nid) : null;
+            }
+            return null;
+        }
+        if (map == null) return null;
+        Integer hid = map.get(link.holderReplayId);
+        return hid != null ? level.getEntity(hid) : null;
+    }
+
+    private static class LeashAnchor
+    {
+        public boolean valid;
+        public boolean proxy;
+        public String replayId = "";
+        public String bone = "";
+        public double sx;
+        public double sy;
+        public double wx;
+        public double wy;
+        public double wz;
+
+        public void clear()
+        {
+            this.valid = false;
+            this.proxy = false;
+            this.replayId = "";
+            this.bone = "";
+            this.sx = this.sy = this.wx = this.wy = this.wz = 0D;
+        }
+    }
+
+    private static class LeashPickResult
+    {
+        public boolean valid;
+        public String replayId = "";
+        public String bone = "";
+        public double wx;
+        public double wy;
+        public double wz;
+    }
 
     public EditorBridge(UIFilmPanel panel)
     {
@@ -225,7 +391,7 @@ public class EditorBridge implements IHtmlBridge
 
         UIFilmPanel panel = bridge.panel;
 
-        if (Minecraft.getInstance().level != null)
+        if (Minecraft.getInstance().level != null && !isSwitchingWorld())
         {
             clearEnteringWorld();
         }
@@ -240,8 +406,13 @@ public class EditorBridge implements IHtmlBridge
         Scene current = scenes == null ? null : scenes.getCurrent();
         root.addProperty("scene", current == null ? "" : current.name);
         root.addProperty("sceneWorld", current == null || current.background == null ? "" : current.background);
+        /* B5: stable id of the open scene. The page needs it to highlight the
+         * active row in the scene tree; scene (display name) is not unique
+         * enough and is localised, so it can never be used for identity. */
+        root.addProperty("activeScene", current == null ? "" : current.id);
         root.addProperty("inWorld", inWorld || Minecraft.getInstance().level != null);
         root.addProperty("owningPreviewWorld", owningPreviewWorld);
+        root.addProperty("worldLoading", isEnteringWorld());
 
         root.addProperty("cursor", panel.getCursor());
         root.addProperty("running", panel.isRunning());
@@ -393,7 +564,7 @@ public class EditorBridge implements IHtmlBridge
                 Path p = dir.path();
                 String name = p.getFileName() == null ? p.toString() : p.getFileName().toString();
 
-                if (!name.isEmpty() && !BBS_PREVIEW_WORLD.equals(name))
+                if (!name.isEmpty() && !isReservedWorld(name))
                 {
                     worldArr.add(name);
                 }
@@ -412,7 +583,7 @@ public class EditorBridge implements IHtmlBridge
                 {
                     for (File dir : dirs)
                     {
-                        if (new File(dir, "level.dat").exists() && !BBS_PREVIEW_WORLD.equals(dir.getName()))
+                        if (new File(dir, "level.dat").exists() && !isReservedWorld(dir.getName()))
                         {
                             worldArr.add(dir.getName());
                         }
@@ -532,16 +703,6 @@ public class EditorBridge implements IHtmlBridge
 
             for (Replay replay : film.replays.getList())
             {
-                /* Library vs track: only UNPLACED replays appear in the asset
-                 * box. Placed replays are rendered as timeline tracks instead,
-                 * so creating a character no longer auto-grabs a timeline track
-                 * (it lands in the library until dragged onto the timeline). */
-                if (placed.contains(replay.getId()))
-                {
-                    libIdx++;
-                    continue;
-                }
-
                 JsonObject obj = new JsonObject();
                 /* F0: stable list index (into film.replays) is carried alongside
                  * the id so index-based subsystems (action editor, focus) can
@@ -549,7 +710,14 @@ public class EditorBridge implements IHtmlBridge
                 obj.addProperty("index", libIdx);
                 obj.addProperty("id", replay.getId());
                 obj.addProperty("label", replay.label.get());
+                /* B1: a replay stays in the asset box even after it owns a
+                 * timeline track, so the same character can be dragged out
+                 * again. placed only marks the entry so the page can show it
+                 * as already-on-timeline; it never filters the library. */
+                obj.addProperty("placed", placed.contains(replay.getId()));
                 obj.add("props", TrackPropStore.get(filmId, replay.getId()).toJson());
+                LeashBoneStore.LeashBone lb = LeashBoneStore.get(filmId, replay.getId());
+                obj.addProperty("leashBone", lb == null ? "" : lb.bone);
 
                 Form f = replay.form.get();
                 String cat = "entity";
@@ -910,6 +1078,8 @@ public class EditorBridge implements IHtmlBridge
         {
             root.add("rename", renameReq);
         }
+
+        root.add("leash", buildLeashState(panel));
 
         return GSON.toJson(root);
     }
@@ -1579,6 +1749,40 @@ public class EditorBridge implements IHtmlBridge
             case "aeToggleMaterialEnabled":
                 aeSetMaterialField(panel, req, c -> c.enabled.set(!c.enabled.get()));
                 break;
+            case "aeAddPotion":
+                aeAddPotion(panel, req);
+                break;
+            case "aeDeletePotion":
+                aeDeletePotion(panel, req.has("pi") ? req.get("pi").getAsInt() : -1);
+                break;
+            case "aeSelectPotion":
+                aeSelectPotion(panel, req.has("pi") ? req.get("pi").getAsInt() : -1);
+                break;
+            case "aeSetPotionType":
+                aeSetPotionField(panel, req, c -> c.type.set(req.get("value").getAsString()));
+                break;
+            case "aeSetPotionEffect":
+                aeSetPotionField(panel, req, c -> c.effect.set(req.get("value").getAsString()));
+                break;
+            case "aeSetPotionName":
+                aeSetPotionField(panel, req, c -> c.name.set(req.get("value").getAsString()));
+                break;
+            case "aeSetPotionTick":
+                aeSetPotionField(panel, req, c -> c.tick.set(req.get("value").getAsInt()));
+                break;
+            case "aeSetPotionDuration":
+                aeSetPotionField(panel, req, c -> c.duration.set(req.get("value").getAsInt()));
+                break;
+            case "aeTogglePotionEnabled":
+                aeSetPotionField(panel, req, c -> c.enabled.set(!c.enabled.get()));
+                break;
+            case "aeSetTrackCount":
+                aeSetTrackCount(panel, req.has("track") ? req.get("track").getAsString() : "",
+                    req.has("count") ? req.get("count").getAsInt() : 0);
+                break;
+            case "aeSetTrackVisible":
+                aeSetTrackVisible(panel, req.has("track") ? req.get("track").getAsString() : "", req.has("visible") ? req.get("visible").getAsBoolean() : true);
+                break;
             case "aeSetTitle":
                 aeSetActionField(panel, req, c -> c.title.set(req.get("value").getAsString()));
                 break;
@@ -1690,6 +1894,64 @@ public class EditorBridge implements IHtmlBridge
                     req.has("prop") ? req.get("prop").getAsString() : "",
                     req.has("value") ? req.get("value").getAsString() : "");
                 break;
+            case "leashTool":
+                leashTool(panel, req.has("on") && req.get("on").getAsBoolean());
+                break;
+            case "leashClearAnchors":
+                leashClearAnchors(panel);
+                break;
+            case "leashPickAnchor":
+                leashPickAnchor(panel,
+                    req.has("which") ? req.get("which").getAsString() : "a",
+                    req.has("sx") ? req.get("sx").getAsDouble() : 0D,
+                    req.has("sy") ? req.get("sy").getAsDouble() : 0D);
+                break;
+            case "leashPickHolder":
+                leashPickAnchor(panel, "a",
+                    req.has("sx") ? req.get("sx").getAsDouble() : 0D,
+                    req.has("sy") ? req.get("sy").getAsDouble() : 0D);
+                break;
+            case "leashPickProxy":
+                leashPickProxy(panel,
+                    req.has("sx") ? req.get("sx").getAsDouble() : 0D,
+                    req.has("sy") ? req.get("sy").getAsDouble() : 0D);
+                break;
+            case "leashPickTarget":
+                leashPickTarget(panel, req.has("replayId") ? req.get("replayId").getAsString() : "");
+                break;
+            case "leashClipStart":
+                leashClipStart(panel, req.has("tick") ? req.get("tick").getAsInt() : 0);
+                break;
+            case "leashClipEnd":
+                leashClipEnd(panel, req.has("tick") ? req.get("tick").getAsInt() : 0);
+                break;
+            case "leashCommit":
+                leashBind(panel,
+                    req.has("replayId") ? req.get("replayId").getAsString() : "",
+                    req.has("bone") ? req.get("bone").getAsString() : "");
+                break;
+            case "leashBind":
+                leashBind(panel,
+                    req.has("replayId") ? req.get("replayId").getAsString() : "",
+                    req.has("bone") ? req.get("bone").getAsString() : "");
+                break;
+            case "leashCancel":
+                leashCancel(panel);
+                break;
+            case "leashSetWindow":
+                leashSetWindow(panel,
+                    req.has("replayId") ? req.get("replayId").getAsString() : "",
+                    req.has("startTick") ? req.get("startTick").getAsInt() : 0,
+                    req.has("endTick") ? req.get("endTick").getAsInt() : 0);
+                break;
+            case "leashUnbind":
+                leashUnbind(panel, req.has("replayId") ? req.get("replayId").getAsString() : "");
+                break;
+            case "leashSetBone":
+                leashSetBone(panel,
+                    req.has("replayId") ? req.get("replayId").getAsString() : "",
+                    req.has("bone") ? req.get("bone").getAsString() : "");
+                break;
             case "deleteScene":
                 deleteScene(panel, req.has("id") ? req.get("id").getAsString() : "");
                 break;
@@ -1760,9 +2022,6 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "enterSceneWorld":
                 enterSceneWorld(panel);
-                break;
-            case "enterPreviewWorld":
-                enterPreviewWorld(panel);
                 break;
             case "exitPreviewWorld":
                 exitPreviewWorld();
@@ -1948,6 +2207,15 @@ public class EditorBridge implements IHtmlBridge
                     req.has("index") ? req.get("index").getAsInt() : -1,
                     req.has("id") ? req.get("id").getAsString() : "");
                 break;
+            case "moveClip":
+                return moveClip(panel,
+                    req.has("id") ? req.get("id").getAsString() : "",
+                    req.has("tick") ? req.get("tick").getAsInt() : 0);
+            case "resizeClip":
+                return resizeClip(panel,
+                    req.has("id") ? req.get("id").getAsString() : "",
+                    req.has("tick") ? req.get("tick").getAsInt() : 0,
+                    req.has("duration") ? req.get("duration").getAsInt() : 1);
             case "toBackpack":
                 return toBackpack(panel,
                     req.has("type") ? req.get("type").getAsString() : "",
@@ -1960,7 +2228,8 @@ public class EditorBridge implements IHtmlBridge
                 refreshHtml();
                 break;
             case "enterSequence":
-                /* Select a sequence as the drop target for click-to-add. */
+                /* 硬性保险：选中序列只设 activeSequenceId + 刷新高亮，绝不允许进入世界。
+                 * 进世界只能通过 openScene(绑定世界) 或 "进入世界" 按钮，序列点击与之完全隔离。 */
                 activeSequenceId = req.has("id") ? req.get("id").getAsString() : null;
                 refreshHtml();
                 break;
@@ -1972,6 +2241,15 @@ public class EditorBridge implements IHtmlBridge
                     req.has("id") ? req.get("id").getAsString() : "");
             case "updateNow":
                 UpdateChecker.applyUpdate();
+                break;
+            case "dialog":
+                showDialog(req);
+                break;
+            case "dialogResult":
+                handleDialogResult(req);
+                break;
+            case "dialogOpened":
+                /* no-op: client-side dialog opened; nothing to do on server */
                 break;
             case "dismissUpdate":
                 UpdateChecker.dismiss();
@@ -2164,7 +2442,27 @@ public class EditorBridge implements IHtmlBridge
         }
 
         Replay replay = film.replays.addReplay();
-        replay.form.set(new mchorse.bbs_mod.forms.forms.ParticleForm());
+        ParticleForm pf = new ParticleForm();
+        replay.form.set(pf);
+
+        /* C: a freshly created particle replay has no effect scheme, so the
+         * ParticleFormRenderer has nothing to emit and the asset looks like a
+         * decoration. Seed it with the first available particle scheme so it
+         * actually sprays particles during playback (no scheme -> stays inert,
+         * which the user must fix by creating one in the particle library). */
+        String scheme = null;
+
+        for (String key : mchorse.bbs_mod.BBSModClient.getParticles().getKeys())
+        {
+            scheme = key;
+            break;
+        }
+
+        if (scheme != null)
+        {
+            pf.effect.set(scheme);
+        }
+
         replay.label.set(name);
         panel.replayEditor.setReplay(replay);
         panel.showPanel(1);
@@ -2280,248 +2578,6 @@ public class EditorBridge implements IHtmlBridge
     /** Create a new idle camera at the current playhead tick. The name comes
      *  from the HTML modal (the old Swing dialog was hidden by the MCEF
      *  overlay). */
-    /** Open (or lazily create) the dedicated preview world so the editor can
-     *  show real Minecraft rendering + playback without the player having to
-     *  join their own worlds. First run generates a small flat world named
-     *  bbs_preview; afterwards it is reused. The LoadingOverlay is suppressed
-     *  while this runs (see LoadingOverlayMixin). */
-    private static void enterPreviewWorld(UIFilmPanel panel)
-    {
-        Minecraft mc = Minecraft.getInstance();
-
-        if (mc.level != null)
-        {
-            return;
-        }
-
-        markEnteringWorld();
-
-        try
-        {
-            Path savesDir = mc.gameDirectory.toPath().resolve("saves");
-            Path dstDir = savesDir.resolve(BBS_PREVIEW_WORLD);
-            Path levelDat = dstDir.resolve("level.dat");
-
-            boolean dstOk = Files.isDirectory(dstDir) && Files.isRegularFile(levelDat);
-
-            if (!dstOk)
-            {
-                SceneManager scenes = SceneManager.get();
-                Scene current = scenes == null ? null : scenes.getCurrent();
-                String srcName = (current == null || current.background == null || current.background.isEmpty()) ? null : current.background;
-
-                Path srcDir = srcName == null ? null : savesDir.resolve(srcName);
-
-                /* If the scene has no background world, clone any existing
-                 * valid single-player world as a template. createFreshLevel()
-                 * is asynchronous and does not write level.dat immediately,
-                 * so cloning a real world is the only reliable way to get a
-                 * loadable bbs_preview on first editor open. */
-                if (srcDir == null || !Files.isDirectory(srcDir) || !Files.isRegularFile(srcDir.resolve("level.dat")))
-                {
-                    srcDir = findFirstValidWorld(savesDir, dstDir);
-                }
-
-                if (srcDir != null && Files.isDirectory(srcDir) && Files.isRegularFile(srcDir.resolve("level.dat")))
-                {
-                    if (Files.isDirectory(dstDir)) deleteRecursive(dstDir);
-                    copyWorld(srcDir, dstDir);
-                    renamePreviewWorld(dstDir);
-                }
-                else
-                {
-                    /* No template world available to clone bbs_preview from.
-                     * We deliberately do NOT call createFreshLevel("bbs_preview")
-                     * here: that name is reserved/internal and must not be
-                     * created by this path (creation under it is redirected in
-                     * WorldOpenFlowsMixin). The preview world therefore depends
-                     * on at least one existing singleplayer save to clone from. */
-                    BBSMod.LOGGER.error("[EditorBridge] enterPreviewWorld: no template world to clone bbs_preview from");
-                }
-
-            }
-
-            if (Files.isDirectory(dstDir) && Files.isRegularFile(levelDat))
-            {
-                owningPreviewWorld = true;
-                mc.createWorldOpenFlows().openWorld(BBS_PREVIEW_WORLD, () ->
-                {
-                    clearEnteringWorld();
-
-                    /* Guard against a late callback that fires after the user
-                     * already exited: exitPreviewWorld resets owningPreviewWorld
-                     * to false and tears down mc.level, so re-running the world
-                     * entry here would re-flag an exited state and risk an
-                     * mc.level NPE in spawnReplayActors. */
-                    if (owningPreviewWorld)
-                    {
-                        reopenEditorUi();
-                        inWorld = true;
-                        spawnReplayActors(panel);
-                    }
-                });
-            }
-            else
-            {
-                clearEnteringWorld();
-                owningPreviewWorld = false;
-                BBSMod.LOGGER.error("[EditorBridge] enterPreviewWorld: bbs_preview still unavailable");
-            }
-        }
-        catch (Throwable t)
-        {
-            clearEnteringWorld();
-            owningPreviewWorld = false;
-            BBSMod.LOGGER.error("[EditorBridge] enterPreviewWorld failed", t);
-        }
-    }
-
-    private static void deleteRecursive(Path dir) throws java.io.IOException
-    {
-        if (!Files.exists(dir)) return;
-
-        try (java.util.stream.Stream<Path> stream = Files.walk(dir))
-        {
-            for (Path p : (Iterable<Path>) stream::iterator)
-            {
-                Files.deleteIfExists(p);
-            }
-        }
-    }
-
-    /** Find the first valid single-player world in saves/ that is not the
-     *  destination preview world itself. Returns null if none exists. */
-    private static Path findFirstValidWorld(Path savesDir, Path exclude)
-    {
-        try (java.util.stream.Stream<Path> stream = Files.list(savesDir))
-        {
-            for (Path p : (Iterable<Path>) stream::iterator)
-            {
-                if (!Files.isDirectory(p)) continue;
-                if (p.equals(exclude)) continue;
-                if (Files.isRegularFile(p.resolve("level.dat"))) return p;
-            }
-        }
-        catch (Throwable t)
-        {
-            BBSMod.LOGGER.error("[EditorBridge] findFirstValidWorld failed", t);
-        }
-        return null;
-    }
-
-    /** Recursively copy a world folder (saves/<src> -> saves/<dst>). */
-    private static void copyWorld(Path src, Path dst) throws java.io.IOException
-    {
-        try (java.util.stream.Stream<Path> stream = Files.walk(src))
-        {
-            for (Path p : (Iterable<Path>) stream::iterator)
-            {
-                Path rel = src.relativize(p);
-                Path target = dst.resolve(rel);
-
-                if (Files.isDirectory(p))
-                {
-                    Files.createDirectories(target);
-                }
-                else
-                {
-                    Files.copy(p, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
-    }
-
-    /** Rename the preview world shown in the single-player world list so it is
-     *  clearly identifiable as the BBS preview world (the cloned template keeps
-     *  its original LevelName otherwise). Operates on the raw level.dat bytes
-     *  to avoid depending on the NBT API surface which varies across versions. */
-    private static void renamePreviewWorld(Path worldDir)
-    {
-        Path levelDat = worldDir.resolve("level.dat");
-
-        if (!Files.isRegularFile(levelDat))
-        {
-            return;
-        }
-
-        try
-        {
-            byte[] raw = Files.readAllBytes(levelDat);
-            byte[] key = "LevelName".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            int idx = indexOf(raw, key);
-
-            if (idx < 0)
-            {
-                return;
-            }
-
-            int vlenPos = idx + key.length;
-
-            if (vlenPos + 2 > raw.length)
-            {
-                return;
-            }
-
-            int oldLen = ((raw[vlenPos] & 0xFF) << 8) | (raw[vlenPos + 1] & 0xFF);
-            int valStart = vlenPos + 2;
-            int valEnd = valStart + oldLen;
-
-            if (valEnd > raw.length)
-            {
-                return;
-            }
-
-            byte[] newName = "bbs 预览世界".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            byte[] newLen = { (byte) (newName.length >> 8), (byte) (newName.length & 0xFF) };
-
-            byte[] out = new byte[valStart + newLen.length + newName.length + (raw.length - valEnd)];
-            System.arraycopy(raw, 0, out, 0, valStart);
-            System.arraycopy(newLen, 0, out, valStart, newLen.length);
-            System.arraycopy(newName, 0, out, valStart + newLen.length, newName.length);
-            System.arraycopy(raw, valEnd, out, valStart + newLen.length + newName.length, raw.length - valEnd);
-
-            Files.write(levelDat, out);
-        }
-        catch (Throwable t)
-        {
-            BBSMod.LOGGER.error("[EditorBridge] renamePreviewWorld failed", t);
-        }
-    }
-
-    /** Find a byte subsequence in a byte array. */
-    private static int indexOf(byte[] haystack, byte[] needle)
-    {
-        if (needle.length == 0) return 0;
-
-        for (int i = 0; i + needle.length <= haystack.length; i++)
-        {
-            boolean match = true;
-
-            for (int j = 0; j < needle.length; j++)
-            {
-                if (haystack[i + j] != needle[j])
-                {
-                    match = false;
-                    break;
-                }
-            }
-
-            if (match) return i;
-        }
-
-        return -1;
-    }
-
-    /** Auto-enter the current scene's background world so the preview shows
-     *  real Minecraft rendering (scene worlds are singleplayer saves). While
-     *  this is running the LoadingOverlay is suppressed (see LoadingOverlayMixin)
-     *  so the editor page stays visible instead of a loading screen.
-     *  Uses a timestamp + timeout instead of a bare boolean so a stuck flag can
-     *  never leak into a normal world join and suppress its loading animation. */
-    /** Reserved internal preview world folder name. Must never appear in any
-     *  user-facing world list and must not be created by users; see
-     *  LevelStorageSourceMixin (hide) and WorldOpenFlowsMixin (reserve name). */
-    public static final String BBS_PREVIEW_WORLD = "bbs_preview";
 
     private static volatile long enteringWorldUntil = 0L;
     private static final long ENTERING_WORLD_TIMEOUT_MS = 15000L;
@@ -2529,11 +2585,22 @@ public class EditorBridge implements IHtmlBridge
     private static void markEnteringWorld()
     {
         enteringWorldUntil = System.currentTimeMillis() + ENTERING_WORLD_TIMEOUT_MS;
+
+        /* D5: drive the web-side #worldLoad spinner through the clean
+         * injection point window.bbsSetWorldLoading(on) (defined in
+         * editor_ui.html). It sets window._sceneWorldEntering AND toggles the
+         * element, so Java only ever calls this one hook. The reopened editor
+         * also re-pushes state.worldLoading each tick, so the spinner is driven
+         * from two independent channels and never gets stuck. */
+        MCEFUI.injectScript("window.bbsSetWorldLoading(true);");
     }
 
     private static void clearEnteringWorld()
     {
         enteringWorldUntil = 0L;
+
+        /* Hide the web-side loading spinner via the same injection point. */
+        MCEFUI.injectScript("window.bbsSetWorldLoading(false);");
     }
 
     public static boolean isEnteringWorld()
@@ -2578,6 +2645,19 @@ public class EditorBridge implements IHtmlBridge
             {
                 UIScreen.open(dashboard);
 
+                /* openWorld 把 dashboard 的 screen 顶掉时，UIScreen.removed() 触发
+                 * UIDashboard.onClose() -> panels.close() -> UIFilmPanel 关闭逻辑里
+                 * closeHtmlEditor() -> ultralightOverlay.setVisible(false) ->
+                 * MCEFUI.close()，把编辑器浏览器销毁了。而 UIDashboard.onOpen 并不
+                 * 重新打开它，所以若不在这里补一句，进/出预览世界后编辑器 UI 会永久
+                 * 消失（连"退出预览世界"按钮都看不到）。openHtmlEditor 是幂等的，
+                 * overlay 已显示时直接 no-op，这里调用安全。 */
+                if (panel != null)
+                {
+                    panel.setKeepBrowserAlive(false);
+                    panel.openHtmlEditor();
+                }
+
                 /* B3: the reopened editor reuses the existing MCEF instance
                  * (the page is NOT reloaded), so window.bbsState is never
                  * refreshed automatically. Without this, owningPreviewWorld /
@@ -2592,34 +2672,195 @@ public class EditorBridge implements IHtmlBridge
         }
     }
 
+    /** OS window title: which project is being edited + whether it is saved.
+     *  WindowMixin intercepts every Window.setTitle and paints this instead, so
+     *  the title bar always reflects the current BBS project and dirty state
+     *  rather than MC's own (version / world name) title. */
+    public static String getWindowTitle()
+    {
+        BBSProject project = ProjectManager.get() == null ? null : ProjectManager.get().getCurrent();
+        String projectName = project == null ? "未打开项目" : project.name;
+
+        boolean dirty = false;
+        UIDashboard dashboard = BBSModClient.getDashboard();
+        UIFilmPanel filmPanel = dashboard == null ? null : dashboard.getPanel(UIFilmPanel.class);
+
+        if (filmPanel != null)
+        {
+            dirty = filmPanel.isDirty();
+        }
+
+        return "Blockbuster Studio Next — " + projectName + (dirty ? " • 未保存" : " • 已保存");
+    }
+
+    private static boolean beginWorldSwitch()
+    {
+        long now = System.currentTimeMillis();
+
+        if (now < worldSwitchUntil)
+        {
+            return false;
+        }
+
+        worldSwitchUntil = now + WORLD_SWITCH_TIMEOUT_MS;
+        return true;
+    }
+
+    private static void endWorldSwitch()
+    {
+        worldSwitchUntil = 0L;
+    }
+
+    /** True between the clearClientLevel of a scene switch and the completion
+     *  callback of the replacement openWorld. Used to stop the periodic state
+     *  push from clearing the loading spinner mid-switch. */
+    private static boolean isSwitchingWorld()
+    {
+        return System.currentTimeMillis() < worldSwitchUntil;
+    }
+
+    /** Name of the world currently loaded as far as the editor is concerned.
+     *  Falls back to the level's own display name so a world the user opened
+     *  outside the editor is still recognised as "some world, not the target". */
+    private static String resolveLoadedWorldName(Minecraft mc)
+    {
+        if (loadedPreviewWorldName != null && !loadedPreviewWorldName.isEmpty())
+        {
+            return loadedPreviewWorldName;
+        }
+
+        if (mc.level == null)
+        {
+            return "";
+        }
+
+        try
+        {
+            String name = mc.level.getLevelData().getLevelName();
+            return name == null ? "" : name;
+        }
+        catch (Throwable t)
+        {
+            return "";
+        }
+    }
+
     private static void enterSceneWorld(UIFilmPanel panel)
     {
         Minecraft mc = Minecraft.getInstance();
-
-        if (mc.level != null)
-        {
-            return;
-        }
 
         SceneManager scenes = SceneManager.get();
         Scene current = scenes == null ? null : scenes.getCurrent();
         String world = (current == null || current.background == null || current.background.isEmpty()) ? null : current.background;
 
-        if (world != null)
+        if (world == null)
         {
+            BBSMod.LOGGER.warn("[EditorBridge] enterSceneWorld: current scene has no bound world (background empty) - nothing to enter");
+            return;
+        }
+
+        UIFilmPanel target = panel;
+
+        if (target == null)
+        {
+            UIDashboard dashboard = BBSModClient.getDashboard();
+            target = dashboard == null ? null : dashboard.getPanel(UIFilmPanel.class);
+        }
+
+        /* The editor is an overlay on top of a live world, so mc.level != null
+         * is the NORMAL case after the first scene entry, not a reason to bail.
+         * Branch on which world is loaded instead: same world is a no-op, any
+         * other world (preview-owned or the user's own) is unloaded and
+         * replaced, and no level at all is a plain open. */
+        boolean inLevel = mc.level != null;
+        String loaded = inLevel ? resolveLoadedWorldName(mc) : "";
+
+        if (inLevel && world.equals(loaded))
+        {
+            BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: already in bound world '{}' - reusing it", world);
+
+            owningPreviewWorld = true;
+            inWorld = true;
+            loadedPreviewWorldName = world;
+            refreshHtml();
+            return;
+        }
+
+        if (!beginWorldSwitch())
+        {
+            BBSMod.LOGGER.warn("[EditorBridge] enterSceneWorld: a world switch is already in flight - ignoring request for '{}'", world);
+            return;
+        }
+
+        try
+        {
+            /* Keep the browser alive across the teardown: clearClientLevel
+             * unhooks the dashboard screen, which closes the film panel and
+             * would otherwise destroy the MCEF editor instance. */
+            if (target != null)
+            {
+                target.setKeepBrowserAlive(true);
+            }
+
             markEnteringWorld();
             owningPreviewWorld = true;
+            loadedPreviewWorldName = world;
+            inWorld = false;
+
+            if (inLevel)
+            {
+                BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: switching from '{}' to bound world '{}'", loaded, world);
+
+                Film old = target == null ? null : target.getData();
+
+                if (old != null)
+                {
+                    Films.stopFilm(old.getId());
+                }
+
+                mc.clearClientLevel(null);
+            }
+            else
+            {
+                BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: opening bound world '{}'", world);
+            }
+
             mc.createWorldOpenFlows().openWorld(world, () ->
             {
+                endWorldSwitch();
                 clearEnteringWorld();
 
                 if (owningPreviewWorld)
                 {
                     reopenEditorUi();
                     inWorld = true;
-                    spawnReplayActors(panel);
+                    spawnReplayActors(target);
+
+                    Film film = target == null ? null : target.getData();
+
+                    if (film != null)
+                    {
+                        /* Start the Film playing in the preview world so replays
+                         * animate along their keyframes, and drive the camera via
+                         * the editor runner. Keep withCamera=false so the runner
+                         * (not a second conflicting controller) owns the camera. */
+                        Films.stopFilm(film.getId());
+                        Films.playFilm(film, false);
+
+                        target.setCursor(0);
+                        target.getRunner().setWork(film.camera);
+                        target.getRunner().toggle(0);
+                    }
                 }
             });
+        }
+        catch (Throwable t)
+        {
+            endWorldSwitch();
+            clearEnteringWorld();
+            owningPreviewWorld = false;
+            loadedPreviewWorldName = null;
+            BBSMod.LOGGER.error("[EditorBridge] enterSceneWorld failed to open world '{}'", world, t);
         }
     }
 
@@ -2632,6 +2873,16 @@ public class EditorBridge implements IHtmlBridge
      * it mirrors ActionPlayer.updateReplayEntities() spawn logic but runs on
      * the client Level directly.
      */
+    /**
+     * Instantiate the current film's replays as {@link ActorEntity} instances and
+     * publish the replayId -&gt; entityId mapping so {@link BaseFilmController} can
+     * drive them every frame. D1: in singleplayer the actors are spawned into the
+     * {@link ServerLevel} (not the client {@code ClientLevel}) so vanilla
+     * {@link Leashable#tickLeash(ServerLevel, net.minecraft.world.entity.Entity)}
+     * actually runs and the rope gets real pull / snap / knot physics. The client
+     * {@code ClientLevel} is used as a fallback when no integrated server exists
+     * (no leash ticking possible there, but the preview still opens).
+     */
     private static void spawnReplayActors(UIFilmPanel panel)
     {
         Minecraft mc = Minecraft.getInstance();
@@ -2643,33 +2894,32 @@ public class EditorBridge implements IHtmlBridge
         }
 
         String filmId = film.getId();
+        ServerLevel serverLevel = previewServerLevel();
+        final IntegratedServer server = mc.getSingleplayerServer();
 
         /* Clean up previously spawned actors for this film before adding new ones,
-           so re-entering the world does not leak orphan entities in the level. */
+           so re-entering the world does not leak orphan entities. When the actors
+           live on the server level we must discard them there (a client-only
+           removeEntity would desync and orphan the server entity). */
         Map<String, Integer> oldMap = BBSModClient.getFilms().actors.get(filmId);
 
-        if (oldMap != null && mc.level != null)
+        if (oldMap != null)
         {
-            for (Integer eid : oldMap.values())
+            if (serverLevel != null && server != null)
             {
-                if (eid == null)
-                {
-                    continue;
-                }
-
-                Entity old = mc.level.getEntity(eid);
-
-                if (old != null)
-                {
-                    mc.level.removeEntity(old.getId(), Entity.RemovalReason.DISCARDED);
-                }
+                server.submit(() -> discardFrom(oldMap, serverLevel));
+            }
+            else
+            {
+                discardFrom(oldMap, mc.level);
             }
         }
 
-        Map<String, Integer> map = new HashMap<>();
+        final Map<String, Integer> map = new HashMap<>();
 
-        try
+        Runnable build = () ->
         {
+            Level level = serverLevel != null ? serverLevel : mc.level;
             List<Replay> list = film.replays.getList();
 
             for (int i = 0; i < list.size(); i++)
@@ -2682,7 +2932,7 @@ public class EditorBridge implements IHtmlBridge
                     continue;
                 }
 
-                ActorEntity actor = new ActorEntity(BBSMod.ACTOR_ENTITY, mc.level);
+                ActorEntity actor = new ActorEntity(BBSMod.ACTOR_ENTITY, level);
 
                 Form f = replay.form.get();
 
@@ -2692,22 +2942,47 @@ public class EditorBridge implements IHtmlBridge
                 }
 
                 actor.setPos(replay.keyframes.x.sample(0), replay.keyframes.y.sample(0), replay.keyframes.z.sample(0));
-                mc.level.addFreshEntity(actor);
+                level.addFreshEntity(actor);
                 map.put(replay.getId(), actor.getId());
             }
 
-            BBSModClient.getFilms().updateActors(filmId, map);
-            panel.updateActors(filmId, map);
+            replayLeashRelationships(filmId, map, level);
+        };
 
-            if (panel.getController() != null)
+        try
+        {
+            if (serverLevel != null && server != null)
             {
-                panel.getController().createEntities();
+                server.submit(build).join();
+            }
+            else
+            {
+                build.run();
             }
         }
         catch (Throwable t)
         {
             BBSMod.LOGGER.error("[EditorBridge] spawnReplayActors failed", t);
+
+            try
+            {
+                build.run();
+            }
+            catch (Throwable t2)
+            {
+                BBSMod.LOGGER.error("[EditorBridge] spawnReplayActors client fallback failed", t2);
+            }
         }
+
+        BBSModClient.getFilms().updateActors(filmId, map);
+        panel.updateActors(filmId, map);
+
+        if (panel.getController() != null)
+        {
+            panel.getController().createEntities();
+        }
+
+        refreshLeashBones(filmId);
     }
 
     /**
@@ -2741,29 +3016,44 @@ public class EditorBridge implements IHtmlBridge
 
                     if (oldMap != null)
                     {
-                        for (Integer eid : oldMap.values())
+                        ServerLevel serverLevel = previewServerLevel();
+                        IntegratedServer server = mc.getSingleplayerServer();
+
+                        if (serverLevel != null && server != null)
                         {
-                            if (eid == null)
-                            {
-                                continue;
-                            }
-
-                            Entity old = mc.level.getEntity(eid);
-
-                            if (old != null)
-                            {
-                                mc.level.removeEntity(old.getId(), Entity.RemovalReason.DISCARDED);
-                            }
+                            server.submit(() -> discardFrom(oldMap, serverLevel));
+                        }
+                        else
+                        {
+                            discardFrom(oldMap, mc.level);
                         }
                     }
                 }
 
-                mc.clearClientLevel(new net.minecraft.client.gui.screens.TitleScreen());
+                /* Release preview playback and stop the camera runner so the
+                 * actors freeze and the camera returns to the editor on exit. */
+                if (film != null)
+                {
+                    Films.stopFilm(film.getId());
+                }
+
+                if (filmPanel != null && filmPanel.getRunner() != null)
+                {
+                    filmPanel.getRunner().setPlaying(false);
+                }
+
+                /* Keep the editor interface on screen: clear the level with no
+                 * replacement screen (the MC title screen is never shown); the
+                 * editor overlay is restored on the next tick by reopenEditorUi
+                 * below, so exiting preview never kicks the user out. */
+                mc.clearClientLevel(null);
             }
 
             clearEnteringWorld();
             owningPreviewWorld = false;
             inWorld = false;
+            loadedPreviewWorldName = null;
+            endWorldSwitch();
             reopenEditorUi();
         }
         finally
@@ -3476,6 +3766,8 @@ public class EditorBridge implements IHtmlBridge
         focused.addProperty("shadow", fcr.shadow.get());
         focused.addProperty("nameTag", fcr.nameTag.get());
         focused.add("props", TrackPropStore.get(film.getId(), fcr.getId()).toJson());
+        LeashBoneStore.LeashBone flb = LeashBoneStore.get(film.getId(), fcr.getId());
+        focused.addProperty("leashBone", flb == null ? "" : flb.bone);
 
         return focused;
     }
@@ -4076,6 +4368,36 @@ public class EditorBridge implements IHtmlBridge
         o.add("materials", mats);
         o.addProperty("selectedMaterial", actionEditorSelectedMaterial);
 
+        o.addProperty("materialCount", replay.materials.getAllTyped().size());
+        o.addProperty("actionCount", "action".equals(type) ? replay.actions.get().size() : 0);
+        o.addProperty("potionCount", "action".equals(type) ? replay.potions.getAllTyped().size() : 0);
+        o.addProperty("selectedPotion", actionEditorSelectedPotion);
+        Map<String, Boolean> laneVis = actionEditorLaneVisible.get(replay.getId());
+        o.addProperty("showMaterial", laneVis == null || !laneVis.containsKey("material") || laneVis.get("material"));
+        o.addProperty("showAction", laneVis == null || !laneVis.containsKey("action") || laneVis.get("action"));
+        o.addProperty("showPotion", laneVis != null && laneVis.containsKey("potion") && laneVis.get("potion"));
+
+        if ("action".equals(type))
+        {
+            JsonArray pots = new JsonArray();
+            int pi = 0;
+            for (PotionClip pc : replay.potions.getAllTyped())
+            {
+                JsonObject p = new JsonObject();
+                p.addProperty("index", pi);
+                p.addProperty("type", pc.type.get());
+                p.addProperty("effect", pc.effect.get());
+                p.addProperty("name", pc.name.get());
+                p.addProperty("tick", pc.tick.get());
+                p.addProperty("duration", pc.duration.get());
+                p.addProperty("enabled", pc.enabled.get());
+                pots.add(p);
+                pi++;
+            }
+            o.add("potions", pots);
+            o.addProperty("selectedPotion", actionEditorSelectedPotion);
+        }
+
         JsonArray groups = new JsonArray();
         for (Clip g : ActionGroupLibrary.get().get())
         {
@@ -4477,6 +4799,145 @@ public class EditorBridge implements IHtmlBridge
             + ";renderActionEditor(window.bbsState);renderAssetDetail(window.bbsState);");
     }
 
+
+    private static void aeSetTrackVisible(UIFilmPanel panel, String track, boolean visible)
+    {
+        Film film = panel.getData();
+        int ri = editorReplayIndex();
+        if (film == null || ri < 0 || ri >= film.replays.getList().size()) return;
+        Replay replay = film.replays.getList().get(ri);
+        Map<String, Boolean> vis = actionEditorLaneVisible.computeIfAbsent(replay.getId(), k -> new HashMap<>());
+        vis.put(track, visible);
+        refreshHtml();
+    }
+
+    /* ---- Potion timeline commands (lingfeng.bbsnext) ---- */
+
+    private static void aeSetPotionField(UIFilmPanel panel, JsonObject req, java.util.function.Consumer<PotionClip> editor)
+    {
+        Film film = panel.getData();
+        int ri = editorReplayIndex();
+        if (film == null || ri < 0 || ri >= film.replays.getList().size()) return;
+        Replay replay = film.replays.getList().get(ri);
+        int pi = req.has("pi") ? req.get("pi").getAsInt() : -1;
+        if (pi < 0 || pi >= replay.potions.getAllTyped().size()) return;
+        PotionClip pc = replay.potions.getAllTyped().get(pi);
+        BaseValue.edit(film, f -> editor.accept(pc));
+        refreshHtml();
+    }
+
+    private static void aeAddPotion(UIFilmPanel panel, JsonObject req)
+    {
+        Film film = panel.getData();
+        int ri = editorReplayIndex();
+        if (film == null || ri < 0 || ri >= film.replays.getList().size()) return;
+        Replay replay = film.replays.getList().get(ri);
+        if (!"action".equals(replay.characterType.get()))
+        {
+            MCEFUI.injectScript("toast('关键帧角色不支持药水效果，请先设为动作角色', true)");
+            return;
+        }
+        String type = req.has("type") ? req.get("type").getAsString() : PotionClip.TYPE_SPEED;
+        String effect = req.has("effect") ? req.get("effect").getAsString() : "速度";
+        String name = req.has("name") ? req.get("name").getAsString() : "";
+        BaseValue.edit(film, f ->
+        {
+            PotionClip pc = new PotionClip("potion_" + replay.potions.getAllTyped().size());
+            pc.type.set(type);
+            pc.effect.set(effect);
+            pc.name.set(name.isEmpty() ? ("药水" + (replay.potions.getAllTyped().size() + 1)) : name);
+            replay.potions.add(pc);
+            replay.potions.sync();
+            actionEditorSelectedPotion = replay.potions.getAllTyped().size() - 1;
+        });
+        revealLane(replay, "potion");
+        refreshHtml();
+    }
+
+    private static void aeDeletePotion(UIFilmPanel panel, int pi)
+    {
+        Film film = panel.getData();
+        int ri = editorReplayIndex();
+        if (film == null || ri < 0 || ri >= film.replays.getList().size()) return;
+        Replay replay = film.replays.getList().get(ri);
+        if (pi < 0 || pi >= replay.potions.getAllTyped().size()) return;
+        BaseValue.edit(film, f ->
+        {
+            replay.potions.getAllTyped().remove(pi);
+            replay.potions.sync();
+        });
+        int size = replay.potions.getAllTyped().size();
+        actionEditorSelectedPotion = size <= 0 ? -1 : Math.min(actionEditorSelectedPotion, size - 1);
+        refreshHtml();
+    }
+
+    private static void aeSelectPotion(UIFilmPanel panel, int pi)
+    {
+        actionEditorSelectedPotion = pi;
+        MCEFUI.injectScript("window.bbsState.actionEditor.selectedPotion=" + pi
+            + ";renderActionEditor(window.bbsState);renderAssetDetail(window.bbsState);");
+    }
+
+    private static void aeSetTrackCount(UIFilmPanel panel, String track, int count)
+    {
+        Film film = panel.getData();
+        int ri = editorReplayIndex();
+        if (film == null || ri < 0 || ri >= film.replays.getList().size()) return;
+        Replay replay = film.replays.getList().get(ri);
+        if (!"action".equals(replay.characterType.get()))
+        {
+            MCEFUI.injectScript("toast('关键帧角色不支持此操作', true)");
+            return;
+        }
+        final int target = Math.max(0, Math.min(64, count));
+        BaseValue.edit(film, f ->
+        {
+            if ("material".equals(track)) resizeMaterialTrack(replay, target);
+            else if ("potion".equals(track)) resizePotionTrack(replay, target);
+            else if ("action".equals(track)) resizeActionTrack(replay, target);
+        });
+        if (target > 0) revealLane(replay, track);
+        refreshHtml();
+    }
+
+    /** Keep a track's lane visible whenever the user explicitly grows its clip
+     *  count (the count control) or drops a new clip onto it (the +药水 button).
+     *  Without this the potion lane — hidden by default — would stay empty-looking
+     *  after the user adds potions, even though the data model was updated. */
+    private static void revealLane(Replay replay, String track)
+    {
+        Map<String, Boolean> vis = actionEditorLaneVisible.computeIfAbsent(replay.getId(), k -> new HashMap<>());
+        vis.put(track, true);
+    }
+
+    private static void resizeMaterialTrack(Replay replay, int target)
+    {
+        int cur = replay.materials.getAllTyped().size();
+        while (cur < target) { replay.materials.add(new MaterialClip("material_" + cur)); cur++; }
+        while (cur > target) { replay.materials.getAllTyped().remove(cur - 1); cur--; }
+        replay.materials.sync();
+    }
+
+    private static void resizePotionTrack(Replay replay, int target)
+    {
+        int cur = replay.potions.getAllTyped().size();
+        while (cur < target) { PotionClip pc = new PotionClip("potion_" + cur); pc.name.set("药水" + (cur + 1)); replay.potions.add(pc); cur++; }
+        while (cur > target) { replay.potions.getAllTyped().remove(cur - 1); cur--; }
+        replay.potions.sync();
+    }
+
+    private static void resizeActionTrack(Replay replay, int target)
+    {
+        int cur = replay.actions.get().size();
+        while (cur < target)
+        {
+            Clip c = BBSMod.getFactoryActionClips().create(Link.bbs("locomotion"));
+            if (c instanceof ActionClip ac) { ac.title.set("动作" + (cur + 1)); ac.duration.set(20); replay.actions.addClip(ac); }
+            cur++;
+        }
+        while (cur > target) { Clip last = replay.actions.get(cur - 1); if (last != null) replay.actions.remove(last); cur--; }
+    }
+
     /** Toggle a character-level field (enabled / fp / shadow) on the focused or
      *  open replay, then persist + re-render. */
     private static void toggleCharField(UIFilmPanel panel, java.util.function.Consumer<Replay> editor)
@@ -4801,6 +5262,173 @@ public class EditorBridge implements IHtmlBridge
         }
     }
 
+    /* ----- clip move / resize (B) ----- */
+    private static Clip findClipById(Film film, String id)
+    {
+        for (Clip c : film.camera.get())
+        {
+            if (c.id.get().equals(id))
+            {
+                return c;
+            }
+        }
+
+        for (Replay r : film.replays.getList())
+        {
+            for (Clip c : r.actions.get())
+            {
+                if (c.id.get().equals(id))
+                {
+                    return c;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static String moveClip(UIFilmPanel panel, String id, int tick)
+    {
+        Film film = panel.getData();
+
+        if (film == null || id == null || id.isEmpty())
+        {
+            return "{\"ok\":false}";
+        }
+
+        BaseValue.edit(film, f ->
+        {
+            Clip c = findClipById(f, id);
+
+            if (c != null)
+            {
+                c.tick.set(Math.max(0, tick));
+            }
+        });
+
+        refreshHtml();
+
+        return "{\"ok\":true}";
+    }
+
+    private static String resizeClip(UIFilmPanel panel, String id, int tick, int duration)
+    {
+        Film film = panel.getData();
+
+        if (film == null || id == null || id.isEmpty())
+        {
+            return "{\"ok\":false}";
+        }
+
+        BaseValue.edit(film, f ->
+        {
+            Clip c = findClipById(f, id);
+
+            if (c != null)
+            {
+                c.tick.set(Math.max(0, tick));
+                c.duration.set(Math.max(1, duration));
+            }
+        });
+
+        refreshHtml();
+
+        return "{\"ok\":true}";
+    }
+
+    /**
+     * Register a one-shot callback for the result of a dialog opened via
+     * {@link #showDialog(JsonObject)}. The callback is keyed by the dialog's id
+     * (the same id the HTML page echoes back in its "dialogResult" action). When
+     * the page reports a result, {@link #handleDialogResult(JsonObject)} removes
+     * and invokes it exactly once. Pass null id/cb to no-op (defensive).
+     */
+    public static void registerDialogCallback(String id, java.util.function.Consumer<com.google.gson.JsonObject> cb)
+    {
+        if (id != null && cb != null) dialogCallbacks.put(id, cb);
+    }
+
+    /**
+     * Receive a "dialogResult" action from the HTML page. Looks up the
+     * registered callback for {@code req.id}, removes it (one-shot), and hands
+     * the whole request to the consumer so it can read id/type/value/inputs.
+     * Never throws: a missing/empty id or an unknown id is logged at debug level
+     * and ignored, because the page may also echo results for dialogs that were
+     * opened without a Java-side callback (e.g. purely informational dialogs).
+     */
+    private static void handleDialogResult(com.google.gson.JsonObject req)
+    {
+        String id = req != null && req.has("id") ? req.get("id").getAsString() : null;
+
+        if (id == null || id.isEmpty())
+        {
+            BBSMod.LOGGER.debug("[EditorBridge] dialogResult missing id - ignoring");
+            return;
+        }
+
+        java.util.function.Consumer<com.google.gson.JsonObject> cb = dialogCallbacks.remove(id);
+
+        if (cb != null)
+        {
+            cb.accept(req);
+        }
+        else
+        {
+            BBSMod.LOGGER.debug("[EditorBridge] dialogResult: no callback registered for id " + id);
+        }
+    }
+
+    /**
+     * Push a rich notification / interactive dialog to the HTML editor. Mirrors
+     * the client-side dialog() helper: type alert(!)/info(i)/custom(SVG),
+     * optional duration (ms, 0 = sticky), iconColor, barColor, progress, id,
+     * buttons (id/label/style/dismiss) and inputs (id/key/label/type/value/
+     * options/placeholder).
+     *
+     * <p>The full opts object is assembled as a {@link JsonObject} and serialized
+     * by Gson in one shot, then injected as {@code dialog(<json>);}. This keeps
+     * button labels and input values that contain quotes or other JS-hostile
+     * characters from breaking the generated JavaScript (the old hand-built
+     * string could be corrupted by a stray quote).</p>
+     *
+     * <p>Backward compatible: callers that don't pass buttons/inputs still get a
+     * plain notification dialog; callers that don't pass id get a random UUID so
+     * any future callback registration can still match the result.</p>
+     */
+    private static void showDialog(JsonObject req)
+    {
+        JsonObject opts = new JsonObject();
+
+        String type = req.has("type") ? req.get("type").getAsString() : "info";
+        opts.addProperty("type", type);
+
+        String id = req.has("id") ? req.get("id").getAsString() : java.util.UUID.randomUUID().toString();
+        opts.addProperty("id", id);
+
+        String title = req.has("title") ? req.get("title").getAsString() : "";
+        if (!title.isEmpty()) opts.addProperty("title", title);
+
+        String msg = req.has("msg") ? req.get("msg").getAsString()
+                : (req.has("message") ? req.get("message").getAsString() : "");
+        opts.addProperty("msg", msg);
+
+        int duration = req.has("duration") ? req.get("duration").getAsInt() : 4000;
+        opts.addProperty("duration", duration);
+
+        if (req.has("icon")) opts.addProperty("icon", req.get("icon").getAsString());
+        if (req.has("iconColor")) opts.addProperty("iconColor", req.get("iconColor").getAsString());
+        if (req.has("barColor")) opts.addProperty("barColor", req.get("barColor").getAsString());
+
+        if (req.has("progress")) opts.add("progress", req.get("progress"));
+
+        /* Forward button / input definitions verbatim (they are already valid
+         * JSON in the request, so re-serializing them via Gson is safe). */
+        if (req.has("buttons")) opts.add("buttons", req.get("buttons"));
+        if (req.has("inputs")) opts.add("inputs", req.get("inputs"));
+
+        MCEFUI.injectScript("dialog(" + GSON.toJson(opts) + ");");
+    }
+
     private static void openScene(UIFilmPanel panel, String sceneId)
     {
         SceneManager scenes = SceneManager.get();
@@ -4817,11 +5445,18 @@ public class EditorBridge implements IHtmlBridge
                 panel.save();
                 panel.openScene(scene);
 
-                /* Switching the current scene must not auto-enter the preview
-                 * world (that is now an explicit "进入预览世界" button action).
-                 * Reset the active sequence so renderAll does not show clips
-                 * from the previously edited film against the new scene's film. */
                 activeSequenceId = null;
+
+                /* B: the Java side changed the current scene + active sequence,
+                 * but the HTML asset tree is only repainted when we push state.
+                 * Without this the left-sidebar highlight never moves and the
+                 * user sees "clicked a scene, nothing switched". */
+                refreshHtml();
+
+                if (scene.background != null && !scene.background.isEmpty())
+                {
+                    enterSceneWorld(panel);
+                }
 
                 return;
             }
@@ -4835,18 +5470,24 @@ public class EditorBridge implements IHtmlBridge
         panel.save();
         dashboard.setPanel(dashboard.getPanel(lingfeng.bbsnext.ui.dashboard.panels.UIProjectsPanel.class));
 
-        /* Leave the dedicated preview world when the editor closes, so the
-         * player is not left inside bbs_preview (goes back to the title). */
+        /* Stop the preview world (if any) but keep the editor interface on
+         * screen: clear the level with no replacement screen, then reopen the
+         * dashboard (now showing the projects panel) so closing the editor
+         * never ejects the user to the MC title screen. */
         Minecraft mc = Minecraft.getInstance();
 
         if (mc.level != null)
         {
-            mc.clearClientLevel(new net.minecraft.client.gui.screens.TitleScreen());
+            mc.clearClientLevel(null);
         }
 
         clearEnteringWorld();
         owningPreviewWorld = false;
         inWorld = false;
+        loadedPreviewWorldName = null;
+        endWorldSwitch();
+
+        mc.execute(() -> UIScreen.open(dashboard));
     }
 
     /* F0: legacy fallback — a few older call sites still send a list index; map
@@ -5034,6 +5675,8 @@ public class EditorBridge implements IHtmlBridge
         TrackPropStore.removeForReplay(filmId, replayId);
         TrackOrderStore.remove(filmId, replayId);
         TrackPropStore.clearMatteSource(filmId, replayId);
+        LeashStore.removeForReplay(filmId, replayId);
+        LeashBoneStore.removeForReplay(filmId, replayId);
 
         SequenceManager seqMgr = SequenceManager.get();
 
@@ -5334,6 +5977,8 @@ public class EditorBridge implements IHtmlBridge
 
         TrackOrderStore.remove(filmId, replayId);
         TrackPropStore.clearMatteSource(filmId, replayId);
+        LeashStore.removeForReplay(filmId, replayId);
+        LeashBoneStore.removeForReplay(filmId, replayId);
         panel.save();
 
         MapType uiAfter = panel.getRoot() == null ? null : panel.getRoot().collectAllUndoData();
@@ -5423,6 +6068,656 @@ public class EditorBridge implements IHtmlBridge
                 panel.getRoot().applyAllUndoData(data);
             }
         }
+    }
+
+    /* -------- Leash (D1) -------- */
+
+    private static ServerLevel previewServerLevel()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        IntegratedServer server = mc.getSingleplayerServer();
+        if (server != null && mc.level != null)
+        {
+            ServerLevel level = server.getLevel(mc.level.dimension());
+            if (level != null) return level;
+        }
+        return null;
+    }
+
+    private static void discardFrom(Map<String, Integer> ids, Level level)
+    {
+        if (ids == null || level == null) return;
+        for (Integer eid : ids.values())
+        {
+            if (eid == null) continue;
+            Entity e = level.getEntity(eid);
+            if (e != null) e.discard();
+        }
+    }
+
+    /* Replay stored leash links onto freshly spawned actors. Runs on the server
+       thread (ServerLevel) so setLeashedTo drives vanilla tickLeash; the per-frame
+       bone offset is filled client-side by BaseFilmController. */
+    private static void replayLeashRelationships(String filmId, Map<String, Integer> map, Level level)
+    {
+        for (LeashStore.LeashLink link : LeashStore.getAll(filmId))
+        {
+            Integer leashedId = map.get(link.leashedReplayId);
+            Entity holder = resolveHolder(filmId, link, level, map);
+            Entity leashed = leashedId != null ? level.getEntity(leashedId) : null;
+            if (leashed instanceof Leashable l && holder != null)
+            {
+                l.setLeashedTo(holder, true);
+            }
+            if (leashed instanceof ActorEntity ae)
+            {
+                ae.setLeashBone(link.leashedBone);
+                if (holder != null) ae.setLeashHolderId(holder.getId());
+                ae.setLeashWindow(link.startTick, link.endTick);
+            }
+        }
+    }
+
+    /* Toggle the leash on the SERVER-side actor so vanilla tickLeash physics
+       only pulls while the timeline clip window is active. Called on window
+       transitions only (event-driven), never every frame. */
+    public static void applyLeashOnServer(int actorId, int holderId, boolean leash)
+    {
+        ServerLevel serverLevel = previewServerLevel();
+        IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+        if (serverLevel == null || server == null) return;
+        final int aid = actorId;
+        final int hid = holderId;
+        server.submit(() -> {
+            Entity sa = serverLevel.getEntity(aid);
+            if (sa == null) return;
+            if (leash)
+            {
+                Entity sh = hid >= 0 ? serverLevel.getEntity(hid) : null;
+                if (sa instanceof Leashable sl && sh != null) sl.setLeashedTo(sh, true);
+            }
+            else if (sa instanceof Leashable sl)
+            {
+                sl.removeLeash();
+            }
+        });
+    }
+
+    private static void refreshLeashBones(String filmId)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        Map<String, Integer> map = BBSModClient.getFilms().actors.get(filmId);
+        if (map == null) return;
+        for (LeashStore.LeashLink link : LeashStore.getAll(filmId))
+        {
+            Integer id = map.get(link.leashedReplayId);
+            if (id == null) continue;
+            Entity e = mc.level.getEntity(id);
+            if (e instanceof ActorEntity ae)
+            {
+                ae.setLeashBone(link.leashedBone);
+                ae.setLeashOffset(computeBoneOffset(ae, link.leashedBone));
+            }
+        }
+    }
+
+    /* Build a lightweight IEntity bound to the actor's form so the form
+       renderer can compute bone matrices. The actor itself is a LivingEntity,
+       not a BBS IEntity, and its form has no owner, so we wrap it in a
+       StubEntity for geometry extraction only. */
+    private static mchorse.bbs_mod.forms.entities.IEntity formEntityFor(ActorEntity actor)
+    {
+        net.minecraft.world.level.Level lvl = actor.level();
+        if (lvl == null) lvl = Minecraft.getInstance().level;
+        mchorse.bbs_mod.forms.entities.StubEntity e = new mchorse.bbs_mod.forms.entities.StubEntity(lvl);
+        e.setForm(actor.getForm());
+        return e;
+    }
+
+    /* Relative leash offset (entity-local) for a bone. Model space carries
+       Axis.YP.rotation(PI); it is undone so the rope attaches in entity-local
+       space. Sign/pivot still warrants an in-game log check (risk #1). */
+    public static Vec3 computeBoneOffset(ActorEntity actor, String bone)
+    {
+        if (bone == null || bone.isEmpty() || actor.getForm() == null) return Vec3.ZERO;
+        try
+        {
+            FormRenderer renderer = FormUtilsClient.getRenderer(actor.getForm());
+            if (renderer == null) return Vec3.ZERO;
+            MatrixCache cache = renderer.collectMatrices(formEntityFor(actor), 0F);
+            MatrixCacheEntry entry = cache.get(bone);
+            Matrix4f m = entry.matrix();
+            if (m == null) return Vec3.ZERO;
+            Vector3f t = m.getTranslation(new Vector3f());
+            return new Vec3(-t.x, t.y, -t.z);
+        }
+        catch (Throwable t)
+        {
+            return Vec3.ZERO;
+        }
+    }
+
+    private static double[] projectToScreen(Vec3 world)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getWindow() == null || mc.gameRenderer == null || mc.player == null) return null;
+        Vec3 pos = mc.player.getEyePosition();
+        Vec3 forward = mc.player.getLookAngle();
+        Vec3 worldUp = new Vec3(0, 1, 0);
+        Vec3 right = forward.cross(worldUp).normalize();
+        Vec3 up = right.cross(forward).normalize();
+        double fov = Math.toRadians(mc.options.fov().get());
+        int width = mc.getWindow().getWidth();
+        int height = mc.getWindow().getHeight();
+        double aspect = (double) width / height;
+        double tanHalf = Math.tan(fov / 2);
+        Vec3 d = world.subtract(pos);
+        double z = d.dot(forward);
+        if (z <= 0.05) return null;
+        double x = d.dot(right);
+        double y = d.dot(up);
+        double focal = (height / 2D) / Math.tan(fov / 2);
+        double sx = width / 2D + x * focal / z;
+        double sy = height / 2D - y * focal / z;
+        return new double[] {sx, sy};
+    }
+
+    private static Vec3 rayBox(Vec3 origin, Vec3 dir, AABB box)
+    {
+        double tEnter = -1e30, tExit = 1e30;
+        double[] o = {origin.x, origin.y, origin.z};
+        double[] d = {dir.x, dir.y, dir.z};
+        double[] mn = {box.minX, box.minY, box.minZ};
+        double[] mx = {box.maxX, box.maxY, box.maxZ};
+        for (int i = 0; i < 3; i++)
+        {
+            if (Math.abs(d[i]) < 1e-8)
+            {
+                if (o[i] < mn[i] || o[i] > mx[i]) return null;
+            }
+            else
+            {
+                double t1 = (mn[i] - o[i]) / d[i];
+                double t2 = (mx[i] - o[i]) / d[i];
+                if (t1 > t2) { double tmp = t1; t1 = t2; t2 = tmp; }
+                tEnter = Math.max(tEnter, t1);
+                tExit = Math.min(tExit, t2);
+            }
+        }
+        if (tEnter > tExit || tExit < 0) return null;
+        double t = tEnter > 0 ? tEnter : tExit;
+        if (t < 0) return null;
+        return new Vec3(origin.x + dir.x * t, origin.y + dir.y * t, origin.z + dir.z * t);
+    }
+
+    private static String reverseReplayId(Map<String, Integer> map, int entityId)
+    {
+        if (map == null) return "";
+        for (Map.Entry<String, Integer> e : map.entrySet())
+        {
+            if (e.getValue() != null && e.getValue() == entityId) return e.getKey();
+        }
+        return "";
+    }
+
+    private static String currentFilmId()
+    {
+        if (instance != null && instance.panel != null)
+        {
+            Film f = instance.panel.getData();
+            if (f != null) return f.getId();
+        }
+        return null;
+    }
+
+    private static LeashPickResult pickAnchorAt(double sx, double sy)
+    {
+        LeashPickResult r = new LeashPickResult();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null || mc.getWindow() == null || mc.gameRenderer == null) return r;
+        Vec3 origin = mc.player.getEyePosition();
+        Vec3 forward = mc.player.getLookAngle();
+        Vec3 worldUp = new Vec3(0, 1, 0);
+        Vec3 right = forward.cross(worldUp).normalize();
+        Vec3 up = right.cross(forward).normalize();
+        double fov = Math.toRadians(mc.options.fov().get());
+        int width = mc.getWindow().getWidth();
+        int height = mc.getWindow().getHeight();
+        double aspect = (double) width / height;
+        double tanHalf = Math.tan(fov / 2);
+        double ndcX = (sx / width) * 2 - 1;
+        double ndcY = 1 - (sy / height) * 2;
+        Vec3 dir = forward.scale(1).add(right.scale(ndcX * aspect * tanHalf)).add(up.scale(ndcY * tanHalf)).normalize();
+        String filmId = currentFilmId();
+        Map<String, Integer> map = filmId != null ? BBSModClient.getFilms().actors.get(filmId) : null;
+        if (map == null) return r;
+        double bestT = Double.MAX_VALUE;
+        ActorEntity best = null;
+        Vec3 bestHit = null;
+        for (Integer eid : map.values())
+        {
+            if (eid == null) continue;
+            if (!(mc.level.getEntity(eid) instanceof ActorEntity actor)) continue;
+            AABB box = actor.getBoundingBox().inflate(0.4);
+            Vec3 hit = rayBox(origin, dir, box);
+            if (hit != null)
+            {
+                double t = hit.subtract(origin).lengthSqr();
+                if (t < bestT) { bestT = t; best = actor; bestHit = hit; }
+            }
+        }
+        if (best == null) return r;
+        r.replayId = reverseReplayId(map, best.getId());
+        r.valid = true;
+        if (bestHit != null) { r.wx = bestHit.x; r.wy = bestHit.y; r.wz = bestHit.z; }
+        String bestBone = "";
+        double bestDist = 36D;
+        if (best.getForm() != null)
+        {
+            try
+            {
+                FormRenderer renderer = FormUtilsClient.getRenderer(best.getForm());
+                if (renderer != null)
+                {
+                    for (Map.Entry<String, MatrixCacheEntry> e : renderer.collectMatrices(formEntityFor(best), 0F).entrySet())
+                    {
+                        Matrix4f m = e.getValue().matrix();
+                        if (m == null) continue;
+                        Vector3f tv = m.getTranslation(new Vector3f());
+                        Vec3 bp = new Vec3(best.getX() - tv.x, best.getY() + tv.y, best.getZ() - tv.z);
+                        double[] scr = projectToScreen(bp);
+                        if (scr == null) continue;
+                        double dx = scr[0] - sx, dy = scr[1] - sy;
+                        double d2 = dx * dx + dy * dy;
+                        if (d2 < bestDist) { bestDist = d2; bestBone = e.getKey(); }
+                    }
+                }
+            }
+            catch (Throwable t) {}
+        }
+        r.bone = bestBone;
+        return r;
+    }
+
+    private static void leashTool(UIFilmPanel panel, boolean on)
+    {
+        leashToolOn = on;
+        if (on)
+        {
+            leashAnchorA.clear();
+            leashAnchorB.clear();
+            leashMode = "pickHolder";
+            leashClipRange = "idle";
+            leashTargetReplayId = "";
+            leashPendingStart = -1;
+            leashPendingEnd = -1;
+            leashPendingBone = "";
+        }
+        else
+        {
+            leashMode = "idle";
+        }
+        refreshHtml();
+    }
+
+    private static void leashClearAnchors(UIFilmPanel panel)
+    {
+        leashAnchorA.clear();
+        leashAnchorB.clear();
+        refreshHtml();
+    }
+
+    private static void leashPickAnchor(UIFilmPanel panel, String which, double sx, double sy)
+    {
+        LeashAnchor anchor = "b".equals(which) ? leashAnchorB : leashAnchorA;
+        LeashPickResult pick = pickAnchorAt(sx, sy);
+        if (pick == null || !pick.valid)
+        {
+            MCEFUI.injectScript("toast('拴绳：未拾取到角色，请对准角色后重试', true);");
+            return;
+        }
+        anchor.valid = true;
+        anchor.replayId = pick.replayId;
+        anchor.bone = pick.bone;
+        anchor.sx = sx;
+        anchor.sy = sy;
+        anchor.wx = pick.wx;
+        anchor.wy = pick.wy;
+        anchor.wz = pick.wz;
+        refreshHtml();
+    }
+
+    /* Pick an empty-world point as the holder endpoint. Raycasts the screen point
+       against the preview world (F5 proxy endpoint); the chosen position is stored
+       on anchor A flagged proxy=true and materialised later as a BlockDisplay. */
+    private static void leashPickProxy(UIFilmPanel panel, double sx, double sy)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null || mc.getWindow() == null) return;
+        Vec3 origin = mc.player.getEyePosition();
+        Vec3 forward = mc.player.getLookAngle();
+        Vec3 worldUp = new Vec3(0, 1, 0);
+        Vec3 right = forward.cross(worldUp).normalize();
+        Vec3 up = right.cross(forward).normalize();
+        double fov = Math.toRadians(mc.options.fov().get());
+        int width = mc.getWindow().getWidth();
+        int height = mc.getWindow().getHeight();
+        double aspect = (double) width / height;
+        double tanHalf = Math.tan(fov / 2);
+        double ndcX = (sx / width) * 2 - 1;
+        double ndcY = 1 - (sy / height) * 2;
+        Vec3 dir = forward.scale(1).add(right.scale(ndcX * aspect * tanHalf)).add(up.scale(ndcY * tanHalf)).normalize();
+        double reach = 64D;
+        Vec3 to = origin.add(dir.scale(reach));
+        ClipContext ctx = new ClipContext(origin, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player);
+        BlockHitResult hit = mc.level.clip(ctx);
+        Vec3 point = hit != null ? hit.getLocation() : to;
+        leashAnchorA.valid = true;
+        leashAnchorA.proxy = true;
+        leashAnchorA.replayId = "";
+        leashAnchorA.bone = "";
+        leashAnchorA.sx = sx;
+        leashAnchorA.sy = sy;
+        leashAnchorA.wx = point.x;
+        leashAnchorA.wy = point.y;
+        leashAnchorA.wz = point.z;
+        refreshHtml();
+    }
+
+    private static void leashBind(UIFilmPanel panel, String replayId, String bone)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        Film film = panel.getData();
+        String targetId = (replayId != null && !replayId.isEmpty()) ? replayId : leashTargetReplayId;
+        if (film == null || targetId == null || targetId.isEmpty()) return;
+        String filmId = film.getId();
+        if (!leashAnchorA.valid)
+        {
+            MCEFUI.injectScript("toast('拴绳：请先选择牵绳持有端（锚点 A：对准角色或空地点选）', true);");
+            return;
+        }
+        Map<String, Integer> map = BBSModClient.getFilms().actors.get(filmId);
+        if (map == null) return;
+        Integer leashedId = map.get(targetId);
+        if (leashedId == null)
+        {
+            MCEFUI.injectScript("toast('拴绳：被拴角色尚未进入预览世界', true);");
+            return;
+        }
+        final boolean proxy = leashAnchorA.proxy;
+        final String fHolderReplayId = proxy ? "" : leashAnchorA.replayId;
+        final String fHolderBone = leashAnchorA.bone == null ? "" : leashAnchorA.bone;
+        final double hx = leashAnchorA.wx, hy = leashAnchorA.wy, hz = leashAnchorA.wz;
+        if (!proxy && fHolderReplayId.isEmpty())
+        {
+            MCEFUI.injectScript("toast('拴绳：锚点 A 未拾取到角色', true);");
+            return;
+        }
+        if (!proxy && fHolderReplayId.equals(targetId))
+        {
+            MCEFUI.injectScript("toast('拴绳：持有端与被拴端不能是同一角色', true);");
+            return;
+        }
+        if (!proxy)
+        {
+            Integer holderId = map.get(fHolderReplayId);
+            if (holderId == null)
+            {
+                MCEFUI.injectScript("toast('拴绳：持有端角色尚未进入预览世界', true);");
+                return;
+            }
+        }
+        final String fTarget = targetId;
+        final String fBone = (bone != null) ? bone : leashPendingBone;
+        final int fStart = leashPendingStart;
+        final int fEnd = leashPendingEnd;
+        LeashStore.LeashLink oldLink = LeashStore.getIfPresent(filmId, fTarget);
+        ServerLevel serverLevel = previewServerLevel();
+        IntegratedServer server = mc.getSingleplayerServer();
+        final Integer fLeashedId = leashedId;
+        final String fFilmId = filmId;
+        Runnable apply = () -> {
+            Level level = serverLevel != null ? serverLevel : Minecraft.getInstance().level;
+            LeashStore.LeashLink tmp = new LeashStore.LeashLink(fHolderReplayId, fTarget, fHolderBone, fBone);
+            tmp.holderType = proxy ? "proxy" : "replay";
+            tmp.holderX = hx; tmp.holderY = hy; tmp.holderZ = hz;
+            tmp.startTick = fStart;
+            tmp.endTick = fEnd;
+            Entity holder = resolveHolder(fFilmId, tmp, level, map);
+            Entity leashed = level.getEntity(fLeashedId);
+            if (leashed instanceof Leashable l && holder != null) l.setLeashedTo(holder, true);
+            if (leashed instanceof ActorEntity ae) ae.setLeashBone(fBone);
+        };
+        if (serverLevel != null && server != null)
+        {
+            try { server.submit(apply).join(); } catch (Throwable t) { BBSMod.LOGGER.error("[EditorBridge] leashBind failed", t); apply.run(); }
+        }
+        else apply.run();
+        if (mc.level.getEntity(fLeashedId) instanceof ActorEntity cae)
+        {
+            cae.setLeashBone(fBone);
+            cae.setLeashOffset(computeBoneOffset(cae, fBone));
+        }
+        if (proxy)
+        {
+            LeashStore.setProxy(filmId, fTarget, fBone, hx, hy, hz);
+        }
+        else
+        {
+            LeashStore.set(filmId, fHolderReplayId, fTarget, fHolderBone, fBone);
+        }
+        LeashStore.LeashLink stored = LeashStore.getIfPresent(filmId, fTarget);
+        if (stored != null) { stored.startTick = fStart; stored.endTick = fEnd; LeashStore.save(); }
+        LeashBoneStore.set(filmId, fTarget, fBone, new double[] {0D, 0D, 0D});
+        LeashStore.LeashLink newLink = LeashStore.getIfPresent(filmId, fTarget);
+        /* reset timeline-clip pending after commit */
+        leashTargetReplayId = "";
+        leashPendingStart = -1;
+        leashPendingEnd = -1;
+        leashPendingBone = "";
+        leashClipRange = "idle";
+        pushLeashUndo(filmId, oldLink, newLink);
+        refreshHtml();
+    }
+
+    /* PICK_TARGET: timeline click selects the leashed (target) replay. Also the
+       clip's owning track. */
+    private static void leashPickTarget(UIFilmPanel panel, String replayId)
+    {
+        if (replayId == null || replayId.isEmpty()) return;
+        leashTargetReplayId = replayId;
+        leashMode = "pickTarget";
+        leashClipRange = "awaitingStart";
+        refreshHtml();
+    }
+
+    /* CLIP_RANGE click 2: set the leash window start tick. */
+    private static void leashClipStart(UIFilmPanel panel, int tick)
+    {
+        leashPendingStart = tick;
+        leashClipRange = "awaitingEnd";
+        refreshHtml();
+    }
+
+    /* CLIP_RANGE click 3: set the leash window end tick. end < start auto-swaps;
+       equal ticks get a 20-tick default so the clip is never zero-length. */
+    private static void leashClipEnd(UIFilmPanel panel, int tick)
+    {
+        int s = leashPendingStart;
+        int e = tick;
+        if (s < 0) s = tick;
+        if (e < s) { int t = s; s = e; e = t; }
+        if (e == s) { e = s + 20; MCEFUI.injectScript("toast('已给默认 20 tick 长度，可拖动两端调整', true);"); }
+        leashPendingStart = s;
+        leashPendingEnd = e;
+        leashClipRange = "idle";
+        refreshHtml();
+    }
+
+    /* Esc in PICK_HOLDER / PICK_TARGET: leave the tool, clear pending. */
+    private static void leashCancel(UIFilmPanel panel)
+    {
+        leashToolOn = false;
+        leashMode = "idle";
+        leashClipRange = "idle";
+        leashTargetReplayId = "";
+        leashPendingStart = -1;
+        leashPendingEnd = -1;
+        leashPendingBone = "";
+        leashAnchorA.clear();
+        leashAnchorB.clear();
+        refreshHtml();
+    }
+
+    /* Drag/resize an existing leash clip on the timeline: persist the new window
+       and push it to the live preview actor so the rope window updates live. */
+    private static void leashSetWindow(UIFilmPanel panel, String replayId, int startTick, int endTick)
+    {
+        if (replayId == null || replayId.isEmpty()) return;
+        Film film = panel.getData();
+        if (film == null) return;
+        String filmId = film.getId();
+        if (startTick < 0) startTick = 0;
+        if (endTick < startTick) { int t = startTick; startTick = endTick; endTick = t; }
+        LeashStore.setWindow(filmId, replayId, startTick, endTick);
+        Map<String, Integer> map = BBSModClient.getFilms().actors.get(filmId);
+        if (map != null)
+        {
+            Integer id = map.get(replayId);
+            if (id != null)
+            {
+                Entity e = Minecraft.getInstance().level.getEntity(id);
+                if (e instanceof ActorEntity ae) ae.setLeashWindow(startTick, endTick);
+            }
+        }
+        refreshHtml();
+    }
+
+    private static void leashUnbind(UIFilmPanel panel, String replayId)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        Film film = panel.getData();
+        if (film == null || replayId == null || replayId.isEmpty()) return;
+        String filmId = film.getId();
+        LeashStore.LeashLink oldLink = LeashStore.getIfPresent(filmId, replayId);
+        if (oldLink == null) { refreshHtml(); return; }
+        Map<String, Integer> map = BBSModClient.getFilms().actors.get(filmId);
+        Integer leashedId = map != null ? map.get(replayId) : null;
+        ServerLevel serverLevel = previewServerLevel();
+        IntegratedServer server = mc.getSingleplayerServer();
+        final Integer fLeashedId = leashedId;
+        Runnable apply = () -> {
+            Level level = serverLevel != null ? serverLevel : Minecraft.getInstance().level;
+            Entity leashed = level.getEntity(fLeashedId);
+            if (leashed instanceof Leashable l) l.removeLeash();
+            clearProxy(leashKey(filmId, replayId), level);
+        };
+        if (serverLevel != null && server != null)
+        {
+            try { server.submit(apply).join(); } catch (Throwable t) { apply.run(); }
+        }
+        else apply.run();
+        if (fLeashedId != null && mc.level.getEntity(fLeashedId) instanceof ActorEntity cae)
+        {
+            cae.setLeashBone("");
+            cae.setLeashOffset(Vec3.ZERO);
+        }
+        LeashStore.removeLeash(filmId, replayId);
+        LeashBoneStore.removeForReplay(filmId, replayId);
+        pushLeashUndo(filmId, oldLink, null);
+        refreshHtml();
+    }
+
+    private static void leashSetBone(UIFilmPanel panel, String replayId, String bone)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        Film film = panel.getData();
+        if (film == null || replayId == null || replayId.isEmpty()) return;
+        String filmId = film.getId();
+        LeashStore.LeashLink oldLink = LeashStore.getIfPresent(filmId, replayId);
+        if (oldLink == null)
+        {
+            MCEFUI.injectScript("toast('拴绳：该角色尚未建立拴系', true);");
+            return;
+        }
+        Map<String, Integer> map = BBSModClient.getFilms().actors.get(filmId);
+        Integer leashedId = map != null ? map.get(replayId) : null;
+        String fBone = bone == null ? "" : bone;
+        LeashStore.LeashLink updated = new LeashStore.LeashLink(oldLink.holderReplayId, replayId, oldLink.holderBone, fBone);
+        ServerLevel serverLevel = previewServerLevel();
+        IntegratedServer server = mc.getSingleplayerServer();
+        final Integer fLeashedId = leashedId;
+        if (serverLevel != null && server != null)
+        {
+            try
+            {
+                server.submit(() -> {
+                    Entity leashed = serverLevel.getEntity(fLeashedId);
+                    if (leashed instanceof ActorEntity ae) ae.setLeashBone(fBone);
+                }).join();
+            }
+            catch (Throwable t) {}
+        }
+        if (fLeashedId != null && mc.level.getEntity(fLeashedId) instanceof ActorEntity cae)
+        {
+            cae.setLeashBone(fBone);
+            cae.setLeashOffset(computeBoneOffset(cae, fBone));
+        }
+        LeashStore.set(filmId, updated);
+        LeashBoneStore.set(filmId, replayId, fBone, new double[] {0D, 0D, 0D});
+        pushLeashUndo(filmId, oldLink, updated);
+        refreshHtml();
+    }
+
+    private static void pushLeashUndo(String filmId, LeashStore.LeashLink oldLink, LeashStore.LeashLink newLink)
+    {
+        UIFilmPanel panel = instance != null ? instance.panel : null;
+        if (panel == null || panel.getUndoHandler() == null) return;
+        panel.getUndoHandler().getUndoManager().pushUndo(new LeashUndo(filmId, oldLink, newLink));
+    }
+
+    private static JsonObject buildLeashState(UIFilmPanel panel)
+    {
+        JsonObject leash = new JsonObject();
+        leash.addProperty("tool", leashToolOn);
+        leash.addProperty("mode", leashMode);
+        leash.addProperty("clipRange", leashClipRange);
+        JsonObject anchors = new JsonObject();
+        anchors.add("a", anchorToJson(leashAnchorA));
+        anchors.add("b", anchorToJson(leashAnchorB));
+        leash.add("anchors", anchors);
+        JsonObject pending = new JsonObject();
+        pending.addProperty("targetReplayId", leashTargetReplayId);
+        pending.addProperty("startTick", leashPendingStart);
+        pending.addProperty("endTick", leashPendingEnd);
+        pending.addProperty("bone", leashPendingBone);
+        leash.add("pending", pending);
+        JsonArray links = new JsonArray();
+        Film film = panel.getData();
+        if (film != null)
+        {
+            for (LeashStore.LeashLink link : LeashStore.getAll(film.getId()))
+            {
+                links.add(link.toJson());
+            }
+        }
+        leash.add("links", links);
+        return leash;
+    }
+
+    private static JsonObject anchorToJson(LeashAnchor a)
+    {
+        JsonObject o = new JsonObject();
+        o.addProperty("valid", a.valid);
+        o.addProperty("proxy", a.proxy);
+        o.addProperty("replayId", a.replayId);
+        o.addProperty("bone", a.bone);
+        o.addProperty("sx", a.sx);
+        o.addProperty("sy", a.sy);
+        o.addProperty("wx", a.wx);
+        o.addProperty("wy", a.wy);
+        o.addProperty("wz", a.wz);
+        return o;
     }
 
     /* F4: update a track's visual property in the lingfeng side-table, keyed by
