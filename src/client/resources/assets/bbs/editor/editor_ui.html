@@ -4,314 +4,410 @@
 <meta charset="UTF-8">
 <title>BBS 重构动画编辑器</title>
 <style>
-:root{ --left-w:200px; --bottom-h:240px; }
+:root{ --left-w:200px; --bottom-h:240px;
+  --c-bg:#fff; --c-bg-app:#eef1f5; --c-bg-sub:#f5f7fa; --c-bg-hover:#eaf2fb; --c-bg-active:#d4e4fb;
+  --c-text:#2b2f36; --c-text-2:#6b7280; --c-text-3:#9aa3af;
+  --c-border:#d8dde4; --c-border-2:#c7ccd4;
+  --c-accent:#4c8dff; --c-accent-d:#3f7ae6; --c-sel:#ffce4d; --c-ico:var(--c-text); --c-sel-stroke:#2f6fb0;
+  --c-scroll-track:#e3e6ea; --c-scroll-thumb:#c7ccd4;
+  --track-mat:#4c72c4; --track-act:#37947c; --track-pot:#9153b7; --track-char:#4c8dff; --track-equip:#b9772e;
+  --c-clip:#4c72c4; --c-clip-d:#5a86d6; --c-danger:#d9534f; --c-danger-bg:#fdecec;
+  --c-success:#1d6f42; --c-amber:#c08a1e; --c-amber-bg:#fff4d6;
+  --c-overlay:rgba(30,40,60,.35); --c-shadow:0 10px 30px rgba(20,30,50,.16);
+  --c-grid:rgba(60,90,140,.20); --c-grid-2:rgba(60,90,140,.10);
+}
 *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",Consolas,monospace;user-select:none;}
-/* 深色滚动条：在暗色背景上可见、可点，避免“找不到滚动条/溢出不知道” */
+/* 浅色滚动条：在浅色背景上可见、可点 */
 ::-webkit-scrollbar{width:10px;height:10px;}
-::-webkit-scrollbar-track{background:#1a1d23;}
-::-webkit-scrollbar-thumb{background:#3a3f4a;border-radius:6px;border:2px solid #1a1d23;}
-::-webkit-scrollbar-thumb:hover{background:#4c8dff;}
-body{background:#14181e;color:#e6e6e6;height:100vh;overflow:hidden;font-size:13px;display:flex;flex-direction:column;}
-.ico{width:14px;height:14px;flex:0 0 auto;display:inline-block;vertical-align:middle;}
+::-webkit-scrollbar-track{background:var(--c-scroll-track);}
+::-webkit-scrollbar-thumb{background:var(--c-scroll-thumb);border-radius:6px;border:2px solid var(--c-scroll-track);}
+::-webkit-scrollbar-thumb:hover{background:var(--c-accent);}
+body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden;font-size:13px;display:flex;flex-direction:column;}
+/* 启动遮罩：首帧语言就绪前盖住编辑器，消除任何语言的闪屏（含 en_gb / 其他语言） */
+#bbsBoot{position:fixed;inset:0;z-index:99999;background:var(--c-bg-app);display:flex;align-items:center;justify-content:center;transition:opacity .18s ease;}
+#bbsBoot.hide{opacity:0;pointer-events:none;}
+#bbsBoot .spin{width:34px;height:34px;border:3px solid var(--c-border-2);border-top-color:var(--c-accent);border-radius:50%;animation:bbsspin .8s linear infinite;}
+@keyframes bbsspin{to{transform:rotate(360deg);}}
+.ico{width:14px;height:14px;flex:0 0 auto;display:inline-block;vertical-align:middle;color:var(--c-ico);}
 /* 顶部标题栏 */
-.title-bar{height:30px;background:#2c2c30;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid #111;font-size:13px;gap:8px;flex:0 0 auto;}
-.title-dirty{color:#ff5555;display:none;}
+.title-bar{height:30px;background:var(--c-bg);display:flex;align-items:center;padding:0 14px;border-bottom:1px solid var(--c-border-2);font-size:13px;gap:8px;flex:0 0 auto;}
+.title-dirty{color:var(--c-danger);display:none;}
 .title-dirty.show{display:inline;}
-.title-btn{margin-left:auto;padding:3px 10px;background:#38383c;border-radius:3px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:5px;}
-.title-btn:hover{background:#094872;}
-.title-btn.warn{background:#7a1f1f;color:#ffd9d9;}
-.title-btn.warn:hover{background:#a32a2a;color:#fff;}
+.title-btn{margin-left:auto;padding:3px 10px;background:var(--c-bg-sub);border-radius:3px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:5px;color:var(--c-text);}
+.title-btn:hover{background:var(--c-accent);color:#fff;}
+.title-btn.warn{background:var(--c-danger-bg);color:var(--c-danger);}
+.title-btn.warn:hover{background:var(--c-danger);color:#fff;}
 /* 主菜单 */
-.main-menu{height:28px;background:#242426;display:flex;border-bottom:1px solid #111;flex:0 0 auto;}
-.menu-top-item{padding:4px 16px;font-size:13px;cursor:pointer;position:relative;}
-.menu-top-item:hover{background:#094872;}
-.menu-dropdown{position:absolute;top:100%;left:0;background:#2c2c30;border:1px solid #555;min-width:180px;display:none;z-index:9000;max-height:80vh;overflow-y:auto;}
+.main-menu{height:28px;background:var(--c-bg-sub);display:flex;border-bottom:1px solid var(--c-border-2);flex:0 0 auto;}
+.menu-top-item{padding:4px 16px;font-size:13px;cursor:pointer;position:relative;color:var(--c-text);}
+.menu-top-item:hover{background:var(--c-accent);color:#fff;}
+.menu-dropdown{position:absolute;top:100%;left:0;background:var(--c-bg);border:1px solid var(--c-border-2);min-width:180px;display:none;z-index:9000;max-height:80vh;overflow-y:auto;}
 .menu-top-item:hover .menu-dropdown{display:block;}
-.menu-item{padding:5px 12px;font-size:12px;cursor:pointer;}
-.menu-item:hover{background:#094872;}
-.menu-divider{height:1px;background:#444;margin:3px 0;}
+.menu-item{padding:5px 12px;font-size:12px;cursor:pointer;color:var(--c-text);}
+.menu-item:hover{background:var(--c-accent);color:#fff;}
+.menu-divider{height:1px;background:var(--c-border);margin:3px 0;}
 /* 顶部细工具栏（仅动作编辑器按钮，保持简洁） */
-.toolbar-slim{height:30px;background:#1f2229;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #111;flex:0 0 auto;}
-.toolbar-slim button{display:flex;align-items:center;gap:5px;background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:4px 12px;font-size:12px;cursor:pointer;}
-.toolbar-slim button:hover{background:#094872;color:#fff;}
-.toolbar-slim .sep{width:1px;height:18px;background:#353a45;margin:0 4px;}
-.toolbar-slim .hint{color:#8a93a3;font-size:11px;}
+.toolbar-slim{height:30px;background:var(--c-bg-sub);display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--c-border-2);flex:0 0 auto;}
+.toolbar-slim button{display:flex;align-items:center;gap:5px;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:4px 12px;font-size:12px;cursor:pointer;}
+.toolbar-slim button:hover{background:var(--c-accent);color:#fff;}
+.toolbar-slim .sep{width:1px;height:18px;background:var(--c-border-2);margin:0 4px;}
+.toolbar-slim .hint{color:var(--c-text-3);font-size:11px;}
 /* 布局 */
 .editor{display:flex;flex-direction:column;flex:1;min-height:0;}
 .mid{display:flex;flex:1;min-height:0;}
 /* 素材箱 */
-.asset-panel{flex:0 0 var(--left-w);background:#242426;border-right:1px solid #111;padding:8px;display:flex;flex-direction:column;min-height:0;min-width:0;}
-.asset-head{font-size:13px;padding-bottom:6px;border-bottom:1px solid #333;margin-bottom:8px;display:flex;gap:6px;align-items:center;}
+.asset-panel{flex:0 0 var(--left-w);background:var(--c-bg-sub);border-right:1px solid var(--c-border-2);padding:8px;display:flex;flex-direction:column;min-height:0;min-width:0;}
+.asset-head{font-size:13px;padding-bottom:6px;border-bottom:1px solid var(--c-border);margin-bottom:8px;display:flex;gap:6px;align-items:center;color:var(--c-text);}
 .asset-head #btnEquip{margin-left:auto;}
 .asset-list{flex:1;overflow-y:auto;min-height:0;padding-right:2px;}
-.asset-item{padding:5px 8px;font-size:12px;border-radius:3px;cursor:pointer;display:flex;justify-content:flex-start;align-items:center;gap:7px;overflow:hidden;}
-.asset-item:hover{background:#333338;}
-.asset-item.active{background:#094872;}
+.asset-item{padding:5px 8px;font-size:12px;border-radius:3px;cursor:pointer;display:flex;justify-content:flex-start;align-items:center;gap:7px;overflow:hidden;color:var(--c-text);}
+.asset-item:hover{background:var(--c-bg-hover);}
+.asset-item.active{background:var(--c-accent);color:#fff;}
 .asset-item .lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.asset-item .del{opacity:0;cursor:pointer;color:#ff8888;padding:0 2px;}
+.asset-item .del{opacity:0;cursor:pointer;color:var(--c-danger);padding:0 2px;}
 .asset-item:hover .del{opacity:1;}
 /* 角色右下角展开（Phase F）：条目尾部的 ▾ 按钮 */
-.exp{margin-left:auto;flex:0 0 auto;width:18px;height:18px;text-align:center;line-height:18px;border-radius:3px;color:#8a94a3;cursor:pointer;font-size:11px;}
-.exp:hover{background:#094872;color:#fff;}
+.exp{margin-left:auto;flex:0 0 auto;width:18px;height:18px;text-align:center;line-height:18px;border-radius:3px;color:var(--c-text-3);cursor:pointer;font-size:11px;}
+.exp:hover{background:var(--c-accent);color:#fff;}
 /* Phase H: 拖拽放入画布时的提示框线 */
-.viewport.drag-over{outline:2px dashed #4096ff;outline-offset:-2px;}
-.asset-group{padding:7px 8px 2px;font-size:11px;color:#ffd27c;letter-spacing:1px;border-top:1px solid #2a2a2e;margin-top:5px;}
-.asset-root{padding:4px 8px;font-size:13px;font-weight:bold;color:#cfe3ff;border-bottom:1px solid #333;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
-.asset-sub{padding:2px 0 2px 26px;font-size:11px;color:#9aa6b3;cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.asset-item.bag{color:#ffd27c;}
+.viewport.drag-over{outline:2px dashed var(--c-accent);outline-offset:-2px;}
+.asset-group{padding:7px 8px 2px;font-size:11px;color:var(--c-accent-d);letter-spacing:1px;border-top:1px solid var(--c-border);margin-top:5px;font-weight:bold;}
+.asset-root{padding:4px 8px;font-size:13px;font-weight:bold;color:var(--c-accent-d);border-bottom:1px solid var(--c-border);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.asset-sub{padding:2px 0 2px 26px;font-size:11px;color:var(--c-text-3);cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.asset-item.bag{color:var(--c-amber);}
+/* B1: library entry that already owns a timeline track — kept in the list but
+   visually retired so the user can still drag it out again. */
+.asset-item.placed{opacity:.55;}
+.asset-item.placed:hover{opacity:1;}
 /* 分隔条 */
-.splitter-v{flex:0 0 5px;cursor:col-resize;background:#0d0f12;}
-.splitter-v:hover{background:#094872;}
-.splitter-h{flex:0 0 5px;cursor:row-resize;background:#0d0f12;}
-.splitter-h:hover{background:#094872;}
+.splitter-v{flex:0 0 5px;cursor:col-resize;background:var(--c-border-2);}
+.splitter-v:hover{background:var(--c-accent);}
+.splitter-h{flex:0 0 5px;cursor:row-resize;background:var(--c-border-2);}
+.splitter-h:hover{background:var(--c-accent);}
 /* 右侧 */
 .right{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;}
 .viewport-wrap{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;padding:8px;min-height:0;position:relative;}
-.viewport{flex:1;border:1px solid #444;border-radius:4px;min-height:0;background:transparent;}
+.viewport{flex:1;border:1px solid var(--c-border);border-radius:4px;min-height:0;background:transparent;}
 .vp-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;display:block;pointer-events:none;z-index:0;}
 .vp-mask{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none;z-index:1;}
-.vp-grid{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.5;
-  background-image:linear-gradient(rgba(130,170,210,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(130,170,210,.12) 1px,transparent 1px),linear-gradient(rgba(130,170,210,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(130,170,210,.06) 1px,transparent 1px);
+.vp-grid{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.6;
+  background-image:linear-gradient(var(--c-grid) 1px,transparent 1px),linear-gradient(90deg,var(--c-grid) 1px,transparent 1px),linear-gradient(var(--c-grid-2) 1px,transparent 1px),linear-gradient(90deg,var(--c-grid-2) 1px,transparent 1px);
   background-size:33.333% 33.333%,33.333% 33.333%,8.333% 8.333%,8.333% 8.333%;}
-.vp-ph{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:0 20px;color:#888;font-size:13px;background:#0c0c10;z-index:1;}
+.vp-ph{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:0 20px;color:var(--c-text-3);font-size:13px;background:var(--c-bg-sub);z-index:1;}
+.leash-panel{position:absolute;left:10px;top:10px;z-index:12;max-width:260px;background:rgba(18,22,28,.92);border:1px solid var(--c-border-2);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--c-text);display:none;pointer-events:auto;}
+.leash-panel.show{display:block;}
+.leash-panel .lp-row{margin:4px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.leash-panel b{color:var(--c-accent);}
+.leash-panel button{background:var(--c-bg-sub);color:var(--c-text);border:1px solid var(--c-border-2);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;}
+.leash-panel button:hover{border-color:var(--c-accent);}
+.leash-panel button.on{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+.leash-panel button:disabled{opacity:.45;cursor:not-allowed;}
+.leash-panel input{background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border-2);border-radius:4px;padding:2px 6px;}
 .vp-tools{position:absolute;top:12px;right:16px;display:flex;gap:4px;z-index:5;}
-.vp-tools button{background:rgba(30,30,36,.85);border:1px solid #555;color:#c8ccd4;width:28px;height:28px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.vp-tools button:hover{background:#094872;}
+.vp-tools button{background:rgba(255,255,255,.9);border:1px solid var(--c-border-2);color:var(--c-text-2);width:28px;height:28px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.vp-tools button:hover{background:var(--c-accent);color:#fff;}
 .vp-tools button.flip .ico{transform:scaleX(-1);}
 /* 时间轴 */
-.timeline-wrap{flex:0 0 var(--bottom-h);background:#242426;border-top:1px solid #111;display:flex;flex-direction:column;min-height:0;}
-.timeline-tabs{height:28px;background:#2c2c30;display:flex;border-bottom:1px solid #111;align-items:center;flex:0 0 auto;}
-.tab-item{padding:4px 14px;font-size:12px;border-right:1px solid #222;cursor:pointer;border-top:2px solid transparent;transition:background .1s ease;}
-.tab-item:hover{background:#38383c;}
-.tab-item.active{background:#1e1e1e;border-top:2px solid #4096ff;}
-.tab-add{padding:4px 10px;font-size:12px;cursor:pointer;color:#888;}
-.tab-add:hover{color:#fff;}
+.timeline-wrap{flex:0 0 var(--bottom-h);background:var(--c-bg-sub);border-top:1px solid var(--c-border-2);display:flex;flex-direction:column;min-height:0;}
+.timeline-tabs{height:28px;background:var(--c-bg);display:flex;border-bottom:1px solid var(--c-border-2);align-items:center;flex:0 0 auto;}
+.tab-item{padding:4px 14px;font-size:12px;border-right:1px solid var(--c-border);cursor:pointer;border-top:2px solid transparent;transition:background .1s ease;color:var(--c-text);}
+.tab-item:hover{background:var(--c-bg-hover);}
+.tab-item.active{background:var(--c-bg-app);border-top:2px solid var(--c-accent);}
+.tab-add{padding:4px 10px;font-size:12px;cursor:pointer;color:var(--c-text-3);}
+.tab-add:hover{color:var(--c-text);}
 .timeline-body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden;}
-.tl-ruler{height:18px;background:#1e1e1e;border-bottom:1px solid #333;position:relative;overflow:hidden;flex:0 0 auto;padding-right:10px;}
-.tl-ruler span{position:absolute;top:2px;font-size:10px;color:#777;}
+.tl-ruler{height:18px;background:var(--c-bg);border-bottom:1px solid var(--c-border);position:relative;overflow:hidden;flex:0 0 auto;padding-right:10px;}
+.tl-ruler span{position:absolute;top:2px;font-size:10px;color:var(--c-text-3);}
 .tl-tracks{flex:1;overflow-y:auto;min-height:0;position:relative;scrollbar-gutter:stable;}
-.track-row{height:38px;background:#2c2c30;border-radius:4px;margin:5px 0;display:flex;align-items:center;padding-left:10px;font-size:12px;position:relative;border:1px solid transparent;}
-.track-row .track-label{width:110px;color:#9aa;flex-shrink:0;}
-.clip-block{position:absolute;top:4px;height:30px;background:#2367ac;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#cfe3ff;overflow:hidden;white-space:nowrap;padding:0 4px;}
-.clip-block:hover{background:#2e7cc7;}
-.clip-block.cursor-here{outline:1px solid #ffd966;}
+.track-row{height:38px;background:var(--c-bg);border-radius:4px;margin:5px 0;display:flex;align-items:center;padding-left:10px;font-size:12px;position:relative;border:1px solid transparent;color:var(--c-text);}
+.track-row .track-label{width:110px;color:var(--c-text-3);flex-shrink:0;}
+.clip-block{position:absolute;top:4px;height:30px;background:var(--c-clip);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;overflow:hidden;white-space:nowrap;padding:0 4px;}
+.clip-block:hover{background:var(--c-clip-d);}
+.clip-block.cursor-here{outline:1px solid var(--c-sel);}
 /* 多轨时间轴：轨道左侧 kind 色条（box-shadow inset，零布局位移） */
 .track-row{box-shadow:inset 4px 0 0 0 var(--track-accent, transparent);}
-.track-row:nth-child(even){background:#303036;}
-.track-row.drop-target{box-shadow:inset 0 0 0 2px #4096ff;}
-.track-row.drop-target-invalid{box-shadow:inset 0 0 0 2px #e5534b;}
-.track-placeholder{color:#777;font-size:11px;font-style:italic;margin-left:8px;}
-.track-empty-hint{color:#666;font-size:11px;margin-left:8px;}
-.clip-block.kind-replay{background:#2e8b57;color:#d7ffe6;}
-.clip-block.kind-replay:hover{background:#36a06a;}
+.track-row:nth-child(even){background:var(--c-bg-sub);}
+.track-row.drop-target{box-shadow:inset 0 0 0 2px var(--c-accent);}
+.track-row.drop-target-invalid{box-shadow:inset 0 0 0 2px var(--c-danger);}
+/* ⑤ 相机拖到相机轨：专属闪烁/阴显高亮 */
+.track-row.drop-target-camera{outline:2px solid var(--c-accent);outline-offset:-2px;animation:camBlink .7s steps(1,end) infinite;}
+@keyframes camBlink{0%{box-shadow:inset 0 0 0 9999px rgba(76,141,255,.10);}50%{box-shadow:inset 0 0 0 9999px rgba(76,141,255,.42);}100%{box-shadow:inset 0 0 0 9999px rgba(76,141,255,.10);}}
+/* ④ 拖到无同类轨的空白区：预览“将新建轨道” */
+#tracks.drop-target-create{outline:2px dashed var(--c-accent);outline-offset:-2px;background:rgba(76,141,255,.12);}
+.track-preview{height:38px;background:rgba(76,141,255,.14);border:2px dashed var(--c-accent);border-radius:4px;margin:5px 0;display:flex;align-items:center;padding-left:10px;font-size:12px;color:var(--c-accent-d);position:relative;animation:pulsePrev 1.1s ease-in-out infinite;}
+@keyframes pulsePrev{0%,100%{opacity:.55}50%{opacity:1}}
+.track-preview .track-label{width:110px;color:var(--c-accent-d);flex-shrink:0;font-style:italic;}
+.clip-block .clip-handle{position:absolute;top:0;width:7px;height:100%;cursor:ew-resize;background:rgba(0,0,0,.12);}
+.clip-block .clip-handle-l{left:0;border-radius:3px 0 0 3px;}
+.clip-block .clip-handle-r{right:0;border-radius:0 3px 3px 0;}
+.clip-block .clip-handle:hover{background:var(--c-sel);}
+.clip-block.selected{outline:2px solid var(--c-sel);z-index:3;box-shadow:0 0 0 2px rgba(255,206,77,.3);}
+.track-placeholder{color:var(--c-text-3);font-size:11px;font-style:italic;margin-left:8px;}
+.track-empty-hint{color:var(--c-text-3);font-size:11px;margin-left:8px;}
+.clip-block.kind-replay{background:var(--track-act);color:#fff;}
+.clip-block.kind-replay:hover{background:var(--track-act);filter:brightness(1.08);}
 .clip-block.clip-disabled{opacity:.45;}
-.tl-playhead{position:absolute;top:0;bottom:0;width:1px;background:#ffd966;z-index:5;pointer-events:none;}
-.tl-playhead::after{content:"";position:absolute;top:0;left:-4px;border:5px solid transparent;border-top:6px solid #ffd966;}
+/* v3 timeline leash clip: blue-green, draggable like a normal clip */
+.clip-block.leash-clip{background:linear-gradient(180deg,#1fb6a6,#159e8f);color:#fff;font-size:11px;}
+.clip-block.leash-clip:hover{filter:brightness(1.08);}
+.tl-playhead{position:absolute;top:0;bottom:0;width:1px;background:var(--c-sel);z-index:5;pointer-events:none;}
+.tl-playhead::after{content:"";position:absolute;top:0;left:-4px;border:5px solid transparent;border-top:6px solid var(--c-sel);}
 /* 右键菜单：专业软件风格（分层、入场动画、子菜单箭头、悬停过渡） */
-.context-menu{position:absolute;background:#26282e;border:1px solid #3a3f4a;border-radius:7px;min-width:188px;z-index:9999;display:none;padding:5px;box-shadow:0 10px 30px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.02) inset;animation:ctxIn .13s cubic-bezier(.2,.8,.3,1);transform-origin:top left;}
+.context-menu{position:absolute;background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:7px;min-width:188px;z-index:9999;display:none;padding:5px;box-shadow:var(--c-shadow),0 0 0 1px rgba(0,0,0,.02) inset;animation:ctxIn .13s cubic-bezier(.2,.8,.3,1);transform-origin:top left;}
 @keyframes ctxIn{from{opacity:0;transform:scale(.95) translateY(-3px);}to{opacity:1;transform:scale(1) translateY(0);}}
-.ctx-main-item{padding:8px 11px 8px 9px;font-size:13px;line-height:1;color:#d8dce3;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:5px;transition:background .1s ease,color .1s ease;}
-.ctx-main-item:hover{background:#0e5a8f;color:#fff;}
+.ctx-main-item{padding:8px 11px 8px 9px;font-size:13px;line-height:1;color:var(--c-text);cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:5px;transition:background .1s ease,color .1s ease;}
+.ctx-main-item:hover{background:var(--c-accent);color:#fff;}
 .ctx-main-item .ico{width:16px;height:16px;flex:0 0 16px;opacity:.85;transition:opacity .1s ease;}
 .ctx-main-item:hover .ico{opacity:1;}
-.ctx-divider{height:1px;background:#353a44;margin:5px 7px;}
-.ctx-sub{position:absolute;left:100%;top:-5px;background:#26282e;border:1px solid #3a3f4a;border-radius:7px;min-width:172px;padding:5px;display:none;box-shadow:0 10px 30px rgba(0,0,0,.6);}
+.ctx-divider{height:1px;background:var(--c-border);margin:5px 7px;}
+.ctx-sub{position:absolute;left:100%;top:-5px;background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:7px;min-width:172px;padding:5px;display:none;box-shadow:var(--c-shadow);}
 .has-sub{position:relative;}
-.has-sub::after{content:"\25B8";margin-left:auto;color:#7c8493;font-size:11px;transition:color .1s ease,transform .1s ease;}
-.has-sub:hover::after{color:#cfe3ff;transform:translateX(1px);}
+.has-sub::after{content:"\25B8";margin-left:auto;color:var(--c-text-3);font-size:11px;transition:color .1s ease,transform .1s ease;}
+.has-sub:hover::after{color:var(--c-accent-d);transform:translateX(1px);}
 .has-sub:hover .ctx-sub{display:block;animation:ctxIn .13s cubic-bezier(.2,.8,.3,1);transform-origin:left center;}
 .ctx-disabled{opacity:.4;cursor:not-allowed;pointer-events:none;}
-.ctx-disabled:hover{background:transparent;color:#d8dce3;}
+.ctx-disabled:hover{background:transparent;color:var(--c-text);}
 .top-actions{position:absolute;top:8px;right:12px;display:flex;gap:4px;z-index:20;}
-.top-actions button{background:#38383c;border:1px solid #555;color:#d6dae3;padding:3px 12px;border-radius:3px;cursor:pointer;font-size:12px;}
-.top-actions button:hover{background:#094872;}
-.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1d6f42;color:#fff;padding:6px 16px;border-radius:4px;font-size:12px;z-index:99999;opacity:.95;}
-.toast.error{background:#a03030;}
+.top-actions button{background:var(--c-bg-sub);border:1px solid var(--c-border-2);color:var(--c-text);padding:3px 12px;border-radius:3px;cursor:pointer;font-size:12px;}
+.top-actions button:hover{background:var(--c-accent);color:#fff;}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--c-success);color:#fff;padding:6px 16px;border-radius:4px;font-size:12px;z-index:99999;opacity:.95;}
+.toast.error{background:var(--c-danger);}
+/* ===== BBS 高级通知 dialog（右上角飞入 / 淡出 / 堆叠） ===== */
+.bbs-dialog{position:fixed;top:12px;right:12px;width:300px;background:var(--c-bg);border:1px solid var(--c-border-2);border-left:4px solid var(--c-accent);border-radius:6px;box-shadow:var(--c-shadow);padding:10px 12px;font-size:12px;color:var(--c-text);opacity:0;}
+.bbs-dialog-alert{border-left-color:var(--c-danger);}
+.bbs-dialog-info{border-left-color:var(--c-accent);}
+.bbs-dialog-custom{border-left-color:var(--c-accent);}
+.bbs-dialog-head{display:flex;align-items:center;gap:8px;}
+.bbs-dialog-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;flex:0 0 auto;overflow:hidden;}
+.bbs-dialog-alert .bbs-dialog-icon{background:var(--c-danger);color:#fff;}
+.bbs-dialog-info .bbs-dialog-icon{background:var(--c-accent);color:#fff;}
+.bbs-dialog-custom .bbs-dialog-icon{background:var(--c-bg-sub);color:var(--c-text);}
+.bbs-dialog-custom .bbs-dialog-icon img{width:18px;height:18px;display:block;}
+.bbs-dialog-title{font-weight:bold;flex:1 1 auto;}
+.bbs-dialog-close{cursor:pointer;color:var(--c-text-3);font-size:15px;line-height:1;}
+.bbs-dialog-close:hover{color:var(--c-text);}
+.bbs-dialog-body{margin-top:6px;color:var(--c-text-2);line-height:1.45;word-break:break-word;}
+.bbs-dialog-bar{margin-top:8px;height:4px;background:var(--c-bg-sub);border-radius:2px;overflow:hidden;}
+.bbs-dialog-bar-fill{height:100%;background:var(--c-accent);width:0;transition:width .2s ease;}
+/* F1: dialog 输入框 / 按钮（专业软件风格，右上角通知式） */
+.bbs-dialog-inputs{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
+.bbs-dialog-field{display:flex;flex-direction:column;gap:2px;}
+.bbs-dialog-field label{font-size:11px;color:var(--c-text-3);}
+.bbs-dialog-input{background:var(--c-bg-sub);border:1px solid var(--c-border-2);border-radius:3px;color:var(--c-text);font-size:12px;padding:4px 6px;width:100%;box-sizing:border-box;}
+.bbs-dialog-input:focus{outline:none;border-color:var(--c-accent);}
+.bbs-dialog-actions{margin-top:10px;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
+.bbs-dialog-btn{background:var(--c-bg-sub);border:1px solid var(--c-border-2);color:var(--c-text);padding:4px 14px;border-radius:3px;cursor:pointer;font-size:12px;}
+.bbs-dialog-btn:hover{background:var(--c-bg-3);}
+.bbs-dialog-btn-primary{background:var(--c-accent);border-color:var(--c-accent);color:#fff;}
+.bbs-dialog-btn-primary:hover{filter:brightness(1.08);}
+.bbs-dialog-btn-danger{background:var(--c-danger);border-color:var(--c-danger);color:#fff;}
+.bbs-dialog-btn-danger:hover{filter:brightness(1.08);}
 /* 更新提示（左下角，任何 BBS 界面） */
-.update-toast{position:fixed;left:16px;bottom:16px;width:300px;background:#1e2733;border:1px solid #2f6f9f;border-radius:6px;padding:12px 14px;z-index:9999;display:none;box-shadow:0 6px 20px rgba(0,0,0,.5);}
+.update-toast{position:fixed;left:16px;bottom:16px;width:300px;background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:6px;padding:12px 14px;z-index:9999;display:none;box-shadow:var(--c-shadow);}
 .update-toast.show{display:block;}
-.update-toast .t{font-size:13px;color:#9ecbff;font-weight:bold;}
-.update-toast .s{font-size:11px;color:#9aa6b3;margin:4px 0 10px;}
+.update-toast .t{font-size:13px;color:var(--c-accent-d);font-weight:bold;}
+.update-toast .s{font-size:11px;color:var(--c-text-3);margin:4px 0 10px;}
 .update-toast .row{display:flex;gap:8px;}
-.update-toast .row .x{margin-left:auto;cursor:pointer;color:#9aa6b3;}
-.update-toast .row .x:hover{color:#fff;}
-.btn{background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:6px 14px;font-size:12px;cursor:pointer;transition:background .12s ease,border-color .12s ease,opacity .12s ease;}
-.btn:hover{background:#094872;color:#fff;}
-.btn:active{background:#0b2236;}
-.btn:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
+.update-toast .row .x{margin-left:auto;cursor:pointer;color:var(--c-text-3);}
+.update-toast .row .x:hover{color:var(--c-text);}
+.btn{background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:6px 14px;font-size:12px;cursor:pointer;transition:background .12s ease,border-color .12s ease,opacity .12s ease;}
+.btn:hover{background:var(--c-accent);color:#fff;}
+.btn:active{background:var(--c-bg-active);}
+.btn:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 .btn:disabled,.btn.disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.3);pointer-events:none;}
 /* 键盘可达性：所有按钮聚焦时给一圈清晰焦点环，方便仅用键盘操作 */
-button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
+button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 /* HTML 原生弹窗：替代被 MCEF 全屏覆盖挡住的 Swing 命名窗口 */
-.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:none;align-items:center;justify-content:center;}
+.modal-mask{position:fixed;inset:0;background:var(--c-overlay);z-index:9000;display:none;align-items:center;justify-content:center;}
 .modal-mask.show{display:flex;}
-.modal{width:380px;max-width:92vw;background:#1f2229;border:1px solid #353a45;border-radius:8px;box-shadow:0 14px 44px rgba(0,0,0,.6);overflow:visible;}
-.modal-title{padding:14px 16px;font-size:14px;font-weight:600;color:#e8eaed;background:#24272f;border-bottom:1px solid #111;}
+.modal{width:380px;max-width:92vw;background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;box-shadow:var(--c-shadow);overflow:visible;}
+.modal-title{padding:14px 16px;font-size:14px;font-weight:600;color:var(--c-text);background:var(--c-bg-sub);border-bottom:1px solid var(--c-border-2);}
 .modal-body{padding:16px;display:flex;flex-direction:column;gap:14px;}
-.modal-field label{display:block;font-size:12px;color:#9aa0aa;margin-bottom:6px;}
-.modal-field input, .modal-field select{width:100%;box-sizing:border-box;background:#15171c;border:1px solid #353a45;border-radius:4px;color:#e8eaed;padding:9px 10px;font-size:13px;outline:none;}
-.modal-field input:focus, .modal-field select:focus{border-color:#4c8dff;}
+.modal-field label{display:block;font-size:12px;color:var(--c-text-3);margin-bottom:6px;}
+.modal-field input, .modal-field select{width:100%;box-sizing:border-box;background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:9px 10px;font-size:13px;outline:none;}
+.modal-field input:focus, .modal-field select:focus{border-color:var(--c-accent);}
 .modal-seg{display:flex;gap:6px;}
-.modal-seg button{flex:1;background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:4px;padding:9px 4px;font-size:12px;cursor:pointer;transition:background .12s ease,color .12s ease;}
-.modal-seg button:hover{background:#38383c;color:#fff;}
-.modal-seg button.on:hover{background:#4c8dff;color:#fff;}
-.modal-seg button.on{background:#4c8dff;color:#fff;border-color:#4c8dff;}
-.modal-check{display:flex;align-items:center;gap:8px;font-size:13px;color:#d6dae3;cursor:pointer;}
+.modal-seg button{flex:1;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:4px;padding:9px 4px;font-size:12px;cursor:pointer;transition:background .12s ease,color .12s ease;}
+.modal-seg button:hover{background:var(--c-bg-hover);color:var(--c-text);}
+.modal-seg button.on:hover{background:var(--c-accent);color:#fff;}
+.modal-seg button.on{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+.modal-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--c-text);cursor:pointer;}
 .modal-check input{width:16px;height:16px;flex:0 0 auto;}
-.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:#24272f;border-top:1px solid #111;}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:var(--c-bg-sub);border-top:1px solid var(--c-border-2);}
 .modal-actions .btn{padding:8px 20px;}
-.modal-actions .ok{background:#4c8dff;color:#fff;border-color:#4c8dff;}
-.modal-actions .ok:hover{background:#3f7ae6;}
+.modal-actions .ok{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+.modal-actions .ok:hover{background:var(--c-accent-d);}
 /* 自定义下拉（替代原生 <select>：原生 select 的下拉在 MCEF/CEF 里常弹不出） */
 .dd{position:relative;width:100%;}
-.dd-btn{width:100%;box-sizing:border-box;background:#15171c;border:1px solid #353a45;border-radius:4px;color:#e8eaed;padding:9px 10px;font-size:13px;outline:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px;transition:border-color .12s ease,background .12s ease;}
-.dd-btn:hover,.dd-btn:focus{border-color:#4c8dff;background:#191c22;}
+.dd-btn{width:100%;box-sizing:border-box;background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:9px 10px;font-size:13px;outline:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px;transition:border-color .12s ease,background .12s ease;}
+.dd-btn:hover,.dd-btn:focus{border-color:var(--c-accent);background:var(--c-bg-hover);}
 .dd-btn .dd-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dd-btn .dd-caret{color:#9aa0aa;font-size:10px;flex:0 0 auto;transition:transform .12s ease;}
-.dd.open .dd-btn{border-color:#4c8dff;}
+.dd-btn .dd-caret{color:var(--c-text-3);font-size:10px;flex:0 0 auto;transition:transform .12s ease;}
+.dd.open .dd-btn{border-color:var(--c-accent);}
 .dd.open .dd-caret{transform:rotate(180deg);}
-.dd-pop{position:absolute;top:calc(100% + 5px);left:0;right:0;background:#1b1e24;border:1px solid #353a45;border-radius:5px;box-shadow:0 10px 30px rgba(0,0,0,.6);max-height:232px;overflow-y:auto;z-index:9999;display:none;padding:4px;animation:ctxIn .12s ease;}
+.dd-pop{position:absolute;top:calc(100% + 5px);left:0;right:0;background:var(--c-bg);border:1px solid var(--c-border);border-radius:5px;box-shadow:var(--c-shadow);max-height:232px;overflow-y:auto;z-index:9999;display:none;padding:4px;animation:ctxIn .12s ease;}
 .dd-pop.open{display:block;}
-.dd-opt{padding:8px 10px;font-size:13px;color:#d6dae3;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:4px;transition:background .1s ease,color .1s ease;}
-.dd-opt:hover{background:#0e5a8f;color:#fff;}
-.dd-opt.sel{background:#243049;color:#9ecbff;}
-.dd-opt .dd-tick{margin-left:auto;color:#4c8dff;visibility:hidden;font-size:12px;}
+.dd-opt{padding:8px 10px;font-size:13px;color:var(--c-text);cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:4px;transition:background .1s ease,color .1s ease;}
+.dd-opt:hover{background:var(--c-accent);color:#fff;}
+.dd-opt.sel{background:var(--c-bg-active);color:var(--c-accent-d);}
+.dd-opt .dd-tick{margin-left:auto;color:var(--c-accent);visibility:hidden;font-size:12px;}
 .dd-opt.sel .dd-tick{visibility:visible;}
 
 /* 动作编辑器（HTML 页内模态，替代被 MCEF 全屏遮挡、独占全屏下永远弹不出的 Swing 窗口） */
-.ae{width:min(1120px,96vw);height:min(760px,94vh);margin:auto;background:#1f2229;border:1px solid #353a45;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 14px 44px rgba(0,0,0,.6);}
-.ae-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#24272f;border-bottom:1px solid #111;}
-.ae-title{font-size:14px;font-weight:600;color:#e8eaed;}
-.ae-sel{background:#15171c;border:1px solid #353a45;color:#e8eaed;border-radius:4px;padding:6px 8px;font-size:13px;}
+.ae{width:min(1120px,96vw);height:min(760px,94vh);margin:auto;background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--c-shadow);}
+.ae-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--c-bg-sub);border-bottom:1px solid var(--c-border-2);}
+.ae-title{font-size:14px;font-weight:600;color:var(--c-text);}
+.ae-sel{background:var(--c-bg-app);border:1px solid var(--c-border);color:var(--c-text);border-radius:4px;padding:6px 8px;font-size:13px;}
 .ae-spacer{flex:1;}
 .ae-body{flex:1;display:flex;min-height:0;}
-.ae-left{flex:0 0 300px;background:#242426;border-right:1px solid #111;overflow-y:auto;padding:8px;min-height:0;}
+.ae-left{flex:0 0 300px;background:var(--c-bg-sub);border-right:1px solid var(--c-border-2);overflow-y:auto;padding:8px;min-height:0;}
 .ae-right{flex:1;overflow-y:auto;padding:14px;min-height:0;}
-.ae-hint{padding:8px;color:#9aa0aa;font-size:12px;}
+.ae-hint{padding:8px;color:var(--c-text-3);font-size:12px;}
 .ae-modeRow{display:flex;gap:6px;padding:6px 8px;}
 .ae-field{margin-bottom:12px;}
-.ae-field label{display:block;font-size:12px;color:#9aa0aa;margin-bottom:6px;}
-.ae-field input, .ae-field select, .ae-field textarea{width:100%;box-sizing:border-box;background:#15171c;border:1px solid #353a45;border-radius:4px;color:#e8eaed;padding:8px 10px;font-size:13px;outline:none;}
+.ae-field label{display:block;font-size:12px;color:var(--c-text-3);margin-bottom:6px;}
+.ae-field input, .ae-field select, .ae-field textarea{width:100%;box-sizing:border-box;background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:8px 10px;font-size:13px;outline:none;}
 .ae-field textarea{font-family:Consolas,monospace;resize:vertical;min-height:180px;}
-.ae-field input:focus, .ae-field select:focus, .ae-field textarea:focus{border-color:#4c8dff;}
+.ae-field input:focus, .ae-field select:focus, .ae-field textarea:focus{border-color:var(--c-accent);}
 .ae-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
-.ae-row .lbl{color:#9aa0aa;font-size:12px;}
+.ae-row .lbl{color:var(--c-text-3);font-size:12px;}
 .ae-params{margin-top:8px;}
 .ae-param{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .ae-param input{width:120px;}
-.ae-timeline-wrap{flex:0 0 auto;background:#242426;border-top:1px solid #111;padding:8px 12px;}
-.ae-timeline-title{font-size:11px;color:#888;margin-bottom:6px;}
-.ae-timeline{background:#15171c;border:1px solid #353a45;border-radius:4px;position:relative;padding:6px;}
+.ae-timeline-wrap{flex:0 0 auto;background:var(--c-bg-sub);border-top:1px solid var(--c-border-2);padding:8px 12px;}
+.ae-timeline-title{font-size:11px;color:var(--c-text-3);margin-bottom:6px;}
+.ae-timeline{background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;position:relative;padding:6px;}
 /* 动作编辑器画布网格背景（纯视觉）：左侧列表 / 右侧属性 / 时间轴 / 轨道体 */
-.ae-left, .ae-right, .ae-timeline, .ae-lane-body{background-color:#1b1d22;background-image:linear-gradient(rgba(120,160,210,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,210,.035) 1px,transparent 1px);background-size:22px 22px;background-position:0 0;}
+.ae-left, .ae-right, .ae-timeline, .ae-lane-body{background-color:var(--c-bg-sub);background-image:linear-gradient(rgba(60,90,140,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(60,90,140,.08) 1px,transparent 1px);background-size:22px 22px;background-position:0 0;}
 /* 动作组下拉（倒三角） */
 .ae-group-wrap{position:relative;display:inline-block;}
-.ae-group-menu{position:absolute;top:100%;right:0;margin-top:4px;background:#2c2c30;border:1px solid #555;border-radius:4px;min-width:210px;display:none;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.ae-group-menu{position:absolute;top:100%;right:0;margin-top:4px;background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:4px;min-width:210px;display:none;z-index:60;box-shadow:var(--c-shadow);}
 .ae-group-menu.show{display:block;}
-.ae-group-item{padding:7px 10px;cursor:pointer;font-size:13px;color:#e8e8ea;border-bottom:1px solid #38383c;}
+.ae-group-item{padding:7px 10px;cursor:pointer;font-size:13px;color:var(--c-text);border-bottom:1px solid var(--c-border);}
 .ae-group-item:last-child{border-bottom:none;}
-.ae-group-item:hover{background:#3a3a40;}
-.ae-group-item .cnt{float:right;color:#9a9aa2;font-size:11px;margin-left:8px;}
-.ae-group-empty{padding:9px 10px;color:#9a9aa2;font-size:12px;}
-.ae-block{position:absolute;top:8px;height:38px;background:#2367ac;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#cfe3ff;overflow:hidden;white-space:nowrap;padding:0 6px;cursor:grab;}
-.ae-block.sel{outline:2px solid #ffd966;}
-.ae-kf{position:absolute;top:9px;width:9px;height:9px;background:#4c8dff;transform:translateX(-5px) rotate(45deg);box-shadow:0 0 0 1px #1b1d22;}
-.ae-param.kf-sel{outline:2px solid #4c8dff;}
-.ae-dock{display:none;flex-direction:column;background:#1f2024;border-bottom:1px solid #111;flex:0 0 300px;min-height:120px;}
-.ae-dock-head{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;background:#2a2c31;font-size:12px;color:#cfd3da;}
+.ae-group-item:hover{background:var(--c-bg-hover);}
+.ae-group-item .cnt{float:right;color:var(--c-text-3);font-size:11px;margin-left:8px;}
+.ae-group-empty{padding:9px 10px;color:var(--c-text-3);font-size:12px;}
+.ae-block{position:absolute;top:8px;height:38px;background:var(--c-clip);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;overflow:hidden;white-space:nowrap;padding:0 6px;cursor:grab;}
+.ae-block.sel{outline:2px solid var(--c-sel);}
+.ae-kf{position:absolute;top:9px;width:9px;height:9px;background:var(--c-accent);transform:translateX(-5px) rotate(45deg);box-shadow:0 0 0 1px var(--c-bg-app);}
+.ae-param.kf-sel{outline:2px solid var(--c-accent);}
+.ae-dock{display:none;flex-direction:column;background:var(--c-bg-sub);border-bottom:1px solid var(--c-border-2);flex:0 0 300px;min-height:120px;}
+.ae-dock-head{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;background:var(--c-bg-sub);font-size:12px;color:var(--c-text);}
 .ae-dock-body{display:flex;flex:1;min-height:0;overflow:hidden;}
-.ae-dock-body .ad-left{flex:0 0 150px;max-height:none;overflow:auto;border-right:1px solid #333;padding:4px 6px;}
+.ae-dock-body .ad-left{flex:0 0 150px;max-height:none;overflow:auto;border-right:1px solid var(--c-border);padding:4px 6px;}
 .ae-dock-body .ad-right{flex:1;min-width:0;overflow:auto;padding:4px;}
-.ae-timeline-wrap{position:relative;height:auto;min-height:60px;border-top:1px solid #333;overflow:visible;}
-.kf-add{padding:4px 10px;font-size:12px;background:#2f3b4d;color:#cfe3ff;border:1px solid #3a4a60;border-radius:4px;cursor:pointer;}
-.kf-add:hover{background:#3a4a60;}
+.ae-timeline-wrap{position:relative;height:auto;min-height:60px;border-top:1px solid var(--c-border);overflow:visible;}
+.kf-add{padding:4px 10px;font-size:12px;background:var(--c-bg-active);color:var(--c-accent-d);border:1px solid var(--c-border);border-radius:4px;cursor:pointer;}
+.kf-add:hover{background:var(--c-bg-hover);}
 .eq{width:min(540px,94vw);height:auto;max-height:88vh;}
-.eq-label{font-size:13px;color:#9aa0aa;margin-left:4px;}
+.eq-label{font-size:13px;color:var(--c-text-3);margin-left:4px;}
 .eq-body{padding:14px 16px;overflow-y:auto;}
 .eq-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.eq-name{flex:0 0 72px;color:#cfd3da;font-size:13px;}
-.eq-row input{flex:1;box-sizing:border-box;background:#15171c;border:1px solid #353a45;border-radius:4px;color:#e8eaed;padding:8px 10px;font-size:13px;outline:none;}
-.eq-row input:focus{border-color:#4c8dff;}
+.eq-name{flex:0 0 72px;color:var(--c-text);font-size:13px;}
+.eq-row input{flex:1;box-sizing:border-box;background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:8px 10px;font-size:13px;outline:none;}
+.eq-row input:focus{border-color:var(--c-accent);}
 
 /* B1: 播放器工具栏（置于预览区顶部，z-index 高于绝对定位的预览图层） */
-.vp-toolbar{position:relative;z-index:6;height:30px;background:#1f2229;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #111;flex:0 0 auto;}
-.vp-toolbar button{display:flex;align-items:center;gap:5px;background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:4px 12px;font-size:12px;cursor:pointer;}
-.vp-toolbar button:hover{background:#094872;color:#fff;}
-.vp-toolbar button.active{background:#4c8dff;color:#fff;border-color:#4c8dff;}
+.vp-toolbar{position:relative;z-index:6;height:30px;background:var(--c-bg-sub);display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--c-border-2);flex:0 0 auto;}
+.vp-toolbar button{display:flex;align-items:center;gap:5px;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:4px 12px;font-size:12px;cursor:pointer;}
+.vp-toolbar button:hover{background:var(--c-accent);color:#fff;}
+.vp-toolbar button.active{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
 /* B2: 序列工具栏 */
-.tl-toolbar{height:30px;background:#1f2229;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid #111;flex:0 0 auto;}
-.tl-toolbar button{display:flex;align-items:center;gap:5px;background:#2c2c30;color:#d6dae3;border:1px solid #353a45;border-radius:3px;padding:4px 10px;font-size:12px;cursor:pointer;}
-.tl-toolbar button:hover{background:#094872;color:#fff;}
-.tl-toolbar button.active{background:#4c8dff;color:#fff;border-color:#4c8dff;}
-/* 时间轴工具栏里那个原生 number 输入框：原来是浏览器默认白底，跟暗色主题格格不入，统一成暗色输入框 */
-#tlKfAllN{background:#15171c;border:1px solid #353a45;border-radius:4px;color:#e8eaed;padding:4px 6px;font-size:13px;outline:none;}
-#tlKfAllN:focus{border-color:#4c8dff;}
+.tl-toolbar{height:30px;background:var(--c-bg-sub);display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--c-border-2);flex:0 0 auto;}
+.tl-toolbar button{display:flex;align-items:center;gap:5px;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:4px 10px;font-size:12px;cursor:pointer;}
+.tl-toolbar button:hover{background:var(--c-accent);color:#fff;}
+.tl-toolbar button.active{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+/* 时间轴工具栏里那个原生 number 输入框：统一成浅色输入框 */
+#tlKfAllN{background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:4px 6px;font-size:13px;outline:none;}
+#tlKfAllN:focus{border-color:var(--c-accent);}
 /* B3: 素材箱折叠 */
 .asset-panel.collapsed{flex-basis:28px!important;width:28px!important;min-width:0;overflow:hidden;}
 .asset-panel.collapsed .asset-list,.asset-panel.collapsed #btnEquip,.asset-panel.collapsed .asset-head>span:not(#btnCollapse){display:none;}
-#btnCollapse{cursor:pointer;color:#7cb8ff;font-size:13px;padding:0 4px;flex:0 0 auto;user-select:none;}
+#btnCollapse{cursor:pointer;color:var(--c-accent);font-size:13px;padding:0 4px;flex:0 0 auto;user-select:none;}
 /* B4: 素材详情面板 */
-.asset-detail{display:none;max-height:46%;overflow:auto;border-bottom:1px solid #333;padding:8px;flex:0 0 auto;background:#1b1e24;}
+.asset-detail{display:none;max-height:46%;overflow:auto;border-bottom:1px solid var(--c-border);padding:8px;flex:0 0 auto;background:var(--c-bg-sub);}
 .asset-detail .ad-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
-.asset-detail .ad-avatar{width:30px;height:30px;border-radius:50%;background:#094872;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;flex:0 0 auto;}
+.asset-detail .ad-avatar{width:30px;height:30px;border-radius:50%;background:var(--c-accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;flex:0 0 auto;}
 .asset-detail .ad-info{flex:1;min-width:0;}
-.asset-detail .ad-name{width:100%;box-sizing:border-box;background:#15171c;border:1px solid #353a45;border-radius:4px;color:#e8eaed;padding:4px 6px;font-size:13px;}
-.asset-detail .ad-type{font-size:11px;color:#9aa0aa;margin-top:3px;}
+.asset-detail .ad-name{width:100%;box-sizing:border-box;background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:4px 6px;font-size:13px;}
+.asset-detail .ad-type{font-size:11px;color:var(--c-text-3);margin-top:3px;}
 .asset-detail .ad-toggles{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
 .asset-detail .ad-cols{display:flex;gap:8px;}
-.asset-detail .ad-left{flex:0 0 130px;max-height:210px;overflow:auto;border-right:1px solid #333;padding-right:6px;}
+.asset-detail .ad-left{flex:0 0 130px;max-height:210px;overflow:auto;border-right:1px solid var(--c-border);padding-right:6px;}
 .asset-detail .ad-right{flex:1;min-width:0;overflow:auto;max-height:210px;}
-.asset-detail .ad-close{margin-left:auto;cursor:pointer;color:#9aa6b3;font-size:14px;padding:0 4px;}
-.asset-detail .ad-close:hover{color:#fff;}
+.asset-detail .ad-close{margin-left:auto;cursor:pointer;color:var(--c-text-3);font-size:14px;padding:0 4px;}
+.asset-detail .ad-close:hover{color:var(--c-text);}
 @keyframes bbsSpin { to { transform: rotate(360deg); } }
-.bbs-spinner { display:inline-block;width:12px;height:12px;border:2px solid #2b6fb0;border-top-color:transparent;border-radius:50%;vertical-align:middle;margin-right:8px;animation:bbsSpin 0.8s linear infinite;}
+.bbs-spinner { display:inline-block;width:12px;height:12px;border:2px solid var(--c-accent);border-top-color:transparent;border-radius:50%;vertical-align:middle;margin-right:8px;animation:bbsSpin 0.8s linear infinite;}
 
-/* Material multi-track timeline (lingfeng): action lane + material lane, no separators */
-.ae-ruler{position:relative;height:14px;margin:0 0 6px;background:#1b1d22;border-radius:3px;overflow:hidden;}
-.ae-ruler-tick{position:absolute;top:1px;font-size:9px;color:#7a8290;transform:translateX(-50%);white-space:nowrap;}
-.ae-lane{position:relative;height:54px;margin-bottom:6px;background:#15171c;border:1px solid #353a45;border-radius:4px;overflow:hidden;}
+/* Material multi-track timeline (lingfeng): action lane + material lane + potion lane, no separators */
+.ae-ruler{position:relative;height:14px;margin:0 0 6px;background:var(--c-bg-sub);border-radius:3px;overflow:hidden;}
+.ae-ruler-tick{position:absolute;top:1px;font-size:9px;color:var(--c-text-3);transform:translateX(-50%);white-space:nowrap;}
+.ae-lane{position:relative;height:54px;margin-bottom:6px;background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;overflow:hidden;}
 .ae-lane:last-child{margin-bottom:0;}
-.ae-lane-head{position:absolute;top:0;left:0;height:100%;width:72px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;background:#1e2127;border-right:1px solid #2a2d34;font-size:11px;color:#9aa0aa;z-index:3;box-sizing:border-box;padding:4px;text-align:center;}
+.ae-lane-head{position:absolute;top:0;left:0;height:100%;width:72px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;background:var(--c-bg-sub);border-right:1px solid var(--c-border);font-size:11px;color:var(--c-text-3);z-index:3;box-sizing:border-box;padding:4px;text-align:center;}
 .ae-lane-head .kf-add{padding:2px 6px;font-size:11px;}
 .ae-lane-body{position:absolute;top:0;left:72px;right:0;height:100%;}
-.ae-block{position:absolute;top:9px;height:36px;background:#2367ac;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#cfe3ff;overflow:hidden;white-space:nowrap;padding:0 8px;cursor:grab;box-sizing:border-box;max-width:calc(100% - 8px);}
-.ae-block.sel{outline:2px solid #ffd966;}
-.ae-mat{position:absolute;top:8px;height:38px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;overflow:hidden;white-space:nowrap;padding:0 10px;cursor:grab;box-sizing:border-box;border:1px solid rgba(255,255,255,.18);max-width:calc(100% - 8px);}
-.ae-mat.model{background:#2367ac;color:#cfe3ff;}
-.ae-mat.skin{background:#2e8b57;color:#d7ffe6;}
-.ae-mat.equip{background:#b9772e;color:#ffe6c7;}
+.ae-block{position:absolute;top:9px;height:36px;background:var(--c-clip);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;overflow:hidden;white-space:nowrap;padding:0 8px;cursor:grab;box-sizing:border-box;max-width:calc(100% - 8px);}
+.ae-block.sel{outline:2px solid var(--c-sel);}
+/* 子轨道按类型染色：材质(蓝) / 动作(绿) / 药水(紫) / 装备(棕) */
+.ae-lane-head[data-kind="material"]{color:var(--track-mat);}
+.ae-lane-head[data-kind="action"]{color:var(--track-act);}
+.ae-lane-head[data-kind="potion"]{color:var(--track-pot);}
+.ae-mat{position:absolute;top:8px;height:38px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;overflow:hidden;white-space:nowrap;padding:0 10px;cursor:grab;box-sizing:border-box;border:1px solid rgba(0,0,0,.12);max-width:calc(100% - 8px);}
+.ae-mat.model{background:var(--track-mat);color:#fff;}
+.ae-mat.skin{background:var(--track-act);color:#fff;}
+.ae-mat.equip{background:var(--track-equip);color:#fff;}
+.ae-mat.potion{background:var(--track-pot);color:#fff;}
 /* A7: 选中态高亮盖过背景网格 */
-.ae-block.sel, .ae-mat.sel{outline:2px solid #ffd966;z-index:3;box-shadow:0 0 0 2px rgba(255,217,102,.25),0 2px 8px rgba(0,0,0,.5);}
-.clip-block.cursor-here{outline:2px solid #ffd966;z-index:3;box-shadow:0 0 0 2px rgba(255,217,102,.25);}
+.ae-block.sel, .ae-mat.sel{outline:2px solid var(--c-sel);z-index:3;box-shadow:0 0 0 2px rgba(255,206,77,.3),0 2px 8px rgba(20,30,50,.12);}
+.clip-block.cursor-here{outline:2px solid var(--c-sel);z-index:3;box-shadow:0 0 0 2px rgba(255,206,77,.3);}
 /* D: 非实时（client=false）动作组的徽标 */
-.grp-noclient{margin-left:10px;font-size:10px;color:#ffd9a0;background:#5a3a12;padding:1px 6px;border-radius:8px;border:1px solid #7a5320;white-space:nowrap;}
-.ae-mat.sel{outline:2px solid #ffd966;}
+.grp-noclient{margin-left:10px;font-size:10px;color:var(--c-amber);background:var(--c-amber-bg);padding:1px 6px;border-radius:8px;border:1px solid #e8c887;white-space:nowrap;}
+.ae-mat.sel{outline:2px solid var(--c-sel);}
 .ae-mat .len{position:absolute;right:0;top:0;height:100%;width:9px;cursor:ew-resize;border-radius:0 3px 3px 0;}
-.ae-mat .len:hover{background:rgba(255,255,255,.3);}
-.ae-kf{position:absolute;top:9px;width:9px;height:9px;background:#4c8dff;transform:translateX(-5px) rotate(45deg);box-shadow:0 0 0 1px #1b1d22;}
+.ae-mat .len:hover{background:rgba(0,0,0,.15);}
+.ae-kf{position:absolute;top:9px;width:9px;height:9px;background:var(--c-accent);transform:translateX(-5px) rotate(45deg);box-shadow:0 0 0 1px var(--c-bg-app);}
+/* 时间轴计数控制（草图底部：材质/动作/药水 各一个复选框 + 数字输入，控制子轨道数量） */
+.ae-count-ctrl{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--c-border);background:var(--c-bg-sub);font-size:12px;color:var(--c-text-2);}
+.ae-count-ctrl .cc-item{display:flex;align-items:center;gap:6px;}
+.ae-count-ctrl .cc-item input[type="checkbox"]{width:15px;height:15px;accent-color:var(--c-accent);cursor:pointer;}
+.ae-count-ctrl .cc-item input[type="number"]{width:54px;box-sizing:border-box;background:var(--c-bg-app);border:1px solid var(--c-border);border-radius:4px;color:var(--c-text);padding:3px 6px;font-size:12px;outline:none;}
+.ae-count-ctrl .cc-item input[type="number"]:focus{border-color:var(--c-accent);}
+.ae-count-ctrl .cc-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+.ae-count-ctrl .cc-dot.material{background:var(--track-mat);}
+.ae-count-ctrl .cc-dot.action{background:var(--track-act);}
+.ae-count-ctrl .cc-dot.potion{background:var(--track-pot);}
+/* 动作编辑器左侧分组标签（adLabel） */
+.ad-label{color:var(--c-text-3);font-size:11px;margin:8px 0 3px;}
 </style>
 </head>
 <body>
+
+<!-- 启动遮罩：renderAll 第一次带 state 渲染后淡出，期间盖住编辑器避免语言闪屏 -->
+<div id="bbsBoot"><div class="spin"></div></div>
 
 <div class="title-bar">
   <img class="ico" src="svg/work.svg">
   <span id="projName">BBS 编辑器</span>
   <span class="title-dirty" id="dirtyMark">*</span>
-  <span id="filmName" style="color:#aab2bf"></span>
-  <div class="title-btn" id="btnSave" data-i18n="menu.save"><img class="ico" src="svg/save.svg"> S('menu.save')</div>
-  <div class="title-btn" id="enterPreviewBtn" style="display:none" data-i18n="preview.enter"><img class="ico" src="svg/world.svg"> 进入预览世界</div>
+  <span id="filmName" style="color:var(--c-text-3)"></span>
+  <span id="sceneWorld" style="color:var(--track-act);margin-left:6px;"></span>
+  <div class="title-btn" id="btnSave" data-i18n="menu.save"><img class="ico" src="svg/gip-save.svg"> S('menu.save')</div>
+  <div class="title-btn" id="enterPreviewBtn" style="display:none" data-i18n="preview.enter"><img class="ico" src="svg/world.svg"> 进入世界</div>
   <div class="title-btn warn" id="exitPreviewBtn" style="display:none" data-i18n="preview.exit"><img class="ico" src="svg/world.svg"> 退出预览世界</div>
   <div class="title-btn" id="btnClose" data-i18n="menu.close"><img class="ico" src="svg/close.svg"> 关闭</div>
 </div>
 
 <div class="main-menu">
   <div class="menu-top-item" data-i18n="menu.file">文件<div class="menu-dropdown">
-    <div class="menu-item" data-a="save" data-i18n="menu.save">S('menu.save')</div>
-    <div class="menu-item" data-a="newScene" data-i18n="menu.newScene">S('menu.newScene')</div>
-    <div class="menu-item" data-a="newCharacter" data-i18n="menu.newCharacter">S('menu.newCharacter')</div>
+    <div class="menu-item" data-a="save" data-i18n="menu.save">保存</div>
+    <div class="menu-item" data-a="newScene" data-i18n="menu.newScene">新建场景</div>
+    <div class="menu-item" data-a="newCharacter" data-i18n="menu.newCharacter">新建角色</div>
     <div class="menu-item" data-a="newEntity" data-i18n="menu.newEntity">新建实体</div>
     <div class="menu-divider"></div>
-    <div class="menu-item" data-a="closeEditor" data-i18n="menu.exitEditor">S('menu.exit')</div>
+    <div class="menu-item" data-a="closeEditor" data-i18n="menu.exitEditor">退出编辑器</div>
   </div></div>
   <div class="menu-top-item" data-i18n="menu.edit">编辑<div class="menu-dropdown">
     <div class="menu-item" data-a="undo" data-i18n="menu.undo">撤销</div>
@@ -336,10 +432,10 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
 </div>
 
 <div class="toolbar-slim">
-  <button id="btnPlay" title="播放/暂停 (空格)" data-i18n="tb.play" data-i18n-title="tb.playTitle"><img class="ico" src="svg/play.svg"> 播放</button>
-  <button id="btnToStart" class="flip" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/tostart.svg"></button>
-  <button id="btnUndo" title="撤销" data-i18n-title="menu.undo"><img class="ico" src="svg/undo.svg"></button>
-  <button id="btnRedo" title="重做" data-i18n-title="menu.redo"><img class="ico" src="svg/redo.svg"></button>
+  <button id="btnPlay" title="播放/暂停 (空格)" data-i18n="tb.play" data-i18n-title="tb.playTitle"><img class="ico" src="svg/gip-play.svg"> 播放</button>
+  <button id="btnToStart" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/gip-first-frame.svg"></button>
+  <button id="btnUndo" title="撤销" data-i18n-title="menu.undo"><img class="ico" src="svg/gip-undo.svg"></button>
+  <button id="btnRedo" title="重做" data-i18n-title="menu.redo"><img class="ico" src="svg/gip-redo.svg"></button>
   <span class="sep"></span>
   <button id="tbAction" data-i18n="tb.actionEditor"><img class="ico" src="svg/settings.svg"> 动作编辑器</button>
   <span class="sep"></span>
@@ -358,21 +454,21 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
   <div class="editor">
     <div class="mid">
     <div class="asset-panel" id="assetBox">
-      <div class="asset-head"><span id="btnCollapse" title="折叠/展开素材箱" data-i18n-title="bin.collapse">⟨</span><span><span data-i18n="bin.title">素材资源箱</span> <span style="color:#888;font-size:11px">(<span data-i18n="bin.createHint">右键空白新建</span>)</span></span><span id="btnEquip" data-i18n="bin.equip" style="cursor:pointer;color:#7cb8ff;font-size:11px;padding:0 4px;">装备</span></div>
+      <div class="asset-head"><span id="btnCollapse" title="折叠/展开素材箱" data-i18n-title="bin.collapse">⟨</span><span><span data-i18n="bin.title">素材资源箱</span> <span style="color:var(--c-text-3);font-size:11px">(<span data-i18n="bin.createHint">右键空白新建</span>)</span></span><span id="btnEquip" data-i18n="bin.equip" style="cursor:pointer;color:var(--c-accent);font-size:11px;padding:0 4px;">装备</span></div>
       <div class="asset-detail" id="assetDetail"></div>
       <div class="asset-list" id="assetList"></div>
     </div>
 
-    <div class="splitter-v" id="splitV" title="拖动调整素材箱宽度"></div>
+    <div class="splitter-v" id="splitV" title="拖动调整素材箱宽度" data-i18n-title="splitter.assetWidth"></div>
 
     <div class="right">
       <div class="viewport-wrap">
         <div class="vp-toolbar">
-          <button id="vpPlay" title="播放/暂停" data-i18n="vp.play" data-i18n-title="vp.playTitle"><img class="ico" src="svg/play.svg"> 播放</button>
-          <button id="vpToStart" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/tostart.svg"></button>
-          <button id="vpToEnd" title="跳到结尾" data-i18n-title="tl.toEnd"><img class="ico" src="svg/tostart.svg" style="transform:scaleX(-1)"></button>
+          <button id="vpPlay" title="播放/暂停" data-i18n="vp.play" data-i18n-title="vp.playTitle"><img class="ico" src="svg/gip-play.svg"> 播放</button>
+          <button id="vpToStart" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/gip-first-frame.svg"></button>
+          <button id="vpToEnd" title="跳到结尾" data-i18n-title="tl.toEnd"><img class="ico" src="svg/gip-last-frame.svg"></button>
           <button id="vpShot" title="截图" data-i18n-title="tb.screenshot"><img class="ico" src="svg/camera.svg"></button>
-          <span style="width:1px;height:18px;background:#353a45;margin:0 4px;"></span>
+          <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
           <button id="clipNone" class="active" title="剪切蒙版：无" data-i18n="clip.none" data-i18n-title="clip.noneTitle">无剪切</button>
           <button id="clipRect" title="剪切蒙版：矩形" data-i18n="clip.rect" data-i18n-title="clip.rectTitle">矩形</button>
           <button id="clipCircle" title="剪切蒙版：圆形" data-i18n="clip.circle" data-i18n-title="clip.circleTitle">圆形</button>
@@ -380,33 +476,34 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
         <img id="vpImg" class="vp-img" alt="实时预览">
         <canvas id="vpMask" class="vp-mask"></canvas>
         <div id="vpGrid" class="vp-grid"></div>
-        <div id="worldLoad" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(20,24,30,.92);color:#9fd3ff;border:1px solid #2b6fb0;border-radius:4px;padding:6px 14px;font-size:12px;" data-i18n="preview.loading"><span class="bbs-spinner"></span>正在加载预览世界…</div>
+        <div id="worldLoad" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:50;background:var(--c-bg);color:var(--c-accent-d);border:1px solid var(--c-border-2);border-radius:4px;padding:6px 14px;font-size:12px;" data-i18n="preview.loading"><span class="bbs-spinner"></span>正在加载预览世界…</div>
         <div id="vpPh" class="vp-ph" data-i18n="preview.empty">实时预览：进入或加载一个世界后，这里会显示 Minecraft 的 3D 画面。</div>
         <div class="viewport" id="mainViewport"></div>
+        <div id="leashPanel" class="leash-panel"></div>
       </div>
 
-      <div class="splitter-h" id="splitH" title="拖动调整时间轴高度"></div>
+      <div class="splitter-h" id="splitH" title="拖动调整时间轴高度" data-i18n-title="splitter.timelineHeight"></div>
 
       <div class="timeline-wrap">
         <div class="tl-toolbar">
           <button id="tlNewSeq" title="新建序列" data-i18n="tl.newSeq" data-i18n-title="tl.newSeqTitle"><img class="ico" src="svg/plus.svg"> ＋序列</button>
           <button id="tlRenameSeq" title="重命名当前序列" data-i18n="tl.rename" data-i18n-title="tl.renameTitle"><img class="ico" src="svg/rename.svg"> 重命名</button>
-          <button id="tlDelSeq" title="删除当前序列" data-i18n="tl.delete" data-i18n-title="tl.deleteTitle"><img class="ico" src="svg/trash.svg"> 删除</button>
-          <span style="width:1px;height:18px;background:#353a45;margin:0 4px;"></span>
-          <button id="tlZoomIn" title="放大时间轴" data-i18n="tl.zoomIn" data-i18n-title="tl.zoomInTitle">放大</button>
-          <button id="tlZoomOut" title="缩小时间轴" data-i18n="tl.zoomOut" data-i18n-title="tl.zoomOutTitle">缩小</button>
+          <button id="tlDelSeq" title="删除当前序列" data-i18n="tl.delete" data-i18n-title="tl.deleteTitle"><img class="ico" src="svg/gip-trash.svg"> 删除</button>
+          <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
+          <button id="tlZoomIn" title="放大时间轴" data-i18n="tl.zoomIn" data-i18n-title="tl.zoomInTitle"><img class="ico" src="svg/gip-zoom-in.svg">放大</button>
+          <button id="tlZoomOut" title="缩小时间轴" data-i18n="tl.zoomOut" data-i18n-title="tl.zoomOutTitle"><img class="ico" src="svg/gip-zoom-out.svg">缩小</button>
       <button id="tlSnap" class="active" title="吸附开关" data-i18n="tl.snap" data-i18n-title="tl.snapTitle">吸附</button>
-          <span style="width:1px;height:18px;background:#353a45;margin:0 4px;"></span>
-          <span style="font-size:11px;color:#aaa" data-i18n="tl.allKeyframes">整体关键帧</span>
-          <button id="tlKfAllL" class="kf-add" type="button" title="所有关键帧左移 1 帧" data-i18n-title="tl.shiftLeft">◀</button>
-          <button id="tlKfAllR" class="kf-add" type="button" title="所有关键帧右移 1 帧" data-i18n-title="tl.shiftRight">▶</button>
+          <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
+          <span style="font-size:11px;color:var(--c-text-3)" data-i18n="tl.allKeyframes">整体关键帧</span>
+          <button id="tlKfAllL" class="kf-add" type="button" title="所有关键帧左移 1 帧" data-i18n-title="tl.shiftLeft"><img class="ico" src="svg/gip-previous-frame.svg"></button>
+          <button id="tlKfAllR" class="kf-add" type="button" title="所有关键帧右移 1 帧" data-i18n-title="tl.shiftRight"><img class="ico" src="svg/gip-next-frame.svg"></button>
           <input id="tlKfAllN" type="number" value="1" style="width:48px" title="偏移帧数" data-i18n-title="tl.offsetFrames">
           <button id="tlKfAllApply" class="kf-add" type="button" title="按输入帧数偏移所有关键帧" data-i18n="tl.offset" data-i18n-title="tl.offsetTitle">偏移</button>
       </div>
         <div class="timeline-tabs">
           <div class="tab-item active" id="tabFilm">主序列</div>
           <div class="tab-add" id="btnNewSeq" title="新建序列" data-i18n="tl.tabNew" data-i18n-title="tl.newSeqTitle">+ 序列</div>
-          <div style="margin-left:auto;padding:0 10px;font-size:11px;color:#9aa0aa"><span id="tickInfo">0 / 0</span></div>
+          <div style="margin-left:auto;padding:0 10px;font-size:11px;color:var(--c-text-3)"><span id="tickInfo">0 / 0</span></div>
         </div>
         <div class="timeline-body">
           <div class="tl-ruler" id="ruler"></div>
@@ -439,7 +536,7 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
     </div>
   </div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="save" data-i18n="ctx.saveWork"><img class="ico" src="svg/save.svg"> 保存作品</div>
+  <div class="ctx-main-item" data-a="save" data-i18n="ctx.saveWork"><img class="ico" src="svg/gip-save.svg"> 保存作品</div>
   <div class="ctx-main-item" data-a="closeEditor" data-i18n="ctx.closeEditor"><img class="ico" src="svg/close.svg"> 关闭编辑器</div>
 </div>
 
@@ -474,7 +571,7 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
   <div class="ctx-divider"></div>
   <div class="ctx-main-item" data-a="openEquip" data-i18n="ctx.equip"><img class="ico" src="svg/item.svg"> 装配装备</div>
   <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
-  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/gip-trash.svg"> 删除</div>
 </div>
 
 <!-- 角色右下角 ▾ 展开面板（Phase F，与 charCtx 同批动作） -->
@@ -489,7 +586,7 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
   <div class="ctx-divider"></div>
   <div class="ctx-main-item" data-a="openEquip" data-i18n="ctx.equip"><img class="ico" src="svg/item.svg"> 装配装备</div>
   <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
-  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/gip-trash.svg"> 删除</div>
 </div>
 
 <div class="context-menu" id="camCtx">
@@ -497,53 +594,53 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
   <div class="ctx-main-item" data-a="renameCamera" data-i18n="ctx.renameCamera"><img class="ico" src="svg/rename.svg"> 重命名相机</div>
   <div class="ctx-main-item" data-a="recordCamera" data-i18n="ctx.recordCoord"><img class="ico" src="svg/camera.svg"> 录制坐标（进世界走）</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="exportCameraFile" data-i18n="ctx.exportCamera"><img class="ico" src="svg/save.svg"> 导出为文件（.cambbs）</div>
+  <div class="ctx-main-item" data-a="exportCameraFile" data-i18n="ctx.exportCamera"><img class="ico" src="svg/gip-save.svg"> 导出为文件（.cambbs）</div>
   <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpackCross"><img class="ico" src="svg/backpack.svg"> 放入背包（跨作品）</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteCamera" data-i18n="ctx.deleteCamera"><img class="ico" src="svg/trash.svg"> 删除相机</div>
+  <div class="ctx-main-item" data-a="deleteCamera" data-i18n="ctx.deleteCamera"><img class="ico" src="svg/gip-trash.svg"> 删除相机</div>
 </div>
 
 <div class="context-menu" id="camGroupCtx">
   <div class="ctx-main-item" data-a="renameCameraGroup" data-i18n="ctx.renameCameraGroup"><img class="ico" src="svg/rename.svg"> 重命名相机组</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="exportCameraGroupFile" data-i18n="ctx.exportCameraGroup"><img class="ico" src="svg/save.svg"> 导出为文件（.camgrp）</div>
+  <div class="ctx-main-item" data-a="exportCameraGroupFile" data-i18n="ctx.exportCameraGroup"><img class="ico" src="svg/gip-save.svg"> 导出为文件（.camgrp）</div>
   <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpackCross"><img class="ico" src="svg/backpack.svg"> 放入背包（跨作品）</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteCameraGroup" data-i18n="ctx.deleteCameraGroup"><img class="ico" src="svg/trash.svg"> 删除相机组</div>
+  <div class="ctx-main-item" data-a="deleteCameraGroup" data-i18n="ctx.deleteCameraGroup"><img class="ico" src="svg/gip-trash.svg"> 删除相机组</div>
 </div>
 
 <div class="context-menu" id="clipGroupCtx">
   <div class="ctx-main-item" id="grpCamItem" data-a="createCameraGroup" data-i18n="ctx.packCameraGroup"><img class="ico" src="svg/camera.svg"> 打包成相机组</div>
-  <div class="ctx-main-item ctx-disabled" id="grpWarn" style="display:none" data-i18n="ctx.warnNotCamera"><img class="ico" src="svg/trash.svg"> 所选含非相机，无法建相机组</div>
+  <div class="ctx-main-item ctx-disabled" id="grpWarn" style="display:none" data-i18n="ctx.warnNotCamera"><img class="ico" src="svg/gip-trash.svg"> 所选含非相机，无法建相机组</div>
 </div>
 
 <div class="context-menu" id="itemCtx">
   <div class="ctx-main-item" data-a="toBackpack" data-i18n="ctx.toBackpack"><img class="ico" src="svg/backpack.svg"> 放入背包</div>
-  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.delete"><img class="ico" src="svg/gip-trash.svg"> 删除</div>
 </div>
 
 <!-- 时间轴已上轨轨道的右键菜单（F3.2：移除轨道 / 删除角色） -->
 <div class="context-menu" id="trackCtx">
   <div class="ctx-main-item" data-a="unplaceActor" data-i18n="ctx.removeTrack"><img class="ico" src="svg/target.svg"> 移除轨道（保留角色）</div>
-  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.deleteReplay"><img class="ico" src="svg/trash.svg"> 删除角色</div>
+  <div class="ctx-main-item" data-a="deleteReplay" data-i18n="ctx.deleteReplay"><img class="ico" src="svg/gip-trash.svg"> 删除角色</div>
 </div>
 
 <div class="context-menu" id="bagCtx">
   <div class="ctx-main-item" data-a="fromBackpack" data-i18n="ctx.importBackpack"><img class="ico" src="svg/scene.svg"> 导入到本作品</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteBackpackItem" data-i18n="ctx.deleteBackpackItem"><img class="ico" src="svg/trash.svg"> 从背包删除</div>
+  <div class="ctx-main-item" data-a="deleteBackpackItem" data-i18n="ctx.deleteBackpackItem"><img class="ico" src="svg/gip-trash.svg"> 从背包删除</div>
 </div>
 
 <div class="context-menu" id="sceneCtx">
   <div class="ctx-main-item" data-a="openScene" data-i18n="ctx.openScene"><img class="ico" src="svg/scene.svg"> 打开场景</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteScene" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="deleteScene" data-i18n="ctx.delete"><img class="ico" src="svg/gip-trash.svg"> 删除</div>
 </div>
 
 <div class="context-menu" id="seqCtx">
   <div class="ctx-main-item" data-a="enterSequence" data-i18n="ctx.enterSequence"><img class="ico" src="svg/sequence.svg"> 进入序列</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-main-item" data-a="deleteSequence" data-i18n="ctx.delete"><img class="ico" src="svg/trash.svg"> 删除</div>
+  <div class="ctx-main-item" data-a="deleteSequence" data-i18n="ctx.delete"><img class="ico" src="svg/gip-trash.svg"> 删除</div>
 </div>
 
 <!-- HTML 原生弹窗（替代被 MCEF 遮挡的 Swing 命名窗口） -->
@@ -552,7 +649,7 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
     <div class="modal-title" id="modalTitle" data-i18n="dlg.new">新建</div>
     <div class="modal-body" id="modalBody"></div>
     <div class="modal-actions">
-      <button class="btn" id="modalCancel" data-i18n="dlg.cancel">S('dlg.cancel')</button>
+      <button class="btn" id="modalCancel" data-i18n="dlg.cancel">取消</button>
       <button class="btn ok" id="modalOk" data-i18n="dlg.ok">确定</button>
     </div>
   </div>
@@ -568,9 +665,9 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
         <button type="button" data-t="keyframe" data-i18n="ctx.keyframeChar">关键帧角色</button>
         <button type="button" data-t="action" data-i18n="ctx.actionChar">动作角色</button>
       </div>
-      <button class="btn" id="aeComposeBtn" title="把当前动作轨道上的多个子动作组合成一个可复用的动作组" data-i18n="ae.compose">组合动作组</button>
+      <button class="btn" id="aeComposeBtn" title="把当前动作轨道上的多个子动作组合成一个可复用的动作组" data-i18n-title="ae.composeTitle" data-i18n="ae.compose">组合动作组</button>
       <div class="ae-group-wrap">
-        <button class="btn" id="aeGroupBtn" title="已合成的动作组：选中即加入当前角色时间轴，也可拖到下方时间轴" data-i18n="ae.group">▾ 动作组</button>
+        <button class="btn" id="aeGroupBtn" title="已合成的动作组：选中即加入当前角色时间轴，也可拖到下方时间轴" data-i18n-title="ae.groupTitle" data-i18n="ae.group">▾ 动作组</button>
         <div class="ae-group-menu" id="aeGroupMenu"></div>
       </div>
       <span class="ae-spacer"></span>
@@ -583,6 +680,12 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
     <div class="ae-timeline-wrap">
       <div class="ae-timeline-title" data-i18n="ae.timelineTitle">时间轴（动作轨道 + 材质轨道：拖动块改起始帧，拖材质块右端 ▮ 改时长）</div>
       <div class="ae-timeline" id="aeTimeline"></div>
+      <div class="ae-count-ctrl" id="aeCountCtrl">
+        <span style="color:var(--c-text-3);font-size:11px;">时间轴计数控制</span>
+        <label class="cc-item"><input type="checkbox" checked data-track="material"><span class="cc-dot material"></span>材质<input type="number" value="1" min="0" data-count="material"></label>
+        <label class="cc-item"><input type="checkbox" checked data-track="action"><span class="cc-dot action"></span>动作<input type="number" value="1" min="0" data-count="action"></label>
+        <label class="cc-item"><input type="checkbox" data-track="potion"><span class="cc-dot potion"></span>药水<input type="number" value="0" min="0" data-count="potion"></label>
+      </div>
     </div>
   </div>
 </div>
@@ -611,7 +714,7 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
       </div>
     </div>
   <div class="modal-actions">
-    <button class="btn" id="renameCancel" data-i18n="dlg.cancel">S('dlg.cancel')</button>
+    <button class="btn" id="renameCancel" data-i18n="dlg.cancel">取消</button>
     <button class="btn ok" id="renameOk" data-i18n="dlg.ok">确定</button>
   </div>
 </div>
@@ -624,7 +727,7 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
       <div class="modal-field"><span id="confirmMsg"></span></div>
     </div>
     <div class="modal-actions">
-      <button class="btn" id="confirmCancel" data-i18n="dlg.cancel">S('dlg.cancel')</button>
+      <button class="btn" id="confirmCancel" data-i18n="dlg.cancel">取消</button>
       <button class="btn ok" id="confirmOk" data-i18n="dlg.ok">确定</button>
     </div>
   </div>
@@ -632,10 +735,692 @@ button:focus-visible{outline:2px solid #4c8dff;outline-offset:1px;}
 </div>
 
 <script>
+/* ===== inline i18n fallback (generated from EditorStrings.java) =====
+   Lets S(k) return a localized value before window.bbsState.strings is pushed,
+   so the editor never flashes untranslated text on startup. DO NOT EDIT BY HAND. */
+var BBS_DEFAULT_STRINGS = {
+  "app.title": "BBS 编辑器",
+  "menu.save": "保存",
+  "preview.enter": "进入世界",
+  "preview.exit": "退出预览世界",
+  "menu.close": "关闭",
+  "menu.file": "文件",
+  "menu.edit": "编辑",
+  "menu.view": "视图",
+  "menu.track": "轨道",
+  "menu.record": "录制",
+  "menu.window": "窗口",
+  "menu.newScene": "新建场景",
+  "menu.newCharacter": "新建角色",
+  "menu.newEntity": "新建实体",
+  "menu.exitEditor": "退出编辑器",
+  "menu.exit": "退出编辑器",
+  "menu.undo": "撤销",
+  "menu.redo": "重做",
+  "menu.camFollow": "跟随相机",
+  "menu.camFree": "自由相机",
+  "menu.camOrbit": "轨道相机",
+  "menu.camThird": "第三人称",
+  "menu.actorControl": "演员控制",
+  "menu.delSelectedClip": "删除选中剪辑",
+  "menu.toggleRecord": "开始/停止录制",
+  "menu.previewPlay": "预览播放",
+  "tb.play": "播放",
+  "tb.playTitle": "播放/暂停 (空格)",
+  "tb.actionEditor": "动作编辑器",
+  "tb.hint": "新建功能在「右键素材箱空白处 / 角色右键」里",
+  "tb.screenshot": "截图",
+  "tl.toStart": "回到开头",
+  "tl.toEnd": "跳到结尾",
+  "vp.play": "播放",
+  "vp.playTitle": "播放/暂停",
+  "clip.none": "无剪切",
+  "clip.noneTitle": "剪切蒙版：无",
+  "clip.rect": "矩形",
+  "clip.rectTitle": "剪切蒙版：矩形",
+  "clip.circle": "圆形",
+  "clip.circleTitle": "剪切蒙版：圆形",
+  "preview.loading": "正在加载世界…",
+  "preview.empty": "实时预览：进入或加载一个世界后，这里会显示 Minecraft 的 3D 画面。",
+  "preview.world": "预览世界",
+  "tl.newSeq": "＋序列",
+  "tl.newSeqTitle": "新建序列",
+  "tl.rename": "重命名",
+  "tl.renameTitle": "重命名当前序列",
+  "tl.delete": "删除",
+  "tl.deleteTitle": "删除当前序列",
+  "tl.zoomIn": "放大",
+  "tl.zoomInTitle": "放大时间轴",
+  "tl.zoomOut": "缩小",
+  "tl.zoomOutTitle": "缩小时间轴",
+  "tl.snap": "吸附",
+  "tl.snapTitle": "吸附开关",
+  "tl.allKeyframes": "整体关键帧",
+  "tl.shiftLeft": "所有关键帧左移 1 帧",
+  "tl.shiftRight": "所有关键帧右移 1 帧",
+  "tl.offsetFrames": "偏移帧数",
+  "tl.offset": "偏移",
+  "tl.offsetTitle": "按输入帧数偏移所有关键帧",
+  "tl.tabMain": "主序列",
+  "tl.tabNew": "+ 序列",
+  "up.title": "新版本可用",
+  "up.found": "发现新版本 ",
+  "up.staged": "（已下载，待安装）",
+  "up.download": "（点击下载并安装）",
+  "up.btnStaged": "安装更新",
+  "up.btnDownload": "下载并更新",
+  "up.ignore": "忽略",
+  "ctx.newItem": "新建项",
+  "ctx.scene": "场景",
+  "ctx.character": "角色",
+  "ctx.entity": "实体",
+  "ctx.particle": "粒子",
+  "ctx.item": "物品",
+  "ctx.camera": "相机",
+  "ctx.saveWork": "保存作品",
+  "ctx.closeEditor": "关闭编辑器",
+  "ctx.splitAtPlayhead": "在播放头拆分",
+  "ctx.deleteClip": "删除剪辑块",
+  "ctx.actorControl": "演员控制",
+  "ctx.charType": "角色类型",
+  "ctx.keyframeChar": "关键帧角色",
+  "ctx.actionChar": "动作角色",
+  "ctx.playbackChar": "回放角色",
+  "ctx.moveMode": "移动方式",
+  "ctx.keyframePath": "关键帧路径（手动调）",
+  "ctx.recordPath": "录制路径（世界内，写回角色）",
+  "ctx.action": "动作",
+  "ctx.openActionEditor": "打开动作编辑器",
+  "ctx.newAction": "新建动作（MC 预设）",
+  "ctx.recordToAction": "用录制创建动作",
+  "ctx.equip": "装配装备",
+  "ctx.toBackpack": "放入背包",
+  "ctx.delete": "删除",
+  "ctx.setKeyframeChar": "设为关键帧角色",
+  "ctx.setActionChar": "设为动作角色",
+  "ctx.selectOnTrack": "在轨道上选中",
+  "ctx.renameCamera": "重命名相机",
+  "ctx.recordCoord": "录制坐标（进世界走）",
+  "ctx.exportCamera": "导出为文件（.cambbs）",
+  "ctx.toBackpackCross": "放入背包（跨作品）",
+  "ctx.deleteCamera": "删除相机",
+  "ctx.renameCameraGroup": "重命名相机组",
+  "ctx.exportCameraGroup": "导出为文件（.camgrp）",
+  "ctx.deleteCameraGroup": "删除相机组",
+  "ctx.packCameraGroup": "打包成相机组",
+  "ctx.warnNotCamera": "所选含非相机，无法建相机组",
+  "ctx.removeTrack": "移除轨道（保留角色）",
+  "ctx.deleteReplay": "删除角色",
+  "ctx.importBackpack": "导入到本作品",
+  "ctx.deleteBackpackItem": "从背包删除",
+  "ctx.openScene": "打开场景",
+  "ctx.enterSequence": "进入序列",
+  "dlg.new": "新建",
+  "dlg.cancel": "取消",
+  "dlg.ok": "确定",
+  "dlg.close": "关闭",
+  "dlg.rename": "重命名",
+  "dlg.confirm": "确认",
+  "dlg.renameSeq": "重命名序列",
+  "dlg.renameCameraGroup": "重命名相机组",
+  "dlg.renameCamera": "重命名相机",
+  "dlg.deleteChar": "删除角色",
+  "dlg.deleteCharMsg1": "确定删除角色「",
+  "dlg.deleteCharMsg2": "」？该操作可通过 Ctrl+Z 撤销。",
+  "dlg.unsaved": "未保存的更改",
+  "dlg.unsavedMsg": "当前作品有未保存的更改，确定退出编辑器？",
+  "ae.title": "动作编辑器",
+  "ae.compose": "组合动作组",
+  "ae.group": "▾ 动作组",
+  "ae.timelineTitle": "时间轴（动作轨道 + 材质轨道：拖动块改起始帧，拖材质块右端 ▮ 改时长）",
+  "ae.newActionBtn": "+ 新建动作",
+  "ae.modePath": "路径",
+  "ae.laneAction": "动作",
+  "ae.laneMaterial": "材质",
+  "ae.pathChannels": "行走路径关键帧通道（x / y / z / yaw）",
+  "ae.actionList": "动作列表（拖到下方时间轴设置起始帧）",
+  "ae.bodyChannels": "关键帧身体通道（选中后编辑关键帧）",
+  "ae.rightHintAction": "从左侧选择一个动作进行编辑，或者从下方「材质」轨道点选一个材质片段进行编辑。",
+  "ae.rightHintKeyframe": "从左侧选择一个身体通道，添加 / 删除关键帧；或点选下方「材质」轨道的片段。",
+  "ae.composeConfirm1": "将把当前时间轴上的 <b>",
+  "ae.composeConfirm2": "</b> 个动作组合成一个可复用动作组：<br>",
+  "ae.composeConfirm3": "<br><br>确定组合？",
+  "ae.noclientBadge": "⚠ 需进入预览世界才播放",
+  "ae.f.name": "名称",
+  "ae.f.duration": "时长 (duration)",
+  "ae.f.frequency": "每组帧数 (frequency)",
+  "ae.f.tick": "起始帧 (tick)",
+  "ae.f.layer": "图层 (layer)",
+  "ae.f.enabled": "启用",
+  "ae.f.blendIn": "淡入 (blendIn)",
+  "ae.f.blendOut": "淡出 (blendOut)",
+  "ae.f.mode": "移动模式 (mode)",
+  "ae.f.step": "步长 (每步方块)",
+  "ae.f.deleteAction": "删除此动作",
+  "ae.f.type": "类型",
+  "ae.f.deleteMaterial": "删除此材质",
+  "ae.f.deletePotion": "删除此药水",
+  "ae.potHint": "药水效果轨道：在时间轴上添加 / 拖动 / 缩放药水片段，播放时会给角色附加对应状态效果（仅动作角色）。",
+  "ae.pot.name": "名称",
+  "ae.pot.effect": "效果显示名",
+  "ae.pot.namePh": "药水片段名称",
+  "ae.pot.effectPh": "效果显示名（如 速度）",
+  "ae.pot.speed": "速度",
+  "ae.pot.jump": "跳跃提升",
+  "ae.pot.strength": "力量",
+  "ae.pot.invis": "隐身",
+  "ae.pot.fire": "抗火",
+  "ae.loc.walk": "走路",
+  "ae.loc.run": "奔跑",
+  "ae.loc.idle": "空闲",
+  "ae.scriptHint": "脚本在播放时运行，通过 bbs 接口操控这个角色。",
+  "ae.scriptSrc": "脚本源码",
+  "ae.saveScript": "保存脚本",
+  "ae.exportJson": "导出为文件 (.json)",
+  "ae.paramsHint": "自定义参数（数字，可被外部工具读取 / 导出分享）",
+  "ae.addNumber": "+ 添加数字",
+  "ae.mat.model": "模型 / Morph",
+  "ae.mat.skin": "皮肤 / 贴图",
+  "ae.mat.equip": "装备 / 物品",
+  "ae.mat.itemPh": "minecraft:diamond_sword（留空=清除）",
+  "ae.mat.itemId": "物品 ID (item)",
+  "ae.mat.slot": "装备槽 (slot)",
+  "ae.mat.modelTarget": "模型目标 (target)",
+  "ae.mat.skinTarget": "贴图目标 (target)",
+  "ae.mat.targetPh": "模型/Morph id，支持 MODEL:/PARTICLE:/group: 前缀",
+  "ae.channelHead": "关键帧通道：",
+  "ae.frames": "帧",
+  "ae.addKeyframe": "◆ 添加关键帧",
+  "ae.punchKeyframe": "◆ 播放头打帧",
+  "ae.punchKeyframeTitle": "在当前播放位置打一个关键帧",
+  "ae.frame": "帧",
+  "ae.value": "值",
+  "ae.noKeyframes": "暂无关键帧",
+  "ae.preset.walk": "走路",
+  "ae.preset.run": "奔跑",
+  "ae.preset.idle": "空闲",
+  "ae.preset.attack": "攻击",
+  "ae.preset.swipe": "挥击",
+  "ae.preset.break_block": "破坏方块",
+  "ae.preset.place_block": "放置方块",
+  "ae.preset.fishing": "钓鱼",
+  "ae.preset.chat": "聊天",
+  "ae.preset.command": "命令",
+  "ae.preset.drop_item": "丢物品",
+  "ae.preset.script": "脚本动作",
+  "ae.blendMode": "图层混合模式 (Blend Mode)",
+  "ae.opacity": "不透明度",
+  "ae.matteSource": "蒙版源轨道 (Track Matte)",
+  "ae.matteMode": "蒙版模式 (Matte Mode)",
+  "ae.none": "(无)",
+  "ae.editBig": "在大窗中编辑（上方面板）",
+  "ae.closeDetail": "关闭详情",
+  "ae.mask": "蒙版",
+  "ae.firstPerson": "第一人称",
+  "ae.shadow": "阴影",
+  "ae.dockTitle": "动作编辑器（大窗模式）",
+  "ae.max": "最大化",
+  "rename.ph": "输入新名称",
+  "form.name": "名称（留空自动命名）",
+  "form.namePh": "可选",
+  "form.world": "背景世界（角色在此世界中活动）",
+  "form.noWorld": "（无 / 空白世界）",
+  "form.itemId": "物品 ID（如 minecraft:stone）",
+  "form.type": "角色形态（生物/模型/粒子/方块）",
+  "form.model": "角色模型（游戏内注册的角色 / 玩家）",
+  "form.modeSingle": "单选",
+  "form.modeExpr": "自定义表达式",
+  "form.modeGroup": "模型组",
+  "form.noModel": "（无可用模型）",
+  "form.modelPh": "如 minecraft:zombie 或自定义模型标识",
+  "form.selected": "已选",
+  "form.nameLabel": "名称",
+  "create.camera": "新建相机",
+  "create.sequence": "新建序列",
+  "create.particle": "新建粒子",
+  "create.item": "新建物品",
+  "create.scene": "新建场景",
+  "create.entity": "新建实体",
+  "create.character": "新建角色",
+  "type.mob": "生物",
+  "type.model": "模型",
+  "type.particle": "粒子",
+  "type.block": "方块",
+  "form.unit": "个",
+  "bin.work": "作品：",
+  "bin.sequence": "序列",
+  "bin.cameraGroup": "相机组",
+  "bin.charActions": "角色动作",
+  "bin.backpack": "全局背包",
+  "bin.title": "素材资源箱",
+  "bin.createHint": "右键空白新建",
+  "bin.equip": "装备",
+  "bin.collapse": "折叠/展开素材箱",
+  "bin.worldOf": "世界：",
+  "bin.ref": "引用",
+  "bin.hintCreateCamera": "先用「右键素材箱空白处 › 新建项 › 相机」创建相机",
+  "bin.hintSelectChar": "请先在「角色」分组里点选一个动作角色",
+  "bin.scenes": "场景",
+  "bin.character": "角色",
+  "bin.entity": "实体",
+  "bin.particle": "粒子",
+  "bin.item": "物品",
+  "bin.camera": "相机",
+  "bin.camCount": " 台相机",
+  "track.replay": "轨道",
+  "track.audio": "音频",
+  "track.audioEmpty": "音轨(暂无数据)",
+  "track.clip": "剪辑 ",
+  "track.previewPrefix": "拖到此处将新建轨道 › ",
+  "clip.opHint": "拖动移动 · 拖两端改时长 · 单击选中 · 右键菜单",
+  "cam.warnLostNow": "⚠ 相机丢失：当前帧没有相机覆盖，无法播放",
+  "cam.warnOverlapNow": "⚠ 相机重叠：当前帧被多个相机覆盖",
+  "cam.warnLost": "⚠ 相机丢失：时间轴存在无相机的区段",
+  "cam.warnOverlap": "⚠ 相机重叠：时间轴存在多相机重叠的区段",
+  "cam.recording": "录制中",
+  "toast.charUnavailable": "该角色不可用",
+  "toast.noActionToCompose": "没有可组合的动作，请先添加动作到时间轴",
+  "toast.nonClientGroup": "此动作组需进入预览世界才会播放",
+  "toast.exitedPreview": "已退出预览世界",
+  "toast.noActionGroup": "暂无动作组，先用「组合动作组」生成",
+  "toast.addedGroup": "已加入动作组 @ tick ",
+  "toast.setStartAction": "已设置起始帧：动作 #",
+  "toast.setStartMaterial": "已设置起始帧：材质 #",
+  "toast.atTick": " @ tick ",
+  "film.prefix": "场景：",
+  "ae.subActions": " 个子动作",
+  "ae.matHint": "材质片段：在时间轴上拖动可改起始帧，拖右端 ▮ 可改时长。播放时在其区间内覆盖角色外观。",
+  "ae.addMaterial": "+ 添加",
+  "ae.disabled": "（已禁用）",
+  "equip.charPrefix": "角色：",
+  "equip.char": "角色",
+  "equip.set": "装配",
+  "equip.clear": "清除",
+  "ae.mat.skinPh": "assets 贴图路径，如 skins/steve",
+  "ae.slotMainHand": "主手",
+  "ae.slotOffHand": "副手",
+  "ae.slotHead": "头盔",
+  "ae.slotChest": "胸甲",
+  "ae.slotLegs": "护腿",
+  "ae.slotFeet": "靴子",
+  "dlg.deleteCharConfirm2": "」？将同时移除其轨道与关联引用，且不可撤销（可撤销上一步）。",
+  "up.started": "已开始更新（MC 关闭后自动替换）",
+  "dlg.deleteSeq": "删除序列",
+  "dlg.deleteSeqMsg1": "确定删除序列「",
+  "dlg.deleteSeqMsg2": "」？此操作不可撤销。",
+  "toast.addedScene": "已放入当前场景：",
+  "toast.dragGroupToAction": "动作组只能拖到角色动作轨",
+  "toast.dropGroupToAction": "动作组只能放到角色动作轨",
+  "toast.audioNotYet": "音轨暂未启用",
+  "toast.cameraToCameraTrack": "相机只能放到「相机」轨",
+  "toast.cameraTimeline": "已放入时间轴：相机 #",
+  "toast.groupTimeline": "已加入时间轴：动作组 #",
+  "toast.charToCharTrack": "角色只能放到角色轨",
+  "toast.placeReorder": "已放入/重排时间轴：",
+  "toast.trackToCharTrack": "轨道只能重排到角色轨",
+  "toast.reorderTrack": "已重排轨道：",
+  "toast.invalidDragType": "无效：只有相机/动作组能拖到时间轴",
+  "toast.invalidPosition": "无效位置：请拖到右侧画布或下方时间轴",
+  "ae.framesPrefix": "（共 ",
+  "ae.framesBracket": "（",
+  "ae.framesClose": "）",
+  "splitter.assetWidth": "拖动调整素材箱宽度",
+  "splitter.timelineHeight": "拖动调整时间轴高度",
+  "ae.composeTitle": "把当前动作轨道上的多个子动作组合成一个可复用的动作组",
+  "ae.groupTitle": "已合成的动作组：选中即加入当前角色时间轴，也可拖到下方时间轴",
+};
+var BBS_DEFAULT_STRINGS_EN = {
+  "app.title": "BBS Editor",
+  "menu.save": "Save",
+  "preview.enter": "Enter World",
+  "preview.exit": "Exit Preview World",
+  "menu.close": "Close",
+  "menu.file": "File",
+  "menu.edit": "Edit",
+  "menu.view": "View",
+  "menu.track": "Track",
+  "menu.record": "Record",
+  "menu.window": "Window",
+  "menu.newScene": "New Scene",
+  "menu.newCharacter": "New Character",
+  "menu.newEntity": "New Entity",
+  "menu.exitEditor": "Exit Editor",
+  "menu.exit": "Exit Editor",
+  "menu.undo": "Undo",
+  "menu.redo": "Redo",
+  "menu.camFollow": "Follow Camera",
+  "menu.camFree": "Free Camera",
+  "menu.camOrbit": "Orbit Camera",
+  "menu.camThird": "Third Person",
+  "menu.actorControl": "Actor Control",
+  "menu.delSelectedClip": "Delete Selected Clip",
+  "menu.toggleRecord": "Start/Stop Recording",
+  "menu.previewPlay": "Preview Playback",
+  "tb.play": "Play",
+  "tb.playTitle": "Play/Pause (Space)",
+  "tb.actionEditor": "Action Editor",
+  "tb.hint": "Use right-click on empty asset-box space or on a character to create new items",
+  "tb.screenshot": "Screenshot",
+  "tl.toStart": "Back to Start",
+  "tl.toEnd": "Jump to End",
+  "vp.play": "Play",
+  "vp.playTitle": "Play/Pause",
+  "clip.none": "No Clip",
+  "clip.noneTitle": "Clip mask: None",
+  "clip.rect": "Rectangle",
+  "clip.rectTitle": "Clip mask: Rectangle",
+  "clip.circle": "Circle",
+  "clip.circleTitle": "Clip mask: Circle",
+  "preview.loading": "Loading world…",
+  "preview.empty": "Live preview: after entering or loading a world, Minecraft's 3D view will appear here.",
+  "tl.newSeq": "+ Sequence",
+  "tl.newSeqTitle": "New Sequence",
+  "tl.rename": "Rename",
+  "tl.renameTitle": "Rename Current Sequence",
+  "tl.delete": "Delete",
+  "tl.deleteTitle": "Delete Current Sequence",
+  "tl.zoomIn": "Zoom In",
+  "tl.zoomInTitle": "Zoom In Timeline",
+  "tl.zoomOut": "Zoom Out",
+  "tl.zoomOutTitle": "Zoom Out Timeline",
+  "tl.snap": "Snap",
+  "tl.snapTitle": "Snap Toggle",
+  "tl.allKeyframes": "All Keyframes",
+  "tl.shiftLeft": "Shift all keyframes 1 frame left",
+  "tl.shiftRight": "Shift all keyframes 1 frame right",
+  "tl.offsetFrames": "Offset Frames",
+  "tl.offset": "Offset",
+  "tl.offsetTitle": "Offset all keyframes by entered frames",
+  "tl.tabMain": "Main Sequence",
+  "tl.tabNew": "+ Sequence",
+  "up.title": "Update Available",
+  "up.found": "New version found: ",
+  "up.staged": "(downloaded, ready to install)",
+  "up.download": "(click to download & install)",
+  "up.btnStaged": "Install Update",
+  "up.btnDownload": "Download & Update",
+  "up.ignore": "Dismiss",
+  "ctx.newItem": "New Item",
+  "ctx.scene": "Scene",
+  "ctx.character": "Character",
+  "ctx.entity": "Entity",
+  "ctx.particle": "Particle",
+  "ctx.item": "Item",
+  "ctx.camera": "Camera",
+  "ctx.saveWork": "Save Project",
+  "ctx.closeEditor": "Close Editor",
+  "ctx.splitAtPlayhead": "Split at Playhead",
+  "ctx.deleteClip": "Delete Clip Block",
+  "ctx.actorControl": "Actor Control",
+  "ctx.charType": "Character Type",
+  "ctx.keyframeChar": "Keyframe Character",
+  "ctx.actionChar": "Action Character",
+  "ctx.playbackChar": "Playback Character",
+  "ctx.moveMode": "Movement",
+  "ctx.keyframePath": "Keyframe Path (manual)",
+  "ctx.recordPath": "Record Path (in-world, write back to character)",
+  "ctx.action": "Action",
+  "ctx.openActionEditor": "Open Action Editor",
+  "ctx.newAction": "New Action (MC preset)",
+  "ctx.recordToAction": "Create Action from Recording",
+  "ctx.equip": "Equip Gear",
+  "ctx.toBackpack": "Add to Backpack",
+  "ctx.delete": "Delete",
+  "ctx.setKeyframeChar": "Set as Keyframe Character",
+  "ctx.setActionChar": "Set as Action Character",
+  "ctx.selectOnTrack": "Select on Track",
+  "ctx.renameCamera": "Rename Camera",
+  "ctx.recordCoord": "Record Coordinates (enter world)",
+  "ctx.exportCamera": "Export to File (.cambbs)",
+  "ctx.toBackpackCross": "Add to Backpack (cross-project)",
+  "ctx.deleteCamera": "Delete Camera",
+  "ctx.renameCameraGroup": "Rename Camera Group",
+  "ctx.exportCameraGroup": "Export to File (.camgrp)",
+  "ctx.deleteCameraGroup": "Delete Camera Group",
+  "ctx.packCameraGroup": "Pack into Camera Group",
+  "ctx.warnNotCamera": "Selection contains non-camera, cannot create group",
+  "ctx.removeTrack": "Remove Track (keep character)",
+  "ctx.deleteReplay": "Delete Character",
+  "ctx.importBackpack": "Import to Project",
+  "ctx.deleteBackpackItem": "Delete from Backpack",
+  "ctx.openScene": "Open Scene",
+  "ctx.enterSequence": "Enter Sequence",
+  "dlg.new": "New",
+  "dlg.cancel": "Cancel",
+  "dlg.ok": "OK",
+  "dlg.close": "Close",
+  "dlg.rename": "Rename",
+  "dlg.confirm": "Confirm",
+  "dlg.renameSeq": "Rename Sequence",
+  "dlg.renameCameraGroup": "Rename Camera Group",
+  "dlg.renameCamera": "Rename Camera",
+  "dlg.deleteChar": "Delete Character",
+  "dlg.deleteCharMsg1": "Delete character '",
+  "dlg.deleteCharMsg2": "'? This can be undone with Ctrl+Z.",
+  "dlg.unsaved": "Unsaved Changes",
+  "dlg.unsavedMsg": "The current project has unsaved changes. Exit the editor?",
+  "ae.title": "Action Editor",
+  "ae.compose": "Compose Action Group",
+  "ae.group": "▾ Action Groups",
+  "ae.timelineTitle": "Timeline (action track + material track: drag blocks to change start frame, drag the right edge ▮ to change duration)",
+  "ae.newActionBtn": "+ New Action",
+  "ae.modePath": "Path",
+  "ae.laneAction": "Action",
+  "ae.laneMaterial": "Material",
+  "ae.pathChannels": "Walk-path keyframe channels (x / y / z / yaw)",
+  "ae.actionList": "Action list (drag to the timeline below to set the start frame)",
+  "ae.bodyChannels": "Keyframe body channels (select to edit keyframes)",
+  "ae.rightHintAction": "Select an action on the left to edit, or pick a material clip on the 'Material' track below.",
+  "ae.rightHintKeyframe": "Select a body channel on the left to add / remove keyframes, or pick a clip on the 'Material' track below.",
+  "ae.composeConfirm1": "Will combine <b>",
+  "ae.composeConfirm2": "</b> actions on the current timeline into a reusable action group:<br>",
+  "ae.composeConfirm3": "<br><br>Combine?",
+  "ae.noclientBadge": "⚠ Plays only in preview world",
+  "ae.f.name": "Name",
+  "ae.f.duration": "Duration",
+  "ae.f.frequency": "Frames per group (frequency)",
+  "ae.f.tick": "Start frame (tick)",
+  "ae.f.layer": "Layer",
+  "ae.f.enabled": "Enabled",
+  "ae.f.blendIn": "Fade in (blendIn)",
+  "ae.f.blendOut": "Fade out (blendOut)",
+  "ae.f.mode": "Move mode",
+  "ae.f.step": "Step (blocks per step)",
+  "ae.f.deleteAction": "Delete this action",
+  "ae.f.type": "Type",
+  "ae.f.deleteMaterial": "Delete this material",
+  "ae.f.deletePotion": "Delete this potion",
+  "ae.potHint": "Potion-effect track: add / drag / resize potion clips on the timeline; they apply status effects to the character during playback (action character only).",
+  "ae.pot.name": "Name",
+  "ae.pot.effect": "Effect display name",
+  "ae.pot.namePh": "Potion clip name",
+  "ae.pot.effectPh": "Effect display name (e.g. Speed)",
+  "ae.pot.speed": "Speed",
+  "ae.pot.jump": "Jump Boost",
+  "ae.pot.strength": "Strength",
+  "ae.pot.invis": "Invisibility",
+  "ae.pot.fire": "Fire Resistance",
+  "ae.loc.walk": "Walk",
+  "ae.loc.run": "Run",
+  "ae.loc.idle": "Idle",
+  "ae.scriptHint": "The script runs during playback and controls this character via the bbs API.",
+  "ae.scriptSrc": "Script Source",
+  "ae.saveScript": "Save Script",
+  "ae.exportJson": "Export to File (.json)",
+  "ae.paramsHint": "Custom parameters (numbers, readable / shareable by external tools)",
+  "ae.addNumber": "+ Add Number",
+  "ae.mat.model": "Model / Morph",
+  "ae.mat.skin": "Skin / Texture",
+  "ae.mat.equip": "Equip / Item",
+  "ae.mat.itemPh": "minecraft:diamond_sword (leave blank to clear)",
+  "ae.mat.itemId": "Item ID (item)",
+  "ae.mat.slot": "Equip slot (slot)",
+  "ae.mat.modelTarget": "Model target (target)",
+  "ae.mat.skinTarget": "Texture target (target)",
+  "ae.mat.targetPh": "Model/Morph id, supports MODEL:/PARTICLE:/group: prefixes",
+  "ae.channelHead": "Keyframe channel: ",
+  "ae.frames": "frames",
+  "ae.addKeyframe": "◆ Add Keyframe",
+  "ae.punchKeyframe": "◆ Keyframe at Playhead",
+  "ae.punchKeyframeTitle": "Add a keyframe at the current playhead",
+  "ae.frame": "Frame",
+  "ae.value": "Value",
+  "ae.noKeyframes": "No keyframes",
+  "ae.preset.walk": "Walk",
+  "ae.preset.run": "Run",
+  "ae.preset.idle": "Idle",
+  "ae.preset.attack": "Attack",
+  "ae.preset.swipe": "Swipe",
+  "ae.preset.break_block": "Break Block",
+  "ae.preset.place_block": "Place Block",
+  "ae.preset.fishing": "Fishing",
+  "ae.preset.chat": "Chat",
+  "ae.preset.command": "Command",
+  "ae.preset.drop_item": "Drop Item",
+  "ae.preset.script": "Script Action",
+  "ae.blendMode": "Layer Blend Mode",
+  "ae.opacity": "Opacity",
+  "ae.matteSource": "Matte Source Track",
+  "ae.matteMode": "Matte Mode",
+  "ae.none": "(none)",
+  "ae.editBig": "Edit in large window (panel above)",
+  "ae.closeDetail": "Close Details",
+  "ae.mask": "Mask",
+  "ae.firstPerson": "First Person",
+  "ae.shadow": "Shadow",
+  "ae.dockTitle": "Action Editor (large window)",
+  "ae.max": "Maximize",
+  "rename.ph": "Enter new name",
+  "form.name": "Name (leave blank for auto-naming)",
+  "form.namePh": "Optional",
+  "form.world": "Background World (where the character acts)",
+  "form.noWorld": "(none / blank world)",
+  "form.itemId": "Item ID (e.g. minecraft:stone)",
+  "form.type": "Character Form (mob/model/particle/block)",
+  "form.model": "Character Model (in-game registered character / player)",
+  "form.modeSingle": "Single",
+  "form.modeExpr": "Custom Expression",
+  "form.modeGroup": "Model Group",
+  "form.noModel": "(no models available)",
+  "form.modelPh": "e.g. minecraft:zombie or custom model id",
+  "form.selected": "Selected",
+  "form.nameLabel": "Name",
+  "create.camera": "New Camera",
+  "create.sequence": "New Sequence",
+  "create.particle": "New Particle",
+  "create.item": "New Item",
+  "create.scene": "New Scene",
+  "create.entity": "New Entity",
+  "create.character": "New Character",
+  "type.mob": "Mob",
+  "type.model": "Model",
+  "type.particle": "Particle",
+  "type.block": "Block",
+  "form.unit": "",
+  "bin.work": "Project: ",
+  "bin.sequence": "Sequence",
+  "bin.cameraGroup": "Camera Group",
+  "bin.charActions": "Character Actions",
+  "bin.backpack": "Global Backpack",
+  "bin.title": "Asset Library",
+  "bin.createHint": "Right-click empty to create",
+  "bin.equip": "Equip",
+  "bin.collapse": "Collapse/Expand asset box",
+  "bin.worldOf": "World: ",
+  "bin.ref": "Ref",
+  "bin.hintCreateCamera": "Right-click empty asset-box space › New Item › Camera to create a camera first",
+  "bin.hintSelectChar": "Select an action character in the Character group first",
+  "bin.scenes": "Scenes",
+  "bin.character": "Character",
+  "bin.entity": "Entity",
+  "bin.particle": "Particle",
+  "bin.item": "Item",
+  "bin.camera": "Camera",
+  "bin.camCount": " cameras",
+  "track.replay": "Track",
+  "track.audio": "Audio",
+  "track.audioEmpty": "Audio track (no data)",
+  "track.clip": "Clip ",
+  "track.previewPrefix": "Drop here to create a track › ",
+  "clip.opHint": "Drag to move · drag edges to resize · click to select · right-click for menu",
+  "cam.warnLostNow": "⚠ Camera missing: no camera covers the current frame, cannot play",
+  "cam.warnOverlapNow": "⚠ Camera overlap: current frame covered by multiple cameras",
+  "cam.warnLost": "⚠ Camera missing: timeline has segments with no camera",
+  "cam.warnOverlap": "⚠ Camera overlap: timeline has segments covered by multiple cameras",
+  "cam.recording": "Recording",
+  "toast.charUnavailable": "This character is unavailable",
+  "toast.noActionToCompose": "No actions to combine; add actions to the timeline first",
+  "toast.nonClientGroup": "This action group only plays in the preview world",
+  "toast.exitedPreview": "Exited preview world",
+  "toast.noActionGroup": "No action groups yet; use 'Compose Action Group' first",
+  "toast.addedGroup": "Added to action group @ tick ",
+  "toast.setStartAction": "Set start frame: action #",
+  "toast.setStartMaterial": "Set start frame: material #",
+  "toast.atTick": " @ tick ",
+  "film.prefix": "Scene: ",
+  "ae.subActions": " sub-actions",
+  "ae.matHint": "Material clip: drag on the timeline to change the start frame, drag the right edge ▮ to change the duration. During playback it overrides the character's appearance within its interval.",
+  "ae.addMaterial": "+ Add",
+  "ae.disabled": "(disabled)",
+  "equip.charPrefix": "Character: ",
+  "equip.char": "Character",
+  "equip.set": "Equip",
+  "equip.clear": "Clear",
+  "ae.mat.skinPh": "assets skin path, e.g. skins/steve",
+  "ae.slotMainHand": "Main Hand",
+  "ae.slotOffHand": "Off Hand",
+  "ae.slotHead": "Head",
+  "ae.slotChest": "Chest",
+  "ae.slotLegs": "Legs",
+  "ae.slotFeet": "Feet",
+  "dlg.deleteCharConfirm2": "'? This also removes its track and references, and cannot be undone (the previous step can be undone).",
+  "up.started": "Update started (auto-applied after MC closes)",
+  "dlg.deleteSeq": "Delete Sequence",
+  "dlg.deleteSeqMsg1": "Delete sequence '",
+  "dlg.deleteSeqMsg2": "'? This cannot be undone.",
+  "toast.addedScene": "Added to current scene: ",
+  "toast.dragGroupToAction": "Action groups can only be dragged onto the character-action track",
+  "toast.dropGroupToAction": "Action groups can only be dropped on the character-action track",
+  "toast.audioNotYet": "Audio track not enabled yet",
+  "toast.cameraToCameraTrack": "Cameras can only go on the camera track",
+  "toast.cameraTimeline": "Added to timeline: camera #",
+  "toast.groupTimeline": "Added to timeline: action group #",
+  "toast.charToCharTrack": "Characters can only go on the character track",
+  "toast.placeReorder": "Placed/reordered on timeline: ",
+  "toast.trackToCharTrack": "Tracks can only be reordered on the character track",
+  "toast.reorderTrack": "Reordered track: ",
+  "toast.invalidDragType": "Invalid: only cameras or action groups can be dropped here",
+  "toast.invalidPosition": "Invalid position: drop onto the canvas on the right or the timeline below",
+  "ae.framesPrefix": " (",
+  "ae.framesBracket": " (",
+  "ae.framesClose": ")",
+  "splitter.assetWidth": "Drag to resize the asset box",
+  "splitter.timelineHeight": "Drag to resize the timeline",
+  "ae.composeTitle": "Combine the sub-actions on the current action track into a reusable action group",
+  "ae.groupTitle": "Composed action groups: select to add to the current character timeline, or drag onto the timeline below",
+};
+
+
 var ICON = {
   work:'svg/work.svg', scene:'svg/scene.svg', sequence:'svg/sequence.svg',
-  character:'svg/character.svg', entity:'svg/entity.svg', particle:'svg/particle.svg',
-  item:'svg/item.svg', backpack:'svg/backpack.svg', camera:'svg/camera.svg'
+  character:'svg/gip-character.svg', entity:'svg/entity.svg', particle:'svg/particle.svg',
+  item:'svg/item.svg', backpack:'svg/backpack.svg', camera:'svg/gip-camera.svg',
+  alert:'svg/gip-exclamation.svg', info:'svg/gip-info.svg', ok:'svg/gip-tick.svg',
+  error:'svg/gip-cross.svg', loading:'svg/gip-loading-ring.svg', progress:'svg/gip-progress.svg',
+  keyframe:'svg/gip-diamonds.svg', easeIn:'svg/gip-ease-in.svg', easeOut:'svg/gip-ease-out.svg',
+  easeInOut:'svg/gip-ease-in-out.svg', linear:'svg/gip-linear.svg',
+  firstFrame:'svg/gip-first-frame.svg', prevFrame:'svg/gip-previous-frame.svg',
+  nextFrame:'svg/gip-next-frame.svg', lastFrame:'svg/gip-last-frame.svg',
+  visible:'svg/gip-visible.svg', invisible:'svg/gip-invisible.svg',
+  earth:'svg/gip-earth.svg', map:'svg/gip-map.svg', level:'svg/gip-level.svg',
+  user:'svg/gip-user-avatar.svg', bone:'svg/gip-bone.svg',
+  save:'svg/gip-save.svg', export:'svg/gip-export.svg', import:'svg/gip-import.svg',
+  folder:'svg/gip-folder.svg', undo:'svg/gip-undo.svg', redo:'svg/gip-redo.svg',
+  copy:'svg/gip-copy.svg', paste:'svg/gip-paste.svg', pencil:'svg/gip-pencil.svg',
+  code:'svg/gip-code.svg', wrench:'svg/gip-wrench.svg', settings:'svg/gip-settings.svg',
+  zoomIn:'svg/gip-zoom-in.svg', zoomOut:'svg/gip-zoom-out.svg', expand:'svg/gip-expand.svg',
+  trash:'svg/gip-trash.svg', minus:'svg/gip-minus.svg',
+  play:'svg/gip-play.svg', pause:'svg/gip-pause.svg', stop:'svg/gip-stop.svg'
 };
 var itemTarget = null;   /* {type, id} of the asset item right-clicked */
 var bagTarget = null;    /* name of the backpack item right-clicked */
@@ -660,7 +1445,7 @@ function send(a, p){ p = p || {}; p.a = a; console.log('BBS_ACTION:' + JSON.stri
    applyStaticI18n() rewrites every [data-i18n] element (and title/placeholder
    variants) once per render, so a language switch re-paints the whole chrome
    without a page reload. */
-function S(k){ var s = window.bbsState && window.bbsState.strings; return (s && s[k] != null) ? s[k] : k; }
+function S(k){ var s = window.bbsState && window.bbsState.strings; if(s && s[k] != null) return s[k]; var lang = (window.bbsState && window.bbsState.lang) || 'zh_cn'; var d = (lang === 'en_gb' && typeof BBS_DEFAULT_STRINGS_EN !== 'undefined') ? BBS_DEFAULT_STRINGS_EN[k] : ((typeof BBS_DEFAULT_STRINGS !== 'undefined') ? BBS_DEFAULT_STRINGS[k] : null); return (d != null) ? d : k; }
 
 function applyStaticI18n(){
   var nodes = document.querySelectorAll('[data-i18n]');
@@ -818,11 +1603,11 @@ function openCreateModal(type){
     ddM.appendChild(hiM); ddM.appendChild(btnM); ddM.appendChild(popM);
     fieldWrapM.appendChild(ddM);
 
-    var exprM = document.createElement('input'); exprM.type = 'text'; exprM.id = 'mModelExpr'; exprM.placeholder = '如 minecraft:zombie 或自定义模型标识'; exprM.style.display = 'none'; exprM.style.width = '100%';
+    var exprM = document.createElement('input'); exprM.type = 'text'; exprM.id = 'mModelExpr'; exprM.placeholder = S('form.modelPh'); exprM.style.display = 'none'; exprM.style.width = '100%';
     fieldWrapM.appendChild(exprM);
 
-    var grpWrap = document.createElement('div'); grpWrap.style.display = 'none'; grpWrap.style.maxHeight = '180px'; grpWrap.style.overflow = 'auto'; grpWrap.style.border = '1px solid #333'; grpWrap.style.borderRadius = '4px';
-    var grpCount = document.createElement('div'); grpCount.style.cssText = 'font-size:11px;color:#888;margin:2px 0;'; grpCount.textContent = '已选 0 个';
+    var grpWrap = document.createElement('div'); grpWrap.style.display = 'none'; grpWrap.style.maxHeight = '180px'; grpWrap.style.overflow = 'auto'; grpWrap.style.border = '1px solid var(--c-border)'; grpWrap.style.borderRadius = '4px';
+    var grpCount = document.createElement('div'); grpCount.style.cssText = 'font-size:11px;color:var(--c-text-3);margin:2px 0;'; grpCount.textContent = S('form.selected') + ' 0 ' + S('form.unit');
     var grpState = {};
     ms2.forEach(function(o){
       var row = document.createElement('div'); row.className = 'dd-opt'; row.style.cssText = 'display:flex;justify-content:space-between;';
@@ -890,6 +1675,191 @@ function pushMetrics(){
   send('viewportMetrics', { topFrac: topPx / H, leftFrac: leftPx / W, bottomFrac: botPx / H });
 }
 function toast(msg, err){ var t = document.createElement('div'); t.className = 'toast' + (err ? ' error' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); }
+/* ===== BBS 高级通知 dialog（屏幕右上角飞入 → 停留 → 淡出扔回；多个向下堆叠） =====
+ * 用法：
+ *   dialog({ type:'alert', title:'警告', msg:'...', duration:5000 });
+ *   dialog({ type:'info',  msg:'...' });
+ *   dialog({ type:'custom', icon:'<svg ...>', title:'自定义', msg:'...', iconColor:'#f0a', barColor:'#0a0', progress:60, duration:0 });
+ * type:   'alert'(!) | 'info'(i) | 'custom'(自定 SVG)
+ * icon:   type=custom 时传 SVG 字符串或图片 URL
+ * duration: 毫秒，0 表示常驻（需手动关闭）
+ * iconColor / barColor: 任意 CSS 颜色
+ * progress: 0..100 显示进度条
+ */
+var bbsDialogStack = [];
+var bbsDialogs = {};   /* dialogId -> { el, dismiss } */
+
+/* F1: 按 id 关闭指定 dialog（供 Java 侧 send dialogResult 后或外部调用） */
+function dismissDialog(id){
+  var d = bbsDialogs[id];
+  if (d) d.dismiss();
+}
+
+/* F1: 按 id 增量更新 dialog 内容（title/msg/icon/progress/buttons） */
+function updateDialog(id, p){
+  p = p || {};
+  var el = document.querySelector('[data-dialog-id="' + id + '"]');
+  if (!el) return;
+  if (p.title != null) { var t = el.querySelector('.bbs-dialog-title'); if (t) t.textContent = p.title; }
+  if (p.msg != null || p.message != null) { var b = el.querySelector('.bbs-dialog-body'); if (b) b.textContent = (p.msg != null ? p.msg : p.message); }
+  if (p.icon != null) {
+    var ic = el.querySelector('.bbs-dialog-icon');
+    if (ic) { ic.innerHTML = ''; if (p.icon.indexOf('<') === 0) ic.innerHTML = p.icon; else { var img = document.createElement('img'); img.src = p.icon; ic.appendChild(img); } }
+  }
+  if (p.progress != null) {
+    var bar = el.querySelector('.bbs-dialog-bar');
+    var fill = el.querySelector('.bbs-dialog-bar-fill');
+    var pct = Math.max(0, Math.min(100, parseFloat(p.progress)));
+    if (!fill) {
+      if (!bar) { bar = document.createElement('div'); bar.className = 'bbs-dialog-bar'; el.appendChild(bar); }
+      fill = document.createElement('div'); fill.className = 'bbs-dialog-bar-fill'; bar.appendChild(fill);
+    }
+    fill.style.width = pct + '%';
+    if (p.barColor) fill.style.background = p.barColor;
+  }
+  if (p.buttons != null || p.actions != null) {
+    var acts = el.querySelector('.bbs-dialog-actions');
+    if (!acts) { acts = document.createElement('div'); acts.className = 'bbs-dialog-actions'; el.appendChild(acts); }
+    renderDialogActions(acts, (p.buttons || p.actions || []), id);
+  }
+}
+
+/* F1: 渲染按钮行；点击收集 inputs 并回传 dialogResult，默认关闭 */
+function renderDialogActions(container, buttons, id){
+  container.innerHTML = '';
+  (buttons || []).forEach(function(btn){
+    var b = document.createElement('button');
+    b.className = 'bbs-dialog-btn' + (btn.style === 'primary' ? ' bbs-dialog-btn-primary' : (btn.style === 'danger' ? ' bbs-dialog-btn-danger' : ''));
+    b.textContent = btn.label || btn.id || '';
+    b.onclick = function(){
+      var inputs = {};
+      var fields = document.querySelectorAll('[data-dialog-id="' + id + '"] .bbs-dialog-input');
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i]; var key = f.dataset.key;
+        if (f.type === 'checkbox') inputs[key] = f.checked; else inputs[key] = f.value;
+      }
+      send('dialogResult', { id: id, type: 'button', value: (btn.id || btn.label), inputs: inputs });
+      if (btn.dismiss !== false) dismissDialog(id);
+    };
+    container.appendChild(b);
+  });
+}
+
+function dialog(opts){
+  opts = opts || {};
+  var type = opts.type || 'info';
+  var icon = opts.icon || null;
+  var title = opts.title || (type === 'alert' ? '警报' : (type === 'info' ? '提示' : ''));
+  var msg = opts.msg || opts.message || '';
+  var duration = (typeof opts.duration === 'number') ? opts.duration : 4000;
+  var iconColor = opts.iconColor || null;
+  var barColor = opts.barColor || null;
+  var barPct = (typeof opts.progress === 'number') ? opts.progress : (parseFloat(opts.progress) || null);
+  var dialogId = opts.id || ((window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('dlg-' + Date.now() + '-' + Math.floor(Math.random() * 1e6)));
+
+  var el = document.createElement('div');
+  el.className = 'bbs-dialog bbs-dialog-' + type;
+  el.dataset.dialogId = dialogId;
+  el.style.top = (12 + bbsDialogStack.length * 78) + 'px';
+  el.style.right = '12px';
+  el.style.zIndex = String(100000 + bbsDialogStack.length);
+
+  var head = document.createElement('div'); head.className = 'bbs-dialog-head';
+  var ic = document.createElement('span'); ic.className = 'bbs-dialog-icon';
+  if (type === 'alert') { ic.textContent = '!'; }
+  else if (type === 'info') { ic.textContent = 'i'; }
+  else if (type === 'custom' && icon) {
+    if (icon.indexOf('<') === 0) { ic.innerHTML = icon; }
+    else { var img = document.createElement('img'); img.src = icon; ic.appendChild(img); }
+  }
+  if (iconColor) ic.style.color = iconColor;
+  var t = document.createElement('span'); t.className = 'bbs-dialog-title'; t.textContent = title;
+  var x = document.createElement('span'); x.className = 'bbs-dialog-close'; x.textContent = '×';
+  x.onclick = function(){ dismiss(); };
+  head.appendChild(ic); head.appendChild(t); head.appendChild(x);
+  el.appendChild(head);
+
+  var body = document.createElement('div'); body.className = 'bbs-dialog-body'; body.textContent = msg;
+  el.appendChild(body);
+
+  /* F1: inputs */
+  if (opts.inputs && opts.inputs.length) {
+    var inputsWrap = document.createElement('div'); inputsWrap.className = 'bbs-dialog-inputs';
+    opts.inputs.forEach(function(inp){
+      var fld = document.createElement('div'); fld.className = 'bbs-dialog-field';
+      var key = inp.id || inp.key;
+      if (inp.label) { var lab = document.createElement('label'); lab.textContent = inp.label; fld.appendChild(lab); }
+      var input;
+      if (inp.type === 'select') {
+        input = document.createElement('select'); input.className = 'bbs-dialog-input';
+        (inp.options || []).forEach(function(o){
+          var ov = (typeof o === 'object') ? o : { value: o, label: o };
+          var opt = document.createElement('option'); opt.value = ov.value; opt.textContent = (ov.label != null ? ov.label : ov.value);
+          input.appendChild(opt);
+        });
+        if (inp.value != null) input.value = inp.value;
+      } else if (inp.type === 'checkbox') {
+        input = document.createElement('input'); input.type = 'checkbox'; input.className = 'bbs-dialog-input';
+        input.checked = !!inp.value;
+      } else if (inp.type === 'number') {
+        input = document.createElement('input'); input.type = 'number'; input.className = 'bbs-dialog-input';
+        if (inp.value != null) input.value = inp.value;
+        if (inp.placeholder) input.placeholder = inp.placeholder;
+      } else {
+        input = document.createElement('input'); input.type = 'text'; input.className = 'bbs-dialog-input';
+        if (inp.value != null) input.value = inp.value;
+        if (inp.placeholder) input.placeholder = inp.placeholder;
+      }
+      input.dataset.key = key;
+      fld.appendChild(input);
+      inputsWrap.appendChild(fld);
+    });
+    el.appendChild(inputsWrap);
+  }
+
+  if (barPct !== null) {
+    var barWrap = document.createElement('div'); barWrap.className = 'bbs-dialog-bar';
+    var bar = document.createElement('div'); bar.className = 'bbs-dialog-bar-fill';
+    bar.style.width = Math.max(0, Math.min(100, barPct)) + '%';
+    if (barColor) bar.style.background = barColor;
+    barWrap.appendChild(bar); el.appendChild(barWrap);
+  }
+
+  /* F1: buttons */
+  if (opts.buttons && opts.buttons.length) {
+    var acts = document.createElement('div'); acts.className = 'bbs-dialog-actions';
+    renderDialogActions(acts, opts.buttons, dialogId);
+    el.appendChild(acts);
+  }
+
+  document.body.appendChild(el);
+  el.style.transform = 'translateX(130%)';
+  el.style.opacity = '0';
+  requestAnimationFrame(function(){
+    el.style.transition = 'transform .28s cubic-bezier(.2,.8,.3,1), opacity .26s ease';
+    el.style.transform = 'translateX(0)';
+    el.style.opacity = '1';
+  });
+
+  var dismissed = false;
+  function dismiss(){
+    if (dismissed) return; dismissed = true;
+    delete bbsDialogs[dialogId];
+    el.style.transition = 'opacity .3s ease, transform .3s ease';
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(130%)';
+    setTimeout(function(){
+      var i = bbsDialogStack.indexOf(el); if (i >= 0) bbsDialogStack.splice(i, 1);
+      for (var k = 0; k < bbsDialogStack.length; k++) { bbsDialogStack[k].style.top = (12 + k * 78) + 'px'; }
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 320);
+  }
+  if (duration > 0) setTimeout(dismiss, duration);
+  bbsDialogStack.push(el);
+  bbsDialogs[dialogId] = { el: el, dismiss: dismiss };
+  if (opts.opened !== false) send('dialogOpened', { id: dialogId });
+  return { dismiss: dismiss, el: el, id: dialogId };
+}
 /* D: 播放时选中「非实时（client=false）」动作组的占位提示文案（待 chun-ux 提供最终版本后替换） */
 var NON_CLIENT_GROUP_TOAST = 'toast.nonClientGroup';
 /* A2: 带上限的 tick 输入框（上限参考时间轴总时长），超限自动回弹 */
@@ -927,8 +1897,8 @@ function iconImg(type){ var i = document.createElement('img'); i.className = 'ic
 
 function addRoot(text){ var d = document.createElement('div'); d.className = 'asset-root'; d.appendChild(iconImg('work')); var s = document.createElement('span'); s.textContent = text; d.appendChild(s); assetList.appendChild(d); }
 function addGroup(text, onAdd){ var d = document.createElement('div'); d.className = 'asset-group'; d.textContent = text; if(onAdd){ var b = document.createElement('span'); b.textContent='+'; b.style.cssText='float:right;cursor:pointer;color:#4c8dff;font-weight:bold;padding:0 8px;'; b.onclick=function(e){ e.stopPropagation(); onAdd(); }; d.appendChild(b); } assetList.appendChild(d); }
-function addItem(type, id, label, onClick, refs, isActive, isBag, ctxIndex){
-  var d = document.createElement('div'); d.className = 'asset-item' + (isActive ? ' active' : '') + (isBag ? ' bag' : '');
+function addItem(type, id, label, onClick, refs, isActive, isBag, ctxIndex, placed){
+  var d = document.createElement('div'); d.className = 'asset-item' + (isActive ? ' active' : '') + (isBag ? ' bag' : '') + (placed ? ' placed' : '');
   d.dataset.type = type;
   d.appendChild(iconImg(type));
   var s = document.createElement('span'); s.className = 'lbl'; s.textContent = label; d.appendChild(s);
@@ -945,7 +1915,7 @@ function addItem(type, id, label, onClick, refs, isActive, isBag, ctxIndex){
     d.appendChild(ex);
   }
   assetList.appendChild(d);
-  if(refs && refs.length){ refs.forEach(function(r){ var sub = document.createElement('div'); sub.className = 'asset-sub'; sub.textContent = '引用 ' + r.type + ' : ' + r.id; assetList.appendChild(sub); }); }
+  if(refs && refs.length){ refs.forEach(function(r){ var sub = document.createElement('div'); sub.className = 'asset-sub'; sub.textContent = S('bin.ref') + ' ' + r.type + ' : ' + r.id; assetList.appendChild(sub); }); }
 }
 function addBagItem(b){
   var d = document.createElement('div'); d.className = 'asset-item bag';
@@ -962,12 +1932,20 @@ function pxPerTickOf(dur, w){ var base = dur > 0 ? (w - 120) / dur : 1; var px =
  * on the index, so we resolve it here rather than carrying indices around. */
 function replayIndexById(id){ var rs = (window.bbsState && window.bbsState.replays) || []; for(var i = 0; i < rs.length; i++){ if(rs[i].id === id) return rs[i].index; } return -1; }
 
+/* B1: the asset box keeps a replay even after it owns a timeline track, so a
+   character can be dragged out again. Placed entries carry a check mark and
+   render dimmed instead of disappearing. */
+function libLabel(c){ return (c.label || '') + (c.placed ? '  ✓' : ''); }
+
 function renderAssets(s){
   assetList.innerHTML = '';
   addRoot(S('bin.work') + (s.project || ''));
   addGroup(S('bin.scenes'));
   (s.scenes || []).forEach(function(sc){
-    addItem('scene', sc.id, sc.name, function(){ send('openScene', { id: sc.id }); });
+    /* B5: the open scene is marked the same way the open sequence is, so the
+       tree always shows where the editor currently is. */
+    var isCurScene = !!s.activeScene && s.activeScene === sc.id;
+    addItem('scene', sc.id, sc.name + (isCurScene ? '  ◀' : ''), function(){ send('openScene', { id: sc.id }); }, null, isCurScene);
     if(sc.background){ var sub = document.createElement('div'); sub.className = 'asset-sub'; sub.textContent = S('bin.worldOf') + sc.background; assetList.appendChild(sub); }
   });
   addGroup(S('bin.sequence'));
@@ -978,13 +1956,13 @@ function renderAssets(s){
    * subsystem still keys on the replay's list index, so we resolve it by id.
    * Library items are unplaced replays, so both id and index stay in sync. */
   addGroup(S('bin.character'));
-  (s.characters || []).forEach(function(c){ var ri = replayIndexById(c.id); addItem('character', c.id, c.label, function(){ selectedChar = ri; send('addToCurrent', { type:'character', id:c.id }); send('focusCharacter', { id: c.id }); }, null, false, false, ri); });
+  (s.characters || []).forEach(function(c){ var ri = replayIndexById(c.id); addItem('character', c.id, libLabel(c), function(){ selectedChar = ri; send('addToCurrent', { type:'character', id:c.id }); send('focusCharacter', { id: c.id }); }, null, false, false, ri, c.placed); });
   addGroup(S('bin.entity'));
-  (s.entities || []).forEach(function(c){ addItem('entity', c.id, c.label, function(){ send('addToCurrent', { type:'entity', id:c.id }); }, null, false, false, replayIndexById(c.id)); });
+  (s.entities || []).forEach(function(c){ addItem('entity', c.id, libLabel(c), function(){ send('addToCurrent', { type:'entity', id:c.id }); }, null, false, false, replayIndexById(c.id), c.placed); });
   addGroup(S('bin.particle'));
-  (s.particles || []).forEach(function(c){ addItem('particle', c.id, c.label, function(){ send('addToCurrent', { type:'particle', id:c.id }); }, null, false, false, replayIndexById(c.id)); });
+  (s.particles || []).forEach(function(c){ addItem('particle', c.id, libLabel(c), function(){ send('addToCurrent', { type:'particle', id:c.id }); }, null, false, false, replayIndexById(c.id), c.placed); });
   addGroup(S('bin.item'), function(){ openCreateModal('newItem'); });
-  (s.items || []).forEach(function(c){ addItem('item', c.id, c.label, function(){ send('addToCurrent', { type:'item', id:c.id }); }, null, false, false, replayIndexById(c.id)); });
+  (s.items || []).forEach(function(c){ addItem('item', c.id, libLabel(c), function(){ send('addToCurrent', { type:'item', id:c.id }); }, null, false, false, replayIndexById(c.id), c.placed); });
   addGroup(S('bin.camera'), function(){
     if((s.cameras || []).length === 0){ toast(S('bin.hintCreateCamera')); }
   });
@@ -994,7 +1972,7 @@ function renderAssets(s){
   });
   addGroup(S('bin.cameraGroup'));
   (s.cameraGroups || []).forEach(function(g){
-    addItem('cameragroup', g.id, g.name + '（' + g.count + S('bin.camCount') + '）', function(){ send('addToCurrent', { type:'cameragroup', id: g.id }); });
+    addItem('cameragroup', g.id, g.name + S('ae.framesBracket') + g.count + S('bin.camCount') + S('ae.framesClose'), function(){ send('addToCurrent', { type:'cameragroup', id: g.id }); });
   });
   addGroup(S('bin.charActions'), function(){
     if(selectedChar == null || selectedChar < 0){ toast(S('bin.hintSelectChar')); return; }
@@ -1010,67 +1988,36 @@ function renderAssets(s){
   (s.backpack || []).forEach(function(b){ addBagItem(b); });
 }
 
-function renderTimeline(s){
-  var dur = Math.max(s.duration || 0, 1);
-  var cursor = s.cursor || 0;
-  tickInfo.textContent = cursor + ' / ' + dur;
+/* B5: sequence view keeps the actor lanes visible on top of the flat camera
+   clips, otherwise switching to a sequence reads as "my characters vanished".
+   The section header doubles as the visibility toggle. */
+var showActorTracksInSeq = true;
 
-  var timelineTabs = document.querySelector('.timeline-tabs');
-  if (timelineTabs)
-  {
-    var tabFilm = document.getElementById('tabFilm');
-    var btnNewSeq = document.getElementById('btnNewSeq');
-    var oldTabs = timelineTabs.querySelectorAll('.tab-item[data-seq]');
-    for (var k = 0; k < oldTabs.length; k++) { oldTabs[k].remove(); }
-    (s.sequences || []).forEach(function(seq){
-      var t = document.createElement('div');
-      t.className = 'tab-item';
-      t.setAttribute('data-seq', seq.id);
-      t.textContent = seq.name;
-      if (s.activeSequence === seq.id) t.classList.add('active');
-      t.onclick = (function(id){ return function(){ send('enterSequence', { id: id }); }; })(seq.id);
-      timelineTabs.insertBefore(t, btnNewSeq);
-    });
-    if (tabFilm) tabFilm.textContent = (s.scene || S('tl.tabMain'));
-    if (tabFilm) tabFilm.classList.toggle('active', !s.activeSequence);
-    if (tabFilm && !tabFilm.onclick)
-    {
-      tabFilm.onclick = function(){ send('enterSequence', {}); };
-    }
-  }
-
-  /* ruler */
-  ruler.innerHTML = '';
-  var w = tracks.clientWidth;
-  var pxPerTick = pxPerTickOf(dur, w);
-  for(var t = 0; t <= dur; t += Math.max(1, Math.round(dur / 10))){
-    var sp = document.createElement('span'); sp.style.left = (120 + t * pxPerTick) + 'px'; sp.textContent = t; ruler.appendChild(sp);
-  }
-  /* tracks */
-  tracks.innerHTML = '';
-  var useTracks = (!s.activeSequence && s.tracks && s.tracks.length) ? s.tracks : null;
-  if (useTracks)
-  {
-    useTracks.forEach(function(tr){
-      var row = document.createElement('div'); row.className = 'track-row';
-      row.dataset.kind = tr.kind;
-      if(tr.kind === 'replay'){ row.dataset.replayIndex = String(tr.index); row.dataset.replayId = tr.id; row.style.setProperty('--track-accent', '#2e8b57'); }
-      else if(tr.kind === 'camera'){ row.style.setProperty('--track-accent', '#2367ac'); }
-      else { row.style.setProperty('--track-accent', '#5a5a60'); }
+function buildTrackRow(s, tr, pxPerTick){
+  var row = document.createElement('div'); row.className = 'track-row';
+  row.dataset.kind = tr.kind;
+      if(tr.kind === 'replay'){ row.dataset.replayIndex = String(tr.index); row.dataset.replayId = tr.id; row.style.setProperty('--track-accent', 'var(--track-act)'); }
+      else if(tr.kind === 'camera'){ row.style.setProperty('--track-accent', 'var(--track-mat)'); }
+      else { row.style.setProperty('--track-accent', 'var(--track-char)'); }
       /* F3.2: right-click a placed track to remove it (back to library) or delete
        * the underlying replay. Both key on the stable replay id. */
       if(tr.kind === 'replay'){ row.oncontextmenu = function(e){ e.preventDefault(); itemTarget = { type: 'character', id: tr.id }; showMenu(trackCtx, e); }; row.onmousedown = function(e){ if(e.button !== 0) return; startCustomDrag(e, 'replay', tr.id); }; }
       var lab = document.createElement('span'); lab.className = 'track-label';
-      lab.textContent = tr.label || (tr.kind === 'camera' ? '相机' : (tr.kind === 'replay' ? '轨道' : '音频'));
+      lab.textContent = tr.label || (tr.kind === 'camera' ? S('bin.camera') : (tr.kind === 'replay' ? S('track.replay') : S('track.audio')));
       row.appendChild(lab);
       (tr.clips || []).forEach(function(cl, ci){
         var blk = document.createElement('div'); blk.className = 'clip-block' + (tr.kind === 'replay' ? ' kind-replay' : '');
         blk.dataset.id = cl.id;
-        if(selectedClips.has(cl.id)) blk.classList.add('cursor-here');
+        if(selectedClips.has(cl.id)){ blk.classList.add('cursor-here'); blk.classList.add('selected'); }
         if(cl.enabled === false) blk.classList.add('clip-disabled');
         blk.style.left = (120 + cl.tick * pxPerTick) + 'px';
         blk.style.width = Math.max(20, cl.duration * pxPerTick) + 'px';
         blk.textContent = cl.title || 'clip';
+        blk.title = S('clip.opHint');
+        blk.addEventListener('mousedown', function(e){ if(e.button !== 0) return; startClipDrag(e, cl, blk, 'move'); });
+        var _hl = document.createElement('div'); _hl.className = 'clip-handle clip-handle-l'; _hl.addEventListener('mousedown', function(e){ startClipDrag(e, cl, blk, 'resize-l'); });
+        var _hr = document.createElement('div'); _hr.className = 'clip-handle clip-handle-r'; _hr.addEventListener('mousedown', function(e){ startClipDrag(e, cl, blk, 'resize-r'); });
+        blk.appendChild(_hl); blk.appendChild(_hr);
         blk.onclick = function(e){
           e.stopPropagation();
           if(e.ctrlKey || e.metaKey){
@@ -1084,7 +2031,7 @@ function renderTimeline(s){
             var ri = replayIndexById(row.dataset.replayId);
             var rep = (s.replays || [])[ri];
             if(rep && rep.enabled !== false){ send('openActionEditor', { index: ri }); }
-            else { toast('该角色不可用', true); }
+            else { toast(S('toast.charUnavailable'), true); }
           }
           renderTimeline(s);
         };
@@ -1108,29 +2055,30 @@ function renderTimeline(s){
         };
         row.appendChild(blk);
       });
-      tracks.appendChild(row);
+      return row;
     });
     (function(){
       var arow = document.createElement('div'); arow.className = 'track-row kind-audio';
       arow.dataset.kind = 'audio';
       arow.style.setProperty('--track-accent', '#5a5a60');
-      var alab = document.createElement('span'); alab.className = 'track-label'; alab.textContent = '音频';
+      var alab = document.createElement('span'); alab.className = 'track-label'; alab.textContent = S('track.audio');
       arow.appendChild(alab);
-      var ahint = document.createElement('span'); ahint.className = 'track-placeholder'; ahint.textContent = '音轨(暂无数据)';
+      var ahint = document.createElement('span'); ahint.className = 'track-placeholder'; ahint.textContent = S('track.audioEmpty');
       arow.appendChild(ahint);
       tracks.appendChild(arow);
     })();
   }
   else
   {
+    appendActorTrackSection(s, allTracks, pxPerTick);
     (s.clips || []).forEach(function(cl, i){
       var row = document.createElement('div'); row.className = 'track-row';
-      var lab = document.createElement('span'); lab.className = 'track-label'; lab.textContent = cl.title || ('剪辑 ' + i); row.appendChild(lab);
+      var lab = document.createElement('span'); lab.className = 'track-label'; lab.textContent = cl.title || (S('track.clip') + i); row.appendChild(lab);
       var blk = document.createElement('div'); blk.className = 'clip-block';
       if(selectedClip === i || selectedClips.has(cl.id)) blk.classList.add('cursor-here');
       blk.style.left = (120 + cl.tick * pxPerTick) + 'px';
       blk.style.width = Math.max(20, cl.duration * pxPerTick) + 'px';
-      blk.textContent = cl.title || ('剪辑 ' + i);
+      blk.textContent = cl.title || (S('track.clip') + i);
       blk.onclick = function(e){
         e.stopPropagation();
         if(e.ctrlKey || e.metaKey){
@@ -1163,6 +2111,8 @@ function renderTimeline(s){
   }
   /* playhead */
   playhead.style.left = (120 + cursor * pxPerTick) + 'px';
+  /* v3: overlay leash clips onto their replay lanes */
+  renderLeashClips(s);
 }
 
 var renameShownFor = null;
@@ -1185,22 +2135,84 @@ function renderRename(s){
   }
 }
 
+/* 加载动画注入点：Java 与世界进/出流程唯一调用的钩子。它同时维护
+   window._sceneWorldEntering（兼容既有 renderAll 判断）并直接切换 #worldLoad
+   元素的显隐，避免任何地方再散落裸 window._sceneWorldEntering = ... 赋值。
+   on=true 显示"正在加载预览世界…"，on=false 隐藏。 */
+window.bbsSetWorldLoading = function(on){
+  var show = !!on;
+  window._sceneWorldEntering = show;
+  var wl = document.getElementById('worldLoad');
+  if (wl) wl.style.display = show ? 'block' : 'none';
+};
+
+/* 拴绳工具面板：开启/关闭工具、锚点状态、绑定/解绑/骨骼。Ctrl+点击视口拾取锚点 A/B。 */
+function renderLeashPanel(s){
+  var el = document.getElementById('leashPanel');
+  if(!el) return;
+  var leash = (s && s.leash) || { tool:false, anchors:{a:{valid:false},b:{valid:false}}, links:[] };
+  if(!(leash.tool || (s && s.inWorld))){ el.classList.remove('show'); el.innerHTML=''; return; }
+  el.classList.add('show');
+  if(!leash.tool){
+    el.innerHTML = '<div class="lp-row"><b>'+S('leash.title')+'</b> <button onclick="send(\'leashTool\',{on:true})">'+S('leash.on')+'</button></div>';
+    return;
+  }
+  var a = leash.anchors && leash.anchors.a; var b = leash.anchors && leash.anchors.b;
+  var av = !!(a && a.valid); var bv = !!(b && b.valid);
+  var fc = s && s.focusedCharacter;
+  var rid = fc ? fc.id : '';
+  var lb = fc ? (fc.leashBone || '') : '';
+  var html = '';
+  html += '<div class="lp-row"><b>'+S('leash.title')+'</b> <button class="on" onclick="send(\'leashTool\',{on:false})">'+S('leash.off')+'</button></div>';
+  html += '<div class="lp-row">A(持有端): '+(av?('['+(a.proxy?'代理':a.replayId)+(a.bone?(' / '+a.bone):'')+']'):S('leash.pickA'))+'</div>';
+  var mode = leash.mode || 'idle';
+  var cr = leash.clipRange || 'idle';
+  var pend = leash.pending || {};
+  if(mode === 'pickHolder'){
+    html += '<div class="lp-row" style="color:var(--c-accent)">① 在3D画面点角色/空地(代理端点)选持有端</div>';
+  } else if(mode === 'pickTarget'){
+    html += '<div class="lp-row" style="color:var(--c-accent)">② 在时间轴点选被拴角色轨道</div>';
+    html += '<div class="lp-row">目标: '+(pend.targetReplayId||'未选')+'</div>';
+    if(cr === 'awaitingStart' || cr === 'awaitingEnd'){
+      var cur = (s && s.cursor) || 0;
+      html += '<div class="lp-row">③ 点两下设定拴系起止（或以播放头为起点）</div>';
+      html += '<div class="lp-row"><button onclick="send(\'leashClipStart\',{tick:'+cur+'})">起点=播放头('+cur+')</button> <button onclick="send(\'leashClipEnd\',{tick:'+cur+'})">终点=播放头('+cur+')</button></div>';
+    }
+    var ws = (pend.startTick!=null && pend.startTick>=0) ? (pend.startTick+'–'+pend.endTick) : '常驻';
+    html += '<div class="lp-row">窗口: '+ws+'</div>';
+    html += '<div class="lp-row"><button '+(pend.targetReplayId?'':'disabled')+' onclick="send(\'leashCommit\')">提交拴绳片段</button> <button onclick="send(\'leashCancel\')">取消</button></div>';
+  } else {
+    html += '<div class="lp-row"><button onclick="send(\'leashClearAnchors\')">'+S('leash.clear')+'</button></div>';
+    html += '<div class="lp-row">'+S('leash.selected')+': '+(rid?rid:S('leash.none'))+'</div>';
+    html += '<div class="lp-row">'+S('leash.bone')+': <input id="lpBone" value="'+lb+'" style="width:90px"/></div>';
+    html += '<div class="lp-row"><button '+(rid?'':'disabled')+' onclick="leashBind()">'+S('leash.bind')+'</button> <button '+(rid?'':'disabled')+' onclick="send(\'leashUnbind\',{replayId:\''+rid+'\'})">'+S('leash.unbind')+'</button> <button '+(rid?'':'disabled')+' onclick="leashSetBone()">'+S('leash.setBone')+'</button></div>';
+  }
+  el.innerHTML = html;
+}
+function leashBind(){ var s=window.bbsState||{}; var fc=s.focusedCharacter; if(!fc) return; var bone=document.getElementById('lpBone'); send('leashBind', { replayId: fc.id, bone: bone?bone.value:'' }); }
+function leashSetBone(){ var s=window.bbsState||{}; var fc=s.focusedCharacter; if(!fc) return; var bone=document.getElementById('lpBone'); send('leashSetBone', { replayId: fc.id, bone: bone?bone.value:'' }); }
+
 function renderAll(){
   var s = window.bbsState;
   applyStaticI18n();
   renderRename(s);
   if(!s) return;
-  /* 不再自动进世界：编辑器打开即保留 UI；仅在用户点击场景（openScene）
-     且场景带背景世界时才进场景世界，否则由专用按钮进入预览世界。
-     进世界后 Java 端会重开 Dashboard 叠加在游戏画面之上，UI 不会丢失。 */
+  if(!window.__bbsReady){ window.__bbsReady = true; var boot = document.getElementById('bbsBoot'); if(boot){ boot.classList.add('hide'); setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 220); } }
+  /* Selecting a scene enters that scene's bound real-save world preview in
+     place (editor overlay stays on top, UI is not lost). Only a scene can
+     bind a world; a scene with none just switches without entering. While
+     the world loads, the Java side sets window._sceneWorldEntering so the
+     preview wait animation shows. */
   var wl = document.getElementById('worldLoad');
-  if(wl) wl.style.display = (window._sceneWorldEntering && !s.owningPreviewWorld) ? 'block' : 'none';
+  if(wl) wl.style.display = (window._sceneWorldEntering || (s && s.worldLoading)) ? 'block' : 'none';
   var pv = document.getElementById('enterPreviewBtn');
-  if(pv) pv.style.display = s.owningPreviewWorld ? 'none' : 'inline-block';
+  if(pv) pv.style.display = (!s.inWorld && s.sceneWorld) ? 'inline-block' : 'none';
   var ex = document.getElementById('exitPreviewBtn');
   if(ex) ex.style.display = s.owningPreviewWorld ? 'flex' : 'none';
-  projName.textContent = s.project || 'BBS 编辑器';
-  filmName.textContent = s.scene ? ('场景：' + s.scene) : '';
+  projName.textContent = s.project || S('app.title');
+  filmName.textContent = s.scene ? (S('film.prefix') + s.scene) : '';
+  var sw = document.getElementById('sceneWorld');
+  if(sw) sw.textContent = s.sceneWorld ? (S('preview.world') + '：' + s.sceneWorld) : '';
   dirtyMark.className = 'title-dirty' + (s.dirty ? ' show' : '');
   renderAssets(s);
   renderTimeline(s);
@@ -1211,6 +2223,7 @@ function renderAll(){
   renderViewportToolbar(s);
   renderSeqToolbar(s);
   renderAssetDetail(s);
+  renderLeashPanel(s);
   renderAeDock(s);
 }
 
@@ -1269,6 +2282,8 @@ function renderActionEditor(s){
   renderAeRight(document.getElementById('aeRight'), ae);
   renderAeTimeline(ae);
   wireAeGroup();
+  setupAeCountCtrl();
+  syncAeCountCtrl(ae);
 }
 
 /* 动作组下拉：组合 / 绑定（拖入时间轴）。按钮只绑定一次。 */
@@ -1279,6 +2294,43 @@ function wireAeGroup(){
   var gbtn = document.getElementById('aeGroupBtn');
   if(btn) btn.onclick = confirmComposeGroup;
   if(gbtn) gbtn.onclick = function(e){ e.stopPropagation(); openAeGroupMenuPopup(e); };
+}
+/* 底部时间轴计数控制：复选框切换子轨道显隐（show* 标志），数字输入
+   经 aeSetTrackCount 在后端按数量增删对应 clip 列表（仅动作角色生效）。 */
+var aeCountCtrlBound = false;
+function setupAeCountCtrl(){
+  if(aeCountCtrlBound) return; aeCountCtrlBound = true;
+  var box = document.getElementById('aeCountCtrl');
+  if(!box) return;
+  box.querySelectorAll('input[type="checkbox"]').forEach(function(cb){
+    var track = cb.getAttribute('data-track');
+    cb.onchange = function(){
+      send('aeSetTrackVisible', { track: track, visible: cb.checked });
+    };
+  });
+  box.querySelectorAll('input[type="number"]').forEach(function(num){
+    var track = num.getAttribute('data-count');
+    num.onchange = function(){
+      var v = parseInt(this.value) || 0;
+      if(v < 0) v = 0;
+      send('aeSetTrackCount', { track: track, count: v });
+    };
+  });
+}
+function syncAeCountCtrl(ae){
+  var box = document.getElementById('aeCountCtrl');
+  if(!box) return;
+  box.querySelectorAll('input[type="checkbox"]').forEach(function(cb){
+    var track = cb.getAttribute('data-track');
+    var flag = 'show' + track.charAt(0).toUpperCase() + track.slice(1);
+    if(ae[flag] === undefined) ae[flag] = cb.checked;
+    cb.checked = !!ae[flag];
+  });
+  var counts = { material: (ae.materials || []).length, action: (ae.actions || []).length, potion: (ae.potions || []).length };
+  box.querySelectorAll('input[type="number"]').forEach(function(num){
+    var track = num.getAttribute('data-count');
+    if(counts[track] != null && document.activeElement !== num) num.value = counts[track];
+  });
 }
 /* A4: 组合动作组前先弹确认，列出将组合的动作，确认才真正执行 */
 function confirmComposeGroup(){
@@ -1420,7 +2472,7 @@ function aeChannelItem(ch, ae){
   var d = document.createElement('div');
   d.className = 'asset-item' + (ch.id === ae.selectedChannel ? ' active' : '');
   var s = document.createElement('span'); s.className = 'lbl';
-  s.textContent = ch.id + '  （' + (ch.keyframes ? ch.keyframes.length : 0) + ' 帧）';
+  s.textContent = ch.id + '  ' + S('ae.framesBracket') + (ch.keyframes ? ch.keyframes.length : 0) + S('ae.frames') + S('ae.framesClose');
   d.appendChild(s);
   d.onclick = function(){ send('aeSelectChannel', { channel: ch.id }); };
   return d;
@@ -1432,6 +2484,11 @@ function renderAeRight(root, ae){
   var selMat = ae.selectedMaterial;
   if(selMat >= 0 && ae.materials && selMat < ae.materials.length){
     aeRenderMaterial(right, ae.materials[selMat], ae);
+    return;
+  }
+  var selPot = ae.selectedPotion;
+  if(selPot >= 0 && ae.potions && selPot < ae.potions.length){
+    aeRenderPotion(right, ae.potions[selPot], ae);
     return;
   }
   var sel = ae.selectedIndex;
@@ -1447,8 +2504,8 @@ function renderAeRight(root, ae){
   }
   var hint = document.createElement('div'); hint.className = 'ae-hint';
   hint.textContent = ae.characterType === 'action'
-    ? '从左侧选择一个动作进行编辑，或者从下方「材质」轨道点选一个材质片段进行编辑。'
-    : '从左侧选择一个身体通道，添加 / 删除关键帧；或点选下方「材质」轨道的片段。';
+    ? S('ae.rightHintAction')
+    : S('ae.rightHintKeyframe');
   right.appendChild(hint);
 }
 
@@ -1532,10 +2589,10 @@ function aeRenderAction(right, a, ae){
     right.appendChild(sh);
     var ta = document.createElement('textarea'); ta.id = 'aeScript'; ta.value = (a.script || '');
     right.appendChild(field(S('ae.scriptSrc'), ta));
-    var save = document.createElement('button'); save.className = 'btn ok'; save.style.background = '#4c8dff'; save.style.color = '#fff'; save.textContent = '保存脚本';
+    var save = document.createElement('button'); save.className = 'btn ok'; save.style.background = '#4c8dff'; save.style.color = '#fff'; save.textContent = S('ae.saveScript');
     save.onclick = function(){ send('aeSaveScript', { ai: a.index, value: ta.value }); };
     right.appendChild(save);
-    var exp = document.createElement('button'); exp.className = 'btn'; exp.textContent = '导出为文件 (.json)'; exp.style.marginLeft = '8px';
+    var exp = document.createElement('button'); exp.className = 'btn'; exp.textContent = S('ae.exportJson'); exp.style.marginLeft = '8px';
     exp.onclick = function(){ send('aeExportScript', { ai: a.index }); };
     right.appendChild(exp);
 
@@ -1554,7 +2611,7 @@ function aeRenderAction(right, a, ae){
       plist.appendChild(row);
     });
     right.appendChild(plist);
-    var addp = document.createElement('button'); addp.className = 'btn'; addp.textContent = '+ 添加数字';
+    var addp = document.createElement('button'); addp.className = 'btn'; addp.textContent = S('ae.addNumber');
     addp.onclick = function(){ send('aeAddParam', { ai: a.index }); };
     right.appendChild(addp);
   }
@@ -1632,9 +2689,70 @@ function aeRenderMaterial(right, mc, ae){
   right.appendChild(del);
 }
 
+function aeRenderPotion(right, pc, ae){
+  function field(labelText, inputEl){
+    var f = document.createElement('div'); f.className = 'ae-field';
+    var l = document.createElement('label'); l.textContent = labelText; f.appendChild(l);
+    if(inputEl) f.appendChild(inputEl);
+    return f;
+  }
+  function numInput(val, min, step){
+    var i = document.createElement('input'); i.type = 'number';
+    if(min != null) i.min = String(min);
+    if(step != null) i.step = String(step);
+    i.value = (val == null ? 0 : val);
+    return i;
+  }
+  function toggleInline(labelText, checked, onchange){
+    var w = document.createElement('label'); w.className = 'modal-check';
+    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!checked;
+    cb.onchange = function(){ onchange(this.checked); };
+    var sp = document.createElement('span'); sp.textContent = labelText;
+    w.appendChild(cb); w.appendChild(sp); return w;
+  }
+
+  var hint = document.createElement('div'); hint.className = 'ae-hint';
+  hint.textContent = S('ae.potHint');
+  right.appendChild(hint);
+
+  var seg = document.createElement('div'); seg.className = 'modal-seg';
+  [['minecraft:speed', S('ae.pot.speed')], ['minecraft:jump_boost', S('ae.pot.jump')], ['minecraft:strength', S('ae.pot.strength')], ['minecraft:invisibility', S('ae.pot.invis')], ['minecraft:fire_resistance', S('ae.pot.fire')]].forEach(function(p){
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1];
+    b.classList.toggle('on', pc.type === p[0]);
+    b.onclick = function(){ send('aeSetPotionType', { pi: pc.index, value: p[0] }); };
+    seg.appendChild(b);
+  });
+  right.appendChild(field(S('ae.f.type'), null)); right.lastChild.appendChild(seg);
+
+  var nameIn = document.createElement('input'); nameIn.type = 'text';
+  nameIn.placeholder = S('ae.pot.namePh'); nameIn.value = pc.name || '';
+  nameIn.onchange = function(){ send('aeSetPotionName', { pi: pc.index, value: this.value.trim() }); };
+  right.appendChild(field(S('ae.pot.name'), nameIn));
+
+  var effIn = document.createElement('input'); effIn.type = 'text';
+  effIn.placeholder = S('ae.pot.effectPh'); effIn.value = pc.effect || '';
+  effIn.onchange = function(){ send('aeSetPotionEffect', { pi: pc.index, value: this.value.trim() }); };
+  right.appendChild(field(S('ae.pot.effect'), effIn));
+
+  var dur = ae.timelineMax || 0;
+  var tkIn = tickInput(pc.tick, dur);
+  tkIn.onchange = function(){ var v = parseInt(this.value) || 0; if(dur && v > dur) v = dur; this.value = v; send('aeSetPotionTick', { pi: pc.index, value: v }); };
+  right.appendChild(field(S('ae.f.tick'), tkIn));
+
+  var duIn = numInput(pc.duration, 1, null);
+  duIn.onchange = function(){ send('aeSetPotionDuration', { pi: pc.index, value: parseInt(this.value) || 1 }); };
+  right.appendChild(field(S('ae.f.duration'), duIn));
+
+  right.appendChild(toggleInline(S('ae.f.enabled'), pc.enabled, function(v){ send('aeTogglePotionEnabled', { pi: pc.index, value: v }); }));
+
+  var del = document.createElement('button'); del.className = 'btn'; del.textContent = S('ae.f.deletePotion'); del.style.marginTop = '6px';
+  del.onclick = function(){ send('aeDeletePotion', { pi: pc.index }); };
+  right.appendChild(del);
+}
+
 function aeRenderChannel(right, ch, ae){
   var h = document.createElement('div'); h.className = 'ae-hint';
-  h.textContent = S('ae.channelHead') + ch.id + '（共 ' + (ch.keyframes ? ch.keyframes.length : 0) + S('ae.frames') + '）';
+  h.textContent = S('ae.channelHead') + ch.id + S('ae.framesPrefix') + (ch.keyframes ? ch.keyframes.length : 0) + S('ae.frames') + S('ae.framesClose');
   right.appendChild(h);
   var row = document.createElement('div'); row.className = 'ae-row';
   row.appendChild(label(S('ae.frame')));
@@ -1689,8 +2807,9 @@ function renderAeTracks(ae, tl){
   tl.appendChild(ruler);
 
   /* ---- Action lane ---- */
+  if (ae.showAction !== false) {
   var al = document.createElement('div'); al.className = 'ae-lane';
-  var ah = document.createElement('div'); ah.className = 'ae-lane-head'; ah.textContent = S('ae.laneAction');
+  var ah = document.createElement('div'); ah.className = 'ae-lane-head'; ah.setAttribute('data-kind','action'); ah.textContent = S('ae.laneAction');
   al.appendChild(ah);
   var ab = document.createElement('div'); ab.className = 'ae-lane-body';
   ab.ondragover = function(e){ if(e.dataTransfer.types.indexOf('text/plain') >= 0) e.preventDefault(); };
@@ -1731,10 +2850,12 @@ function renderAeTracks(ae, tl){
     }
   }
   al.appendChild(ab); tl.appendChild(al);
+  }
 
   /* ---- Material lane ---- */
+  if (ae.showMaterial !== false) {
   var ml = document.createElement('div'); ml.className = 'ae-lane';
-  var mh = document.createElement('div'); mh.className = 'ae-lane-head';
+  var mh = document.createElement('div'); mh.className = 'ae-lane-head'; mh.setAttribute('data-kind','material');
   var mhTxt = document.createElement('span'); mhTxt.textContent = S('ae.laneMaterial'); mh.appendChild(mhTxt);
   var addBtn = document.createElement('button'); addBtn.className = 'kf-add'; addBtn.type = 'button'; addBtn.textContent = S('ae.addMaterial');
   addBtn.onclick = function(e){ e.stopPropagation(); openAeMaterialMenu(e); };
@@ -1755,6 +2876,33 @@ function renderAeTracks(ae, tl){
   };
   (ae.materials || []).forEach(function(mc){ mb.appendChild(aeMaterialBlock(mc, ae, max)); });
   ml.appendChild(mb); tl.appendChild(ml);
+  }
+
+  /* ---- Potion lane (sketch: 药水效果时间轴, 紫) ---- */
+  if (ae.characterType === 'action' && ae.showPotion !== false) {
+  var pl = document.createElement('div'); pl.className = 'ae-lane';
+  var ph = document.createElement('div'); ph.className = 'ae-lane-head'; ph.setAttribute('data-kind','potion');
+  var phTxt = document.createElement('span'); phTxt.textContent = '药水效果'; ph.appendChild(phTxt);
+  var pAdd = document.createElement('button'); pAdd.className = 'kf-add'; pAdd.type = 'button'; pAdd.textContent = S('ae.addMaterial');
+  pAdd.onclick = function(e){ e.stopPropagation(); openAePotionMenu(e); };
+  ph.appendChild(pAdd);
+  pl.appendChild(ph);
+  var pb = document.createElement('div'); pb.className = 'ae-lane-body';
+  pb.ondragover = function(e){ if(e.dataTransfer.types.indexOf('text/plain') >= 0) e.preventDefault(); };
+  pb.ondrop = function(e){
+    e.preventDefault();
+    var raw = e.dataTransfer.getData('text/plain');
+    if(!raw || raw.indexOf('pot:') !== 0) return;
+    var pi = parseInt(raw.substring(4));
+    if(isNaN(pi)) return;
+    var rect = pb.getBoundingClientRect();
+    var tick = Math.max(0, Math.round(((e.clientX - rect.left) / Math.max(1, rect.width)) * max));
+    send('aeSetPotionTick', { pi: pi, value: tick });
+    toast(S('toast.setStartMaterial') + pi + S('toast.atTick') + tick);
+  };
+  (ae.potions || []).forEach(function(pc){ pb.appendChild(aePotionBlock(pc, ae, max)); });
+  pl.appendChild(pb); tl.appendChild(pl);
+  }
 }
 
 function aeActionBlock(a, ae, max){
@@ -1789,7 +2937,45 @@ function aeMaterialBlock(mc, ae, max){
   return blk;
 }
 
-function startMatResize(e, blk, mc, max){
+function aePotionBlock(pc, ae, max){
+  var blk = document.createElement('div');
+  blk.className = 'ae-mat potion' + (pc.index === ae.selectedPotion ? ' sel' : '');
+  blk.style.left = ((pc.tick / max) * 100) + '%';
+  blk.style.width = (Math.max(3, (pc.duration / max) * 100)) + '%';
+  blk.style.opacity = pc.enabled ? '1' : '0.45';
+  var label = (pc.name || '药水') + '：' + (pc.effect || '');
+  blk.title = label + '  [' + pc.tick + '→' + (pc.tick + pc.duration) + ']' + (pc.enabled ? '' : S('ae.disabled'));
+  blk.textContent = label;
+  blk.onclick = function(e){ e.stopPropagation(); send('aeSelectPotion', { pi: pc.index }); };
+  blk.draggable = true;
+  blk.addEventListener('dragstart', function(e){ e.dataTransfer.setData('text/plain', 'pot:' + pc.index); e.dataTransfer.effectAllowed = 'move'; });
+  var len = document.createElement('div'); len.className = 'len';
+  len.onmousedown = function(e){ e.stopPropagation(); startMatResize(e, blk, pc, max, 'pot'); };
+  blk.appendChild(len);
+  return blk;
+}
+
+function openAePotionMenu(e){
+  var items = [
+    [S('ae.pot.speed'), 'minecraft:speed', S('ae.pot.speed')],
+    [S('ae.pot.jump'), 'minecraft:jump_boost', S('ae.pot.jump')],
+    [S('ae.pot.strength'), 'minecraft:strength', S('ae.pot.strength')],
+    [S('ae.pot.invis'), 'minecraft:invisibility', S('ae.pot.invis')],
+    [S('ae.pot.fire'), 'minecraft:fire_resistance', S('ae.pot.fire')]
+  ];
+  var popup = document.createElement('div'); popup.className = 'context-menu'; popup.style.display = 'block';
+  var x = (e && e.clientX) ? e.clientX : 330, y = (e && e.clientY) ? e.clientY : 120;
+  popup.style.left = x + 'px'; popup.style.top = y + 'px';
+  items.forEach(function(p){
+    var it = document.createElement('div'); it.className = 'ctx-main-item'; it.textContent = p[0];
+    it.onclick = function(ev){ ev.stopPropagation(); popup.remove(); send('aeAddPotion', { effect: p[1], name: p[0] }); };
+    popup.appendChild(it);
+  });
+  document.body.appendChild(popup);
+  setTimeout(function(){ document.addEventListener('click', function h(){ if(document.body.contains(popup)) popup.remove(); document.removeEventListener('click', h); }); }, 0);
+}
+
+function startMatResize(e, blk, mc, max, kind){
   e.preventDefault();
   blk.draggable = false;
   var mb = blk.parentElement;
@@ -1807,7 +2993,8 @@ function startMatResize(e, blk, mc, max){
     document.removeEventListener('mousemove', mv);
     document.removeEventListener('mouseup', up);
     blk.draggable = true;
-    send('aeSetMaterialDuration', { mi: mc.index, value: nd });
+    if (kind === 'pot') send('aeSetPotionDuration', { pi: mc.index, value: nd });
+    else send('aeSetMaterialDuration', { mi: mc.index, value: nd });
   }
   document.addEventListener('mousemove', mv);
   document.addEventListener('mouseup', up);
@@ -1872,19 +3059,19 @@ function renderAssetDetail(s){
   nm.onchange = function(){ send('aeSetCharName', { value: this.value }); };
   info.appendChild(nm);
   var type = document.createElement('div'); type.className = 'ad-type';
-  type.textContent = (fc.characterType === 'playback' ? '回放角色' : (fc.characterType === 'action' ? '动作角色' : '关键帧角色'));
+  type.textContent = (fc.characterType === 'playback' ? S('ctx.playbackChar') : (fc.characterType === 'action' ? S('ctx.actionChar') : S('ctx.keyframeChar')));
   info.appendChild(type);
   head.appendChild(info);
-  var close = document.createElement('div'); close.className = 'ad-close'; close.textContent = '×'; close.title = '关闭详情';
+  var close = document.createElement('div'); close.className = 'ad-close'; close.textContent = '×'; close.title = S('ae.closeDetail');
   close.onclick = function(){ send('focusCharacter', { id: '' }); };
   head.appendChild(close);
   box.appendChild(head);
 
   var tog = document.createElement('div'); tog.className = 'ad-toggles';
-  tog.appendChild(adToggle('启用', fc.enabled, function(){ send('aeToggleCharEnabled'); }));
-  tog.appendChild(adToggle('蒙版', fc.masked, function(){ send('setCharacterMasked', { index: fc.index, masked: !fc.masked }); }));
-  tog.appendChild(adToggle('第一人称', fc.fp, function(){ send('aeToggleCharFp'); }));
-  tog.appendChild(adToggle('阴影', fc.shadow, function(){ send('aeToggleCharShadow'); }));
+  tog.appendChild(adToggle(S('ae.f.enabled'), fc.enabled, function(){ send('aeToggleCharEnabled'); }));
+  tog.appendChild(adToggle(S('ae.mask'), fc.masked, function(){ send('setCharacterMasked', { index: fc.index, masked: !fc.masked }); }));
+  tog.appendChild(adToggle(S('ae.firstPerson'), fc.fp, function(){ send('aeToggleCharFp'); }));
+  tog.appendChild(adToggle(S('ae.shadow'), fc.shadow, function(){ send('aeToggleCharShadow'); }));
   box.appendChild(tog);
 
   /* 图层属性：混合模式 / 不透明度 / AE 式 Track Matte（蒙版源轨道 + 模式）。
@@ -1892,33 +3079,33 @@ function renderAssetDetail(s){
   if (fc.props)
   {
     var pa = document.createElement('div'); pa.className = 'ad-props';
-    pa.style.marginTop = '10px'; pa.style.borderTop = '1px solid #3a3a40'; pa.style.paddingTop = '8px';
+    pa.style.marginTop = '10px'; pa.style.borderTop = '1px solid var(--c-border)'; pa.style.paddingTop = '8px';
 
-    pa.appendChild(adLabel('图层混合模式 (Blend Mode)'));
+    pa.appendChild(adLabel(S('ae.blendMode')));
     /* F4: every track property is keyed by the stable replay id (fc.id), never
      * by list position. Backend setTrackProp resolves the id to the live replay. */
     pa.appendChild(adSelect(BLEND_MODES, fc.props.blendMode, function(v){ send('setTrackProp', { replayId: fc.id, prop: 'blendMode', value: v }); }));
 
     var opWrap = document.createElement('div');
-    var opLab = adLabel('不透明度 ' + Math.round((fc.props.opacity || 1) * 100) + '%');
+    var opLab = adLabel(S('ae.opacity') + ' ' + Math.round((fc.props.opacity || 1) * 100) + '%');
     var op = document.createElement('input'); op.type = 'range'; op.min = 0; op.max = 100; op.value = Math.round((fc.props.opacity || 1) * 100); op.style.cssText = 'width:100%;';
-    op.oninput = function(){ opLab.textContent = '不透明度 ' + this.value + '%'; };
+    op.oninput = function(){ opLab.textContent = S('ae.opacity') + ' ' + this.value + '%'; };
     op.onchange = function(){ send('setTrackProp', { replayId: fc.id, prop: 'opacity', value: String(this.value / 100) }); };
     opWrap.appendChild(opLab); opWrap.appendChild(op);
     pa.appendChild(opWrap);
 
-    pa.appendChild(adLabel('蒙版源轨道 (Track Matte)'));
+    pa.appendChild(adLabel(S('ae.matteSource')));
     /* F4.1/S14: matte source lists other tracks only, never self; values are stable replay ids. */
     var mopts = [{ v: '', t: '(无)' }].concat((s.tracks || []).filter(function(t){ return t.kind === 'replay' && t.id !== fc.id; }).map(function(t){ return { v: t.id, t: (t.label || ('轨道 ' + t.id)) }; }));
     pa.appendChild(adSelect(mopts, fc.props.matteSource, function(v){ send('setTrackProp', { replayId: fc.id, prop: 'matteSource', value: v }); }));
 
-    pa.appendChild(adLabel('蒙版模式 (Matte Mode)'));
+    pa.appendChild(adLabel(S('ae.matteMode')));
     pa.appendChild(adSelect(MATTE_MODES, fc.props.matteMode, function(v){ send('setTrackProp', { replayId: fc.id, prop: 'matteMode', value: v }); }));
 
     box.appendChild(pa);
   }
 
-  var big = document.createElement('button'); big.className = 'kf-add'; big.style.marginTop = '8px'; big.textContent = '在大窗中编辑（上方面板）';
+  var big = document.createElement('button'); big.className = 'kf-add'; big.style.marginTop = '8px'; big.textContent = S('ae.editBig');
   big.onclick = function(){ send('openActionEditor', { index: fc.index }); };
   box.appendChild(big);
 }
@@ -1947,9 +3134,9 @@ function adToggle(labelText, checked, onchange){
 }
 var BLEND_MODES = ['normal','multiply','screen','overlay','darken','lighten','color_dodge','color_burn','hard_light','soft_light','difference','exclusion'].map(function(m){ return { v: m, t: m }; });
 var MATTE_MODES = ['alpha','alphaInv','luma','lumaInv'].map(function(m){ return { v: m, t: m }; });
-function adLabel(t){ var d = document.createElement('div'); d.className = 'ad-label'; d.textContent = t; d.style.margin = '8px 0 3px'; d.style.color = '#9aa'; d.style.fontSize = '11px'; return d; }
+function adLabel(t){ var d = document.createElement('div'); d.className = 'ad-label'; d.textContent = t; d.style.margin = '8px 0 3px'; d.style.color = 'var(--c-text-3)'; d.style.fontSize = '11px'; return d; }
 function adSelect(options, current, onchange){
-  var s = document.createElement('select'); s.style.cssText = 'width:100%;background:#2c2c30;color:#ddd;border:1px solid #444;border-radius:3px;padding:3px;font-size:12px;';
+  var s = document.createElement('select'); s.style.cssText = 'width:100%;background:var(--c-bg-app);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:3px;font-size:12px;';
   options.forEach(function(o){ var op = document.createElement('option'); op.value = o.v; op.textContent = o.t; if (o.v === current) op.selected = true; s.appendChild(op); });
   s.onchange = function(){ onchange(this.value); };
   return s;
@@ -1971,7 +3158,7 @@ function renderSeqToolbar(s){
 /* 二次确认弹窗 */
 var confirmCb = null;
 function confirmDialog(title, msg, onYes, html){
-  document.getElementById('confirmTitle').textContent = title || '确认';
+  document.getElementById('confirmTitle').textContent = title || S('dlg.confirm');
   var el = document.getElementById('confirmMsg');
   if(html){ el.innerHTML = msg || ''; } else { el.textContent = msg || ''; }
   confirmCb = onYes;
@@ -2078,7 +3265,7 @@ document.addEventListener('contextmenu', hideMenus, true);
       if(a === 'createCameraGroup' && window.pendingGroupIds) p.ids = window.pendingGroupIds;
       if(a === 'deleteReplay' && itemTarget){
         var dn = itemTarget.label || p.replayId || '';
-        confirmDialog('删除角色', '确定删除角色「' + dn + '」？将同时移除其轨道与关联引用，且不可撤销（可撤销上一步）。', function(){ send('deleteReplay', p); renderAll(); });
+        confirmDialog(S('dlg.deleteChar'), S('dlg.deleteCharMsg1') + dn + S('dlg.deleteCharConfirm2'), function(){ send('deleteReplay', p); renderAll(); });
         hideMenus(); return;
       }
       send(a, p); hideMenus(); renderAll();
@@ -2090,14 +3277,14 @@ document.addEventListener('contextmenu', hideMenus, true);
 btnSave.onclick = function(){ send('save'); };
 btnClose.onclick = tryCloseEditor;
 document.getElementById('enterPreviewBtn').onclick = function(){
-  window._sceneWorldEntering = true;
-  send('enterPreviewWorld', {});
+  window.bbsSetWorldLoading(true);
+  send('enterSceneWorld', {});
 };
 document.getElementById('exitPreviewBtn').onclick = function(){
   /* 退出前清掉“正在加载预览世界”标记，避免遮罩误显示；复用既有 Java 退出通道 */
-  window._sceneWorldEntering = false;
+  window.bbsSetWorldLoading(false);
   send('exitPreviewWorld', {});
-  toast('已退出预览世界');
+  toast(S('toast.exitedPreview'));
 };
 btnPlay.onclick = function(){ send('togglePlay'); };
 btnToStart.onclick = function(){ send('setCursor', { tick:0 }); };
@@ -2111,7 +3298,7 @@ document.getElementById('aeClose').onclick = function(){ send('aeClose'); };
 document.getElementById('eqClose').onclick = function(){ send('equipClose'); };
 document.getElementById('equipModal').addEventListener('click', function(e){ if(e.target === this) send('equipClose'); });
 document.getElementById('aeTypeSeg').querySelectorAll('button').forEach(function(b){ b.onclick = function(){ send('aeSetCharType', { type: b.dataset.t }); }; });
-document.getElementById('upBtn').onclick = function(){ send('updateNow'); toast('已开始更新（MC 关闭后自动替换）'); };
+document.getElementById('upBtn').onclick = function(){ send('updateNow'); toast(S('up.started')); };
 document.getElementById('upX').onclick = function(){ send('dismissUpdate'); document.getElementById('upToast').classList.remove('show'); };
 /* ----- 重命名模态：替代被 MCEF 全屏遮挡的 Swing 文本输入 ----- */
 document.getElementById('renameOk').onclick = function(){
@@ -2158,7 +3345,7 @@ document.getElementById('clipCircle').onclick = function(){ setClipShape('circle
 /* ----- B2: 序列工具栏 ----- */
 document.getElementById('tlNewSeq').onclick = function(){ openCreateModal('newSequence'); };
 document.getElementById('tlRenameSeq').onclick = function(){ var s = window.bbsState || {}; if(!s.activeSequence) return; send('renameSequence', { id: s.activeSequence }); };
-  tlDelSeq.onclick = function(){ var s = window.bbsState || {}; if(!s.activeSequence) return; confirmDialog('删除序列', '确定删除序列「' + seqNameById(s, s.activeSequence) + '」？此操作不可撤销。', function(){ send('deleteSequence', { id: s.activeSequence }); }); };
+  tlDelSeq.onclick = function(){ var s = window.bbsState || {}; if(!s.activeSequence) return; confirmDialog(S('dlg.deleteSeq'), S('dlg.deleteSeqMsg1') + seqNameById(s, s.activeSequence) + S('dlg.deleteSeqMsg2'), function(){ send('deleteSequence', { id: s.activeSequence }); }); };
   var kfL = document.getElementById('tlKfAllL'); if(kfL) kfL.onclick = function(){ send('shiftAllKeyframes', { tick: -1 }); };
   var kfR = document.getElementById('tlKfAllR'); if(kfR) kfR.onclick = function(){ send('shiftAllKeyframes', { tick: 1 }); };
   var kfA = document.getElementById('tlKfAllApply'); if(kfA) kfA.onclick = function(){ var n = parseInt(document.getElementById('tlKfAllN').value) || 0; if(n) send('shiftAllKeyframes', { tick: n }); };
@@ -2176,6 +3363,15 @@ assetList.addEventListener('click', function(e){ var it = e.target.closest('.ass
 
 /* Phase H: 拖到右侧画布放下 → 加入当前场景 */
 var dropView = document.getElementById('mainViewport');
+document.getElementById('mainViewport').addEventListener('mousedown', function(e){
+  var s = window.bbsState || {};
+  if(!(s.leash && s.leash.tool)) return;
+  if(!e.ctrlKey && !e.metaKey) return;
+  if(e.button !== 0) return;
+  e.preventDefault(); e.stopPropagation();
+  var which = (s.leash.anchors && s.leash.anchors.a && s.leash.anchors.a.valid) ? 'b' : 'a';
+  send('leashPickAnchor', { which: which, sx: e.clientX, sy: e.clientY });
+});
 ['dragover', 'drop'].forEach(function(ev){ dropView.addEventListener(ev, function(e){ e.preventDefault(); }); });
 dropView.addEventListener('dragenter', function(){ dropView.classList.add('drag-over'); });
 dropView.addEventListener('dragleave', function(){ dropView.classList.remove('drag-over'); });
@@ -2188,7 +3384,7 @@ dropView.addEventListener('drop', function(e){
   var type = raw.substring(0, i), id = raw.substring(i + 1);
   if(type === 'character'){ selectedChar = parseInt(id); }
   send('addToCurrent', { type: type, id: id });
-  toast('已放入当前场景：' + type + ' #' + id);
+  toast(S('toast.addedScene') + type + ' #' + id);
 });
 
 /* 时间轴轨道：统一通过自定义拖拽(customDrag)落点，移除原生 drop 监听避免双触发 */
@@ -2207,26 +3403,232 @@ function resolveTargetTrack(y){
   }
   return best;
 }
+/* ④ 没轨道就新建 / ⑥ 有闲置(空)轨优先复用：返回应放置的目标 replay 轨 id
+   - 没有任何 replay 轨 → ''（Java 端会新建）
+   - 存在空(无 clips)的 replay 轨 → 其 id（复用闲置轨，不新建）
+   - 否则落点恰是 replay 轨 → 落点；否则用第一条 replay 轨兜底 */
+/* ④ 没轨道就新建 / ⑥ 有闲置(空)轨优先复用：返回应放置的目标 replay 轨 id
+   - 已放置(本角色已有 replay 轨) → 返回自身 id（在原轨重排）
+   - 存在空(无 clips)且非自身的 replay 轨 → 其 id（复用闲置轨，不新建）
+   - 其余（无轨 / 全部占用）→ ''（Java 端会新建） */
+function pickReplayTarget(s, id){
+  var reps = (s.tracks||[]).filter(function(t){ return t.kind==='replay'; });
+  var placed = reps.some(function(t){ return t.id === id; });
+  if(placed) return id;
+  var idle = reps.filter(function(t){ return t.id !== id && (t.clips||[]).length === 0; });
+  if(idle.length) return idle[0].id;
+  return '';
+}
+
 function clearDropHighlights(){
   var rows = tracksEl.querySelectorAll('.track-row');
-  for(var k = 0; k < rows.length; k++){ rows[k].classList.remove('drop-target', 'drop-target-invalid'); }
+  for(var k = 0; k < rows.length; k++){ rows[k].classList.remove('drop-target', 'drop-target-invalid', 'drop-target-camera'); }
+  tracksEl.classList.remove('drop-target-create');
+}
+
+/* A: live "preview track" shown while dragging an asset over the timeline, so the
+   user sees exactly where a new track will be created before dropping. */
+var previewTrackEl = null;
+function labelForType(t){
+  if(t === 'camera') return S('bin.camera');
+  if(t === 'particle') return S('bin.particle');
+  if(t === 'item') return S('bin.item');
+  if(t === 'entity') return S('bin.entity');
+  return S('bin.character');
+}
+function showTrackPreview(type, y){
+  if(!previewTrackEl){
+    previewTrackEl = document.createElement('div');
+    previewTrackEl.className = 'track-row track-preview';
+    var lab = document.createElement('span'); lab.className = 'track-label';
+    previewTrackEl.appendChild(lab);
+  }
+  var lab = previewTrackEl.querySelector('.track-label');
+  lab.textContent = S('track.previewPrefix') + labelForType(type);
+  var rows = Array.prototype.slice.call(tracksEl.querySelectorAll('.track-row:not(.track-preview)'));
+  var before = null;
+  for(var i = 0; i < rows.length; i++){
+    var r = rows[i].getBoundingClientRect();
+    if(y < r.top + r.height / 2){ before = rows[i]; break; }
+  }
+  if(before) tracksEl.insertBefore(previewTrackEl, before);
+  else tracksEl.appendChild(previewTrackEl);
+}
+function hideTrackPreview(){ if(previewTrackEl && previewTrackEl.parentNode){ previewTrackEl.parentNode.removeChild(previewTrackEl); } }
+
+/* B: drag a clip block to move it, or drag its edges to resize duration. */
+var clipDrag = null;
+function clipPxPerTick(){ var s = window.bbsState || {}; return pxPerTickOf(s.duration || 0, tracks.clientWidth); }
+function startClipDrag(e, cl, blk, mode){
+  if(e.button !== 0) return;
+  e.stopPropagation(); e.preventDefault();
+  clipDrag = { mode: mode, cl: cl, blk: blk, sx: e.clientX, sy: e.clientY, origTick: cl.tick, origDur: cl.duration, moved: false,
+    rowKind: (blk.parentNode && blk.parentNode.dataset && blk.parentNode.dataset.kind) ? blk.parentNode.dataset.kind : 'replay' };
+  document.addEventListener('mousemove', clipDragMove);
+  document.addEventListener('mouseup', clipDragUp);
+}
+function clipDragMove(e){
+  if(!clipDrag) return;
+  var px = clipPxPerTick();
+  var dt = Math.round((e.clientX - clipDrag.sx) / px);
+  if(Math.abs(e.clientX - clipDrag.sx) > 3) clipDrag.moved = true;
+  var c = clipDrag.cl;
+  if(clipDrag.mode === 'move'){
+    c.tick = Math.max(0, clipDrag.origTick + dt);
+  } else if(clipDrag.mode === 'resize-r'){
+    c.duration = Math.max(1, clipDrag.origDur + dt);
+  } else if(clipDrag.mode === 'resize-l'){
+    var nd = Math.max(1, clipDrag.origDur - dt);
+    c.tick = Math.max(0, clipDrag.origTick + (clipDrag.origDur - nd));
+    c.duration = nd;
+  }
+  var b = clipDrag.blk;
+  b.style.left = (120 + c.tick * px) + 'px';
+  b.style.width = Math.max(20, c.duration * px) + 'px';
+  /* B2: a moving clip shows the same lane preview the asset box shows, so the
+     drop row is visible on every drag path that can reorder the timeline.
+     Resizing never changes lanes, so it must not draw a drop row. */
+  if(clipDrag.mode === 'move'){
+    if(withinRect(tracksEl, e.clientX, e.clientY)) showTrackPreview(clipDrag.rowKind, e.clientY);
+    else hideTrackPreview();
+  }
+}
+function clipDragUp(){
+  document.removeEventListener('mousemove', clipDragMove);
+  document.removeEventListener('mouseup', clipDragUp);
+  hideTrackPreview();
+  if(clipDrag && clipDrag.moved){
+    var c = clipDrag.cl;
+    if(clipDrag.mode === 'move') send('moveClip', { id: c.id, tick: c.tick });
+    else send('resizeClip', { id: c.id, tick: c.tick, duration: c.duration });
+  }
+  clipDrag = null;
+}
+
+/* v3: drag / resize a leash clip on the timeline. Move shifts the whole window;
+   resize-l / resize-r change only the start / end tick. On release the new window
+   is persisted via leashSetWindow. */
+var leashDrag = null;
+function startLeashClipDrag(e, replayId, blk, mode){
+  if(e.button !== 0) return;
+  e.stopPropagation(); e.preventDefault();
+  leashDrag = { mode: mode, replayId: replayId, blk: blk, sx: e.clientX,
+    start: blk._ls, end: blk._le, curStart: blk._ls, curEnd: blk._le, moved: false };
+  document.addEventListener('mousemove', leashDragMove);
+  document.addEventListener('mouseup', leashDragUp);
+}
+function leashDragMove(e){
+  if(!leashDrag) return;
+  var px = clipPxPerTick();
+  var dt = Math.round((e.clientX - leashDrag.sx) / px);
+  if(Math.abs(e.clientX - leashDrag.sx) > 3) leashDrag.moved = true;
+  var s = leashDrag.start, en = leashDrag.end;
+  if(leashDrag.mode === 'move'){ s = leashDrag.start + dt; en = leashDrag.end + dt; }
+  else if(leashDrag.mode === 'resize-l'){ s = Math.min(leashDrag.start + dt, leashDrag.end - 1); }
+  else if(leashDrag.mode === 'resize-r'){ en = Math.max(leashDrag.end + dt, leashDrag.start + 1); }
+  s = Math.max(0, s); en = Math.max(0, en);
+  leashDrag.curStart = s; leashDrag.curEnd = en;
+  leashDrag.blk._ls = s; leashDrag.blk._le = en;
+  leashDrag.blk.style.left = (120 + s * px) + 'px';
+  leashDrag.blk.style.width = Math.max(20, (en - s) * px) + 'px';
+}
+function leashDragUp(){
+  document.removeEventListener('mousemove', leashDragMove);
+  document.removeEventListener('mouseup', leashDragUp);
+  if(leashDrag && leashDrag.moved){
+    send('leashSetWindow', { replayId: leashDrag.replayId, startTick: leashDrag.curStart, endTick: leashDrag.curEnd });
+  }
+  leashDrag = null;
+}
+
+/* Render existing leash clips onto their replay lanes. Only windowed links
+   (startTick/endTick >= 0) appear on the timeline; always-active links are shown
+   only in the leash panel. */
+function renderLeashClips(s){
+  var leash = s.leash;
+  if(!leash || !leash.links || !leash.links.length) return;
+  var dur = Math.max(s.duration || 0, 1);
+  var px = pxPerTickOf(dur, tracks.clientWidth);
+  leash.links.forEach(function(link){
+    if(link.startTick < 0 || link.endTick < 0) return;
+    var row = tracks.querySelector('.track-row[data-replay-id="' + cssEscape(link.leashedReplayId) + '"]');
+    if(!row) return;
+    var s0 = Math.min(link.startTick, link.endTick);
+    var e0 = Math.max(link.startTick, link.endTick);
+    var rows = tracks.querySelectorAll('.track-row');
+    var row = null;
+    for(var ri = 0; ri < rows.length; ri++){
+      if(rows[ri].dataset && rows[ri].dataset.replayId === link.leashedReplayId){ row = rows[ri]; break; }
+    }
+    if(!row) return;
+    var blk = document.createElement('div');
+    blk.className = 'clip-block leash-clip';
+    blk._ls = s0; blk._le = e0;
+    blk.style.left = (120 + s0 * px) + 'px';
+    blk.style.width = Math.max(20, (e0 - s0) * px) + 'px';
+    blk.textContent = '🔗';
+    blk.title = '拴绳片段';
+    blk.addEventListener('mousedown', function(e){ if(e.button !== 0) return; startLeashClipDrag(e, link.leashedReplayId, blk, 'move'); });
+    var _hl = document.createElement('div'); _hl.className = 'clip-handle clip-handle-l';
+    _hl.addEventListener('mousedown', function(e){ if(e.button !== 0) return; startLeashClipDrag(e, link.leashedReplayId, blk, 'resize-l'); });
+    var _hr = document.createElement('div'); _hr.className = 'clip-handle clip-handle-r';
+    _hr.addEventListener('mousedown', function(e){ if(e.button !== 0) return; startLeashClipDrag(e, link.leashedReplayId, blk, 'resize-r'); });
+    blk.appendChild(_hl); blk.appendChild(_hr);
+    blk.oncontextmenu = function(e){
+      e.preventDefault(); e.stopPropagation();
+      send('leashUnbind', { replayId: link.leashedReplayId });
+    };
+    row.appendChild(blk);
+  });
 }
 function updateDropHighlight(e){
   clearDropHighlights();
   if(!customDrag) return;
-  if(customDrag.type !== 'camera' && customDrag.type !== 'group' && customDrag.type !== 'character' && customDrag.type !== 'entity' && customDrag.type !== 'particle' && customDrag.type !== 'item' && customDrag.type !== 'replay') return;
-  if(!withinRect(tracksEl, e.clientX, e.clientY)) return;
+  var type = customDrag.type;
+  var placeable = (type === 'camera' || type === 'group' || type === 'character' || type === 'entity' || type === 'particle' || type === 'item' || type === 'replay');
+  if(!placeable) return;
+  if(!withinRect(tracksEl, e.clientX, e.clientY)){ hideTrackPreview(); return; }
+  showTrackPreview(type, e.clientY);
   var tgt = resolveTargetTrack(e.clientY);
   if(!tgt) return;
-  var ok = (customDrag.type === 'camera' && tgt.kind === 'camera') || (customDrag.type === 'group' && tgt.kind === 'replay') || (customDrag.type === 'character' && tgt.kind === 'replay') || (customDrag.type === 'entity' && tgt.kind === 'replay') || (customDrag.type === 'particle' && tgt.kind === 'replay') || (customDrag.type === 'item' && tgt.kind === 'replay') || (customDrag.type === 'replay' && tgt.kind === 'replay');
-  tgt.el.classList.add(ok ? 'drop-target' : 'drop-target-invalid');
+  /* ⑤ 相机拖到相机轨：专属闪烁/阴显高亮 */
+  if(type === 'camera'){
+    if(tgt.kind === 'camera') tgt.el.classList.add('drop-target-camera');
+    else tgt.el.classList.add('drop-target-invalid');
+    return;
+  }
+  /* group / replay：仅落在 replay 轨合法 */
+  if(type === 'group' || type === 'replay'){
+    if(tgt.kind === 'replay') tgt.el.classList.add('drop-target');
+    else tgt.el.classList.add('drop-target-invalid');
+    return;
+  }
+  /* character/entity/particle/item：落在时间轴任意处都会 复用闲置轨 / 新建轨，恒为合法
+     ④ 无任何 replay 轨时 → 在 #tracks 上预览"将新建轨道" */
+  var hasRep = (window.bbsState.tracks||[]).some(function(t){ return t.kind==='replay'; });
+  if(!hasRep) tracksEl.classList.add('drop-target-create');
+  else if(tgt.kind === 'replay') tgt.el.classList.add('drop-target');
 }
 
 /* 时间轴：鼠标点击/拖拽定位播放头（CEF 下不用原生 DnD） */
 function tlSeek(e){ var s=window.bbsState||{}; var dur=s.duration||0; var w=tracks.clientWidth; var px=pxPerTickOf(dur,w); var x=e.clientX-tracks.getBoundingClientRect().left; var tick=Math.max(0,Math.round((x-120)/px)); send('setCursor',{tick:tick}); }
 var tlSeeking=false;
 ruler.addEventListener('mousedown', function(e){ tlSeeking=true; tlSeek(e); e.preventDefault(); });
-tracks.addEventListener('mousedown', function(e){ if(e.target&&e.target.classList.contains('clip-block')) return; tlSeeking=true; tlSeek(e); e.preventDefault(); });
+tracks.addEventListener('mousedown', function(e){
+  /* v3: while picking the leashed target, a click on a replay lane selects it */
+  var st = window.bbsState || {};
+  if(st.leash && st.leash.tool && st.leash.mode === 'pickTarget'){
+    var row = e.target;
+    while(row && row !== tracks && !(row.classList && row.classList.contains('track-row'))) row = row.parentNode;
+    if(row && row.dataset && row.dataset.replayId){
+      e.preventDefault(); e.stopPropagation();
+      send('leashPickTarget', { replayId: row.dataset.replayId });
+      return;
+    }
+  }
+  if(e.target&&e.target.classList.contains('clip-block')) return;
+  tlSeeking=true; tlSeek(e); e.preventDefault();
+});
 document.addEventListener('mousemove', function(e){ if(tlSeeking) tlSeek(e); });
 document.addEventListener('mouseup', function(){ tlSeeking=false; });
 
@@ -2236,7 +3638,7 @@ function withinRect(el,x,y){ if(!el) return false; var r=el.getBoundingClientRec
 function moveGhost(e){ if(customDrag&&customDrag.ghost){ customDrag.ghost.style.left=(e.clientX+10)+'px'; customDrag.ghost.style.top=(e.clientY+10)+'px'; if(Math.abs(e.clientX-customDrag.sx)+Math.abs(e.clientY-customDrag.sy)>4) customDrag.moved=true; } var vp=document.getElementById('mainViewport'); if(vp) vp.classList.toggle('drag-over', withinRect(vp,e.clientX,e.clientY)); updateDropHighlight(e); }
 function startCustomDrag(e,type,id){ if(e.button!==0) return; customDrag={type:type,id:id,sx:e.clientX,sy:e.clientY,moved:false}; var g=document.createElement('div'); g.textContent=type+' #'+id; g.style.cssText='position:fixed;pointer-events:none;z-index:99999;background:#2367ac;color:#fff;padding:4px 8px;border-radius:3px;font-size:12px;'; document.body.appendChild(g); customDrag.ghost=g; moveGhost(e); e.preventDefault(); }
 document.addEventListener('mousemove', function(e){ if(customDrag){ moveGhost(e); } });
-document.addEventListener('mouseup', function(e){ if(!customDrag) return; var type=customDrag.type, id=customDrag.id, moved=customDrag.moved; if(customDrag.ghost) customDrag.ghost.remove(); var vp=document.getElementById('mainViewport'); if(vp) vp.classList.remove('drag-over'); customDrag=null; clearDropHighlights(); if(!moved) return; /* 纯点击：交给素材项自身 onclick，避免误报 */ var s=window.bbsState||{}; var tr=document.getElementById('tracks'); if(withinRect(vp,e.clientX,e.clientY)){ if(type==='group'){ toast('动作组只能拖到角色动作轨', true); } else { if(type==='character'){ selectedChar=replayIndexById(id); } send('addToCurrent',{type:type,id:id}); toast('已放入当前场景：'+type+' #'+id); } } else if(withinRect(tr,e.clientX,e.clientY)){ var tgt=resolveTargetTrack(e.clientY); var dur=s.duration||0, w=tr.clientWidth, px=pxPerTickOf(dur,w); var x=e.clientX-tr.getBoundingClientRect().left; var tick=Math.max(0,Math.round((x-120)/px)); if(!isFinite(tick)) tick=0; var tgtId=(tgt?tgt.replayId:''); if(type==='audio'){ toast('音轨暂未启用', true); } else if(type==='camera'){ if(!tgt||tgt.kind!=='camera'){ toast('相机只能放到「相机」轨', true); } else { send('dropCamera',{id:id,tick:tick}); toast('已放入时间轴：相机 #'+id+' @ tick '+tick); } } else if(type==='group'){ if(!tgt||tgt.kind!=='replay'){ toast('动作组只能放到角色动作轨', true); } else { send('addActionGroup',{id:id, replayId:tgtId, tick:tick}); toast('已加入时间轴：动作组 #'+id); } } else if(type==='character'||type==='entity'||type==='particle'||type==='item'){ if(!tgt||tgt.kind!=='replay'){ toast('角色只能放到角色轨', true); } else { var placed=(s.tracks||[]).some(function(t){ return t.kind==='replay' && t.id===id; }); if(placed){ send('dropActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } else { send('placeActor',{replayId:id, targetReplayId:tgtId, tick:tick}); } toast('已放入/重排时间轴：'+type+' #'+id); } } else if(type==='replay'){ if(!tgt||tgt.kind!=='replay'){ toast('轨道只能重排到角色轨', true); } else { send('reorderTrack', { replayId:id, targetReplayId:tgtId }); toast('已重排轨道：'+type+' #'+id); } } else { toast('无效：只有相机/动作组能拖到时间轴', true); } } else { toast('无效位置：请拖到右侧画布或下方时间轴', true); } });
+document.addEventListener('mouseup', function(e){ if(!customDrag) return; var type=customDrag.type, id=customDrag.id, moved=customDrag.moved; if(customDrag.ghost) customDrag.ghost.remove(); var vp=document.getElementById('mainViewport'); if(vp) vp.classList.remove('drag-over'); customDrag=null; clearDropHighlights(); hideTrackPreview(); if(!moved) return; /* 纯点击：交给素材项自身 onclick，避免误报 */ var s=window.bbsState||{}; var tr=document.getElementById('tracks'); if(withinRect(vp,e.clientX,e.clientY)){ if(type==='group'){ toast(S('toast.dragGroupToAction'), true); } else { if(type==='character'){ selectedChar=replayIndexById(id); } send('addToCurrent',{type:type,id:id}); toast(S('toast.addedScene')+type+' #'+id); } } else if(withinRect(tr,e.clientX,e.clientY)){ var tgt=resolveTargetTrack(e.clientY); var dur=s.duration||0, w=tr.clientWidth, px=pxPerTickOf(dur,w); var x=e.clientX-tr.getBoundingClientRect().left; var tick=Math.max(0,Math.round((x-120)/px)); if(!isFinite(tick)) tick=0; var tgtId=(tgt?tgt.replayId:''); if(type==='audio'){ toast(S('toast.audioNotYet'), true); } else if(type==='camera'){ if(!tgt||tgt.kind!=='camera'){ toast(S('toast.cameraToCameraTrack'), true); } else { send('dropCamera',{id:id,tick:tick}); toast(S('toast.cameraTimeline')+id+' @ tick '+tick); } } else if(type==='group'){ if(!tgt||tgt.kind!=='replay'){ toast(S('toast.dropGroupToAction'), true); } else { send('addActionGroup',{id:id, replayId:tgtId, tick:tick}); toast(S('toast.groupTimeline')+id); } } else if(type==='character'||type==='entity'||type==='particle'||type==='item'){ var repId=pickReplayTarget(s,id); var placed=(s.tracks||[]).some(function(t){ return t.kind==='replay' && t.id===id; }); if(placed){ send('dropActor',{replayId:id, targetReplayId:repId, tick:tick}); } else { send('placeActor',{replayId:id, targetReplayId:repId, tick:tick}); } toast(S('toast.placeReorder')+type+' #'+id); } else if(type==='replay'){ if(!tgt||tgt.kind!=='replay'){ toast(S('toast.trackToCharTrack'), true); } else { send('reorderTrack', { replayId:id, targetReplayId:tgtId }); toast(S('toast.reorderTrack')+type+' #'+id); } } else { toast(S('toast.invalidDragType'), true); } } else { toast(S('toast.invalidPosition'), true); } });
 
 /* 空格键播放/暂停 */
 document.addEventListener('keydown', function(e){
@@ -2270,26 +3672,33 @@ setInterval(function(){
   } else if (mode === 'none' && e) {
     e.style.display = 'none';
   }
-  drawMask();
+  drawOverlay();
 }, 100);
 
-/* 图层蒙版（简化）：蒙版图层的屏幕矩形区域挖空，显示为"空"（棋盘格） */
-function drawMask(){
+/* 预览叠加层：蒙版（棋盘格挖空）+ 拴绳辅助线。可见性改为 masked || leash 有内容，
+   内部各自绘制；已建成的拴绳由 MC 原版渲染，这里只在未建成时画锚点圆点 / A→B 预览虚线。 */
+function drawOverlay(){
   var s = window.bbsState;
   var cv = document.getElementById('vpMask');
   if(!cv) return;
   var p3 = s && s.preview3d;
-  if(!p3 || !p3.actors || !p3.actors.some(function(a){ return a.masked; })){
+  var leash = s && s.leash;
+  var hasMask = !!(p3 && p3.actors && p3.actors.some(function(a){ return a.masked; }));
+  var hasLeash = !!(leash && (leash.tool
+    || (leash.anchors && ((leash.anchors.a && leash.anchors.a.valid) || (leash.anchors.b && leash.anchors.b.valid)))
+    || (leash.links && leash.links.length)));
+  if(!hasMask && !hasLeash){
     cv.style.display = 'none';
     return;
   }
-  var pose = p3.pose || {x:0,y:60,z:0,yaw:0,pitch:-35};
+  var pose = (p3 && p3.pose) || {x:0,y:60,z:0,yaw:0,pitch:-35};
   var W = cv.clientWidth, H = cv.clientHeight;
   if(!W || !H) return;
   var dpr = window.devicePixelRatio || 1;
   cv.width = Math.floor(W*dpr); cv.height = Math.floor(H*dpr);
   var g = cv.getContext('2d');
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  cv.style.pointerEvents = 'none';
   var yaw = pose.yaw*Math.PI/180, pitch = pose.pitch*Math.PI/180;
   var fx = Math.cos(pitch)*Math.cos(yaw), fy = Math.sin(pitch), fz = Math.cos(pitch)*Math.sin(yaw);
   var eye = [pose.x, pose.y, pose.z];
@@ -2304,31 +3713,71 @@ function drawMask(){
     var z = dot(d,[fx,fy,fz]); if(z <= 0.05) return null;
     return [cx + dot(d,right)*focal/z, cy - dot(d,up)*focal/z];
   }
-  var any = false;
-  (p3.actors||[]).forEach(function(a){
-    if(!a.masked) return;
-    var P = project([a.x, a.y + 1.0, a.z]);
-    if(!P) return;
-    var d = [a.x-eye[0], a.y-eye[1], a.z-eye[2]];
-    var dist = Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]) || 1;
-    var scale = focal / dist;
-    var w = (0.9*scale)/2, h = (1.6*scale)/2;
-    if(w < 2 || h < 2) return;
-    g.save();
-    g.beginPath();
-    g.rect(P[0]-w, P[1]-h, w*2, h*2);
-    g.clip();
-    var cs = 7;
-    for(var yy = Math.floor(P[1]-h); yy < P[1]+h; yy += cs){
-      for(var xx = Math.floor(P[0]-w); xx < P[0]+w; xx += cs){
-        g.fillStyle = ((Math.floor(xx/cs)+Math.floor(yy/cs)) % 2) ? 'rgba(255,255,255,0.13)' : 'rgba(0,0,0,0.32)';
-        g.fillRect(xx, yy, cs, cs);
+  function drawMaskLayer(){
+    var any = false;
+    (p3.actors||[]).forEach(function(a){
+      if(!a.masked) return;
+      var P = project([a.x, a.y + 1.0, a.z]);
+      if(!P) return;
+      var d = [a.x-eye[0], a.y-eye[1], a.z-eye[2]];
+      var dist = Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]) || 1;
+      var scale = focal / dist;
+      var w = (0.9*scale)/2, h = (1.6*scale)/2;
+      if(w < 2 || h < 2) return;
+      g.save();
+      g.beginPath();
+      g.rect(P[0]-w, P[1]-h, w*2, h*2);
+      g.clip();
+      var cs = 7;
+      for(var yy = Math.floor(P[1]-h); yy < P[1]+h; yy += cs){
+        for(var xx = Math.floor(P[0]-w); xx < P[0]+w; xx += cs){
+          g.fillStyle = ((Math.floor(xx/cs)+Math.floor(yy/cs)) % 2) ? 'rgba(255,255,255,0.13)' : 'rgba(0,0,0,0.32)';
+          g.fillRect(xx, yy, cs, cs);
+        }
       }
+      g.restore();
+      any = true;
+    });
+    return any;
+  }
+  /* 拴绳辅助线：锚点圆点 + A→B 预览虚线。sx/sy 由 Java 权威下发（project 的 fov=60
+     近似在 POV/轨道/自由相机下会错位），这里直接用它。已建成的拴绳不重画（原版渲染）。 */
+  function drawLeashLayer(){
+    var drawn = false;
+    var A = leash.anchors && leash.anchors.a;
+    var B = leash.anchors && leash.anchors.b;
+    if(A && A.valid){
+      g.save();
+      g.strokeStyle = 'rgba(120,200,255,0.95)'; g.fillStyle = 'rgba(120,200,255,0.95)';
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(A.sx, A.sy, 7, 0, Math.PI*2); g.fill();
+      g.fillStyle = '#fff'; g.font = '11px sans-serif'; g.fillText('A', A.sx-3, A.sy-10);
+      g.restore();
+      drawn = true;
     }
-    g.restore();
-    any = true;
-  });
-  cv.style.display = any ? 'block' : 'none';
+    if(B && B.valid){
+      g.save();
+      g.strokeStyle = 'rgba(255,180,120,0.95)'; g.fillStyle = 'rgba(255,180,120,0.95)';
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(B.sx, B.sy, 7, 0, Math.PI*2); g.fill();
+      g.fillStyle = '#fff'; g.font = '11px sans-serif'; g.fillText('B', B.sx-3, B.sy-10);
+      g.restore();
+      drawn = true;
+    }
+    if(A && A.valid && B && B.valid){
+      g.save();
+      g.strokeStyle = 'rgba(180,220,255,0.6)'; g.lineWidth = 1.5; g.setLineDash([6,5]);
+      g.beginPath(); g.moveTo(A.sx, A.sy); g.lineTo(B.sx, B.sy); g.stroke();
+      g.setLineDash([]);
+      g.restore();
+      drawn = true;
+    }
+    return drawn;
+  }
+  var drawn = false;
+  if(hasMask) drawn = drawMaskLayer() || drawn;
+  if(hasLeash) drawn = drawLeashLayer() || drawn;
+  cv.style.display = drawn ? 'block' : 'none';
 }
 
 renderAll();
