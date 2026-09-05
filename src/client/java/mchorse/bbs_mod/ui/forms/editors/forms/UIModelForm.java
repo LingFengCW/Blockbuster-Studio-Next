@@ -2,9 +2,11 @@ package mchorse.bbs_mod.ui.forms.editors.forms;
 
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIActionsFormPanel;
+import mchorse.bbs_mod.ui.forms.editors.panels.UIModelExpressionsPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelFormPanel;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -22,6 +24,7 @@ public class UIModelForm extends UIForm<ModelForm>
         this.defaultPanel = this.modelPanel;
 
         this.registerPanel(this.defaultPanel, UIKeys.FORMS_EDITORS_MODEL_POSE, Icons.POSE);
+        this.registerPanel(new UIModelExpressionsPanel(this), IKey.constant("表情"), Icons.MORE);
         this.registerPanel(new UIActionsFormPanel(this), UIKeys.FORMS_EDITORS_ACTIONS_TITLE, Icons.MORE);
         this.registerDefaultPanels();
 

@@ -2,6 +2,7 @@ package lingfeng.bbsnext.film.replays;
 
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.settings.values.core.ValueList;
 
 /**
@@ -64,6 +65,13 @@ public class MaterialClips extends ValueList<MaterialClip>
                 {
                     entity.setForm(f);
                     formOverridden = true;
+
+                    String expression = mc.expression.get();
+
+                    if (!expression.isEmpty() && f instanceof ModelForm modelForm)
+                    {
+                        modelForm.setActiveExpression(expression);
+                    }
                 }
             }
         }

@@ -990,6 +990,7 @@ public class EditorBridge implements IHtmlBridge
                 o.addProperty("tick", mc.tick.get());
                 o.addProperty("duration", mc.duration.get());
                 o.addProperty("enabled", mc.enabled.get());
+                o.addProperty("expression", mc.expression.get());
                 camMatArr.add(o);
                 idx++;
             }
@@ -1831,6 +1832,9 @@ public class EditorBridge implements IHtmlBridge
             case "aeToggleMaterialEnabled":
                 aeSetMaterialField(panel, req, c -> c.enabled.set(!c.enabled.get()));
                 break;
+            case "aeSetMaterialExpression":
+                aeSetMaterialField(panel, req, c -> c.expression.set(req.get("value").getAsString()));
+                break;
             case "camAddMaterial":
                 camAddMaterial(panel, req.has("type") ? req.get("type").getAsString() : null);
                 break;
@@ -1857,6 +1861,9 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "camToggleMaterialEnabled":
                 camSetMaterialField(panel, req, c -> c.enabled.set(!c.enabled.get()));
+                break;
+            case "camSetMaterialExpression":
+                camSetMaterialField(panel, req, c -> c.expression.set(req.get("value").getAsString()));
                 break;
             case "aeAddPotion":
                 aeAddPotion(panel, req);
@@ -4490,6 +4497,7 @@ public class EditorBridge implements IHtmlBridge
             m.addProperty("tick", mc.tick.get());
             m.addProperty("duration", mc.duration.get());
             m.addProperty("enabled", mc.enabled.get());
+            m.addProperty("expression", mc.expression.get());
             mats.add(m);
             mi++;
         }

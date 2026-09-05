@@ -22,10 +22,13 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.GroupOverride;
+import mchorse.bbs_mod.forms.forms.ModelExpression;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.utils.pose.Transform;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
@@ -156,6 +159,67 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         return pose;
     }
 
+    /**
+     * Apply the form's active {@link ModelExpression} on top of the current pose.
+     * Called after {@code resetPose()+applyPose()} so group visibility and
+     * transform offsets land on top of animation/keyframe transforms. Each
+     * override sets the group's visibility and adds a relative transform offset
+     * (translate/rotate added, scale multiplied) onto the group's current
+     * transform.
+     */
+    private void applyExpression(ModelInstance model)
+    {
+        String name = this.form.activeExpression.get();
+
+        if (name == null || name.isEmpty())
+        {
+            return;
+        }
+
+        ModelExpression expression = this.form.getExpression(name);
+
+        if (expression == null)
+        {
+            return;
+        }
+
+        for (GroupOverride override : expression.groups.getAllTyped())
+        {
+            String groupId = override.group.get();
+
+            if (groupId == null || groupId.isEmpty())
+            {
+                continue;
+            }
+
+            ModelGroup group = null;
+
+            for (ModelGroup candidate : model.getModel().getAllGroups())
+            {
+                if (groupId.equals(candidate.id))
+                {
+                    group = candidate;
+
+                    break;
+                }
+            }
+
+            if (group == null)
+            {
+                continue;
+            }
+
+            group.visible = override.visible.get();
+
+            Transform offset = override.transform.get();
+
+            group.current.translate.add(offset.translate);
+            group.current.scale.mul(offset.scale);
+            group.current.rotate.add(offset.rotate);
+            group.current.rotate2.add(offset.rotate2);
+        }
+    }
+
     private void applyPose(Pose targetPose, Pose pose)
     {
         for (Map.Entry<String, PoseTransform> entry : pose.transforms.entrySet())
@@ -250,6 +314,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             this.animator.applyActions(null, model, context.getTransition());
             model.model.applyPose(this.getPose());
+
+            this.applyExpression(model);
 
             PoseStackUtils.multiply(stack, uiMatrix);
             stack.scale(scale, scale, scale);
@@ -508,6 +574,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             this.animator.applyActions(context.entity, model, context.getTransition());
             model.model.applyPose(this.getPose());
+
+            this.applyExpression(model);
 
             context.stack.mulPose(com.mojang.math.Axis.YP.rotation(MathUtils.PI));
 

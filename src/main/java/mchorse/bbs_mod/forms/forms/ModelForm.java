@@ -7,6 +7,7 @@ import mchorse.bbs_mod.forms.values.ValueShapeKeys;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
+import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -24,6 +25,12 @@ public class ModelForm extends Form
     public final ValueActionsConfig actions = new ValueActionsConfig("actions", new ActionsConfig());
     public final ValueColor color = new ValueColor("color", Color.white());
     public final ValueShapeKeys shapeKeys = new ValueShapeKeys("shape_keys", new ShapeKeys());
+
+    /** Named expression presets (model-group visibility + transform overrides). */
+    public final ValueList<ModelExpression> expressions;
+
+    /** Name of the expression currently applied during rendering ("" = none). */
+    public final ValueString activeExpression = new ValueString("active_expression", "");
 
     public final List<ValuePose> additionalOverlays = new ArrayList<>();
 
@@ -47,6 +54,43 @@ public class ModelForm extends Form
         this.add(this.actions);
         this.add(this.color);
         this.add(this.shapeKeys);
+
+        this.expressions = new ValueList<ModelExpression>("expressions")
+        {
+            @Override
+            protected ModelExpression create(String id)
+            {
+                return new ModelExpression(id);
+            }
+        };
+
+        this.add(this.expressions);
+        this.add(this.activeExpression);
+    }
+
+    /** Look up an expression by its name (null/empty returns null). */
+    public ModelExpression getExpression(String name)
+    {
+        if (name == null || name.isEmpty())
+        {
+            return null;
+        }
+
+        for (ModelExpression expression : this.expressions.getAllTyped())
+        {
+            if (name.equals(expression.name.get()))
+            {
+                return expression;
+            }
+        }
+
+        return null;
+    }
+
+    /** Set the active expression by name (null/empty clears it). */
+    public void setActiveExpression(String name)
+    {
+        this.activeExpression.set(name == null ? "" : name);
     }
 
     @Override

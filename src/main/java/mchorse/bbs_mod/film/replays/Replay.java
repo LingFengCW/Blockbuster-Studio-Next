@@ -8,6 +8,7 @@ import mchorse.bbs_mod.camera.values.ValuePoint;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.settings.values.core.ValueForm;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueString;
@@ -161,6 +162,13 @@ public class Replay extends ValueGroup
                 {
                     entity.setForm(f);
                     formOverridden = true;
+
+                    String expression = mc.expression.get();
+
+                    if (!expression.isEmpty() && f instanceof ModelForm modelForm)
+                    {
+                        modelForm.setActiveExpression(expression);
+                    }
                 }
             }
         }

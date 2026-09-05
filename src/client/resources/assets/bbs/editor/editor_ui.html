@@ -2737,6 +2737,10 @@ function aeRenderMaterial(right, mc, ae){
 
   right.appendChild(toggleInline(S('ae.f.enabled'), mc.enabled, function(v){ send('aeToggleMaterialEnabled', { mi: mc.index, value: v }); }));
 
+  var exprIn = document.createElement('input'); exprIn.type = 'text'; exprIn.placeholder = '模型表情名（留空=不切换）'; exprIn.value = mc.expression || '';
+  exprIn.onchange = function(){ send('aeSetMaterialExpression', { mi: mc.index, value: this.value.trim() }); };
+  right.appendChild(field('切换表情', exprIn));
+
   var del = document.createElement('button'); del.className = 'btn'; del.textContent = S('ae.f.deleteMaterial'); del.style.marginTop = '6px';
   del.onclick = function(){ send('aeDeleteMaterial', { mi: mc.index }); };
   right.appendChild(del);
@@ -3046,6 +3050,8 @@ function camMaterialEditor(mc){
   wrap.appendChild(row('时长tick', dur));
   var en = document.createElement('input'); en.type = 'checkbox'; en.checked = !!mc.enabled; en.onchange = function(){ send('camToggleMaterialEnabled', { mi: mc.mi }); };
   wrap.appendChild(row('启用', en));
+  var expr = document.createElement('input'); expr.type = 'text'; expr.value = mc.expression || ''; expr.placeholder = '模型表情名（留空=不切换）'; expr.onchange = function(){ send('camSetMaterialExpression', { mi: mc.mi, value: this.value.trim() }); };
+  wrap.appendChild(row('切换表情', expr));
   var del = document.createElement('button'); del.className = 'kf-del'; del.type = 'button'; del.textContent = '删除';
   del.onclick = function(e){ e.stopPropagation(); window.__camMat = -1; send('camDeleteMaterial', { mi: mc.mi }); };
   wrap.appendChild(del);

@@ -25,6 +25,10 @@ import net.minecraft.world.item.ItemStack;
  *   <li>{@code equip}  - put an item into one equipment slot</li>
  * </ul>
  *
+ * <p>An optional {@code expression} name (matched against a {@code ModelForm}'s
+ * defined expressions) can be set so that, while the clip is active, the
+ * resolved form switches to that expression.</p>
+ *
  * When no material clip is active the replay falls back to its baseline form
  * and the keyframe-driven equipment, so clips auto-revert at the edges.
  *
@@ -45,6 +49,8 @@ public class MaterialClip extends ValueGroup
     public final ValueInt tick = new ValueInt("tick", 0);
     public final ValueInt duration = new ValueInt("duration", 30);
     public final ValueBoolean enabled = new ValueBoolean("enabled", true);
+    /** Optional expression name to switch on the resolved form while active. */
+    public final ValueString expression = new ValueString("expression", "");
 
     private transient String formKey = "";
     private transient Form cachedForm = null;
@@ -62,6 +68,7 @@ public class MaterialClip extends ValueGroup
         this.add(this.tick);
         this.add(this.duration);
         this.add(this.enabled);
+        this.add(this.expression);
     }
 
     public boolean isActive(int tick)
