@@ -366,6 +366,14 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 .ae-lane-head[data-kind="material"]{color:var(--track-mat);}
 .ae-lane-head[data-kind="action"]{color:var(--track-act);}
 .ae-lane-head[data-kind="potion"]{color:var(--track-pot);}
+.ae-lane-head[data-kind="cam-material"]{color:var(--track-mat);}
+/* 相机材质（全局）内联编辑器：覆盖 .ae-field 默认纵向布局为横向 */
+.ae-cam-mat-editor{margin:0 0 8px;padding:10px 12px;border:1px solid var(--c-border);border-radius:6px;background:var(--c-bg-sub);}
+.ae-cam-mat-editor .ae-field{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.ae-cam-mat-editor .ae-field label{min-width:72px;margin-bottom:0;color:var(--c-text-2);}
+.ae-cam-mat-editor .ae-field input,.ae-cam-mat-editor .ae-field select{flex:1;padding:6px 8px;}
+.ae-cam-mat-editor .kf-del{margin:2px 8px 0 0;padding:4px 12px;font-size:12px;background:var(--c-bg-active);color:var(--c-text);border:1px solid var(--c-border);border-radius:4px;cursor:pointer;}
+.ae-cam-mat-editor .kf-del:hover{background:var(--c-bg-hover);}
 .ae-mat{position:absolute;top:8px;height:38px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;overflow:hidden;white-space:nowrap;padding:0 10px;cursor:grab;box-sizing:border-box;border:1px solid rgba(0,0,0,.12);max-width:calc(100% - 8px);}
 .ae-mat.model{background:var(--track-mat);color:#fff;}
 .ae-mat.skin{background:var(--track-act);color:#fff;}
@@ -2948,6 +2956,26 @@ function renderAeTracks(ae, tl){
   (ae.potions || []).forEach(function(pc){ pb.appendChild(aePotionBlock(pc, ae, max)); });
   pl.appendChild(pb); tl.appendChild(pl);
   }
+
+  /* ---- Camera material lane (film-level, global) ---- */
+  if (window.__camMat === undefined) window.__camMat = -1;
+  var camMats = (window.bbsState && window.bbsState.cameraMaterials) || [];
+  var cml = document.createElement('div'); cml.className = 'ae-lane cam-mat-lane';
+  var cmh = document.createElement('div'); cmh.className = 'ae-lane-head'; cmh.setAttribute('data-kind','cam-material');
+  var cmhTxt = document.createElement('span'); cmhTxt.textContent = '相机材质（全局）'; cmh.appendChild(cmhTxt);
+  var cmAdd = document.createElement('button'); cmAdd.className = 'kf-add'; cmAdd.type = 'button'; cmAdd.textContent = '+ 添加';
+  cmAdd.onclick = function(e){ e.stopPropagation(); send('camAddMaterial', { type: 'model' }); };
+  cmh.appendChild(cmAdd);
+  cml.appendChild(cmh);
+  var cmb = document.createElement('div'); cmb.className = 'ae-lane-body';
+  camMats.forEach(function(mc){ cmb.appendChild(camMaterialBlock(mc, max)); });
+  cml.appendChild(cmb); tl.appendChild(cml);
+
+  if (window.__camMat >= 0 && camMats[window.__camMat]) {
+    var cme = document.createElement('div'); cme.className = 'ae-cam-mat-editor';
+    cme.appendChild(camMaterialEditor(camMats[window.__camMat]));
+    tl.appendChild(cme);
+  }
 }
 
 function aeActionBlock(a, ae, max){
@@ -2980,6 +3008,51 @@ function aeMaterialBlock(mc, ae, max){
   len.onmousedown = function(e){ e.stopPropagation(); startMatResize(e, blk, mc, max); };
   blk.appendChild(len);
   return blk;
+}
+
+function camMaterialBlock(mc, max){
+  var typeCls = (mc.type === 'skin') ? 'skin' : ((mc.type === 'equip') ? 'equip' : 'model');
+  var blk = document.createElement('div');
+  blk.className = 'ae-mat ' + typeCls + (mc.mi === window.__camMat ? ' sel' : '');
+  blk.style.left = ((mc.tick / max) * 100) + '%';
+  blk.style.width = (Math.max(3, (mc.duration / max) * 100)) + '%';
+  blk.style.opacity = mc.enabled ? '1' : '0.45';
+  var label = (typeCls === 'skin' ? '皮肤' : (typeCls === 'equip' ? '装备' : '模型')) + '：' + (mc.target || mc.item || '');
+  blk.title = label + '  [' + mc.tick + '→' + (mc.tick + mc.duration) + ']' + (mc.enabled ? '' : '（禁用）');
+  blk.textContent = label;
+  blk.onclick = function(e){ e.stopPropagation(); window.__camMat = mc.mi; renderActionEditor(window.bbsState); };
+  return blk;
+}
+
+function camMaterialEditor(mc){
+  var wrap = document.createElement('div');
+  function row(label, el){ var r = document.createElement('div'); r.className = 'ae-field'; var l = document.createElement('label'); l.textContent = label; r.appendChild(l); r.appendChild(el); return r; }
+  var typeSel = document.createElement('select');
+  [['model','模型'],['skin','皮肤'],['equip','装备']].forEach(function(o){ var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; if (o[0] === mc.type) op.selected = true; typeSel.appendChild(op); });
+  typeSel.onchange = function(){ send('camSetMaterialType', { mi: mc.mi, value: this.value }); };
+  wrap.appendChild(row('类型', typeSel));
+  var target = document.createElement('input'); target.type = 'text'; target.value = mc.target || ''; target.onchange = function(){ send('camSetMaterialTarget', { mi: mc.mi, value: this.value }); };
+  wrap.appendChild(row('目标(id)', target));
+  if (mc.type === 'equip') {
+    var slot = document.createElement('input'); slot.type = 'text'; slot.value = mc.slot || ''; slot.onchange = function(){ send('camSetMaterialSlot', { mi: mc.mi, value: this.value }); };
+    wrap.appendChild(row('槽位', slot));
+  } else {
+    var item = document.createElement('input'); item.type = 'text'; item.value = mc.item || ''; item.onchange = function(){ send('camSetMaterialItem', { mi: mc.mi, value: this.value }); };
+    wrap.appendChild(row('模型/皮肤', item));
+  }
+  var tick = document.createElement('input'); tick.type = 'number'; tick.value = mc.tick; tick.onchange = function(){ send('camSetMaterialTick', { mi: mc.mi, value: parseInt(this.value) || 0 }); };
+  wrap.appendChild(row('起始tick', tick));
+  var dur = document.createElement('input'); dur.type = 'number'; dur.value = mc.duration; dur.onchange = function(){ send('camSetMaterialDuration', { mi: mc.mi, value: parseInt(this.value) || 0 }); };
+  wrap.appendChild(row('时长tick', dur));
+  var en = document.createElement('input'); en.type = 'checkbox'; en.checked = !!mc.enabled; en.onchange = function(){ send('camToggleMaterialEnabled', { mi: mc.mi }); };
+  wrap.appendChild(row('启用', en));
+  var del = document.createElement('button'); del.className = 'kf-del'; del.type = 'button'; del.textContent = '删除';
+  del.onclick = function(e){ e.stopPropagation(); window.__camMat = -1; send('camDeleteMaterial', { mi: mc.mi }); };
+  wrap.appendChild(del);
+  var close = document.createElement('button'); close.className = 'kf-del'; close.type = 'button'; close.textContent = '关闭';
+  close.onclick = function(e){ e.stopPropagation(); window.__camMat = -1; renderActionEditor(window.bbsState); };
+  wrap.appendChild(close);
+  return wrap;
 }
 
 function aePotionBlock(pc, ae, max){

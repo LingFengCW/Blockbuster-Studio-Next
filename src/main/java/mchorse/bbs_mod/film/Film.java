@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.film.replays.Inventory;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.Replays;
+import lingfeng.bbsnext.film.replays.MaterialClips;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
@@ -16,6 +17,9 @@ public class Film extends ValueGroup
     public final Clips camera = new Clips("camera", BBSMod.getFactoryCameraClips());
     public final Replays replays = new Replays("replays");
     public final CameraGroups cameraGroups = new CameraGroups("camera_groups");
+    /* Multi-track material timeline carried by the camera replay: skin/model/
+     * equipment clips applied to the first-person actor while the camera plays. */
+    public final MaterialClips cameraMaterials = new MaterialClips("camera_materials");
 
     public final Inventory inventory = new Inventory("inventory");
     public final ValueFloat hp = new ValueFloat("hp", 20F);
@@ -33,6 +37,7 @@ public class Film extends ValueGroup
         this.add(this.camera);
         this.add(this.replays);
         this.add(this.cameraGroups);
+        this.add(this.cameraMaterials);
 
         this.add(this.inventory);
         this.add(this.hp);

@@ -971,6 +971,32 @@ public class EditorBridge implements IHtmlBridge
             lastPlacedReplayId = "";
         }
 
+        /* Camera material timeline (film-level): expose to HTML so the camera
+         * materials editor can list/edit clips. */
+        JsonArray camMatArr = new JsonArray();
+
+        if (film != null)
+        {
+            int idx = 0;
+
+            for (MaterialClip mc : film.cameraMaterials.getAllTyped())
+            {
+                JsonObject o = new JsonObject();
+                o.addProperty("mi", idx);
+                o.addProperty("type", mc.type.get());
+                o.addProperty("target", mc.target.get());
+                o.addProperty("slot", mc.slot.get());
+                o.addProperty("item", mc.item.get());
+                o.addProperty("tick", mc.tick.get());
+                o.addProperty("duration", mc.duration.get());
+                o.addProperty("enabled", mc.enabled.get());
+                camMatArr.add(o);
+                idx++;
+            }
+        }
+
+        root.add("cameraMaterials", camMatArr);
+
         /* Camera list (for the asset-bin "相机" group). */
         JsonArray camArr = new JsonArray();
 
@@ -1804,6 +1830,33 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "aeToggleMaterialEnabled":
                 aeSetMaterialField(panel, req, c -> c.enabled.set(!c.enabled.get()));
+                break;
+            case "camAddMaterial":
+                camAddMaterial(panel, req.has("type") ? req.get("type").getAsString() : null);
+                break;
+            case "camDeleteMaterial":
+                camDeleteMaterial(panel, req.has("mi") ? req.get("mi").getAsInt() : -1);
+                break;
+            case "camSetMaterialType":
+                camSetMaterialField(panel, req, c -> c.type.set(req.get("value").getAsString()));
+                break;
+            case "camSetMaterialTarget":
+                camSetMaterialField(panel, req, c -> c.target.set(req.get("value").getAsString()));
+                break;
+            case "camSetMaterialSlot":
+                camSetMaterialField(panel, req, c -> c.slot.set(req.get("value").getAsString()));
+                break;
+            case "camSetMaterialItem":
+                camSetMaterialField(panel, req, c -> c.item.set(req.get("value").getAsString()));
+                break;
+            case "camSetMaterialTick":
+                camSetMaterialField(panel, req, c -> c.tick.set(req.get("value").getAsInt()));
+                break;
+            case "camSetMaterialDuration":
+                camSetMaterialField(panel, req, c -> c.duration.set(req.get("value").getAsInt()));
+                break;
+            case "camToggleMaterialEnabled":
+                camSetMaterialField(panel, req, c -> c.enabled.set(!c.enabled.get()));
                 break;
             case "aeAddPotion":
                 aeAddPotion(panel, req);
@@ -5120,6 +5173,73 @@ public class EditorBridge implements IHtmlBridge
         actionEditorSelectedMaterial = mi;
         MCEFUI.injectScript("window.bbsState.actionEditor.selectedMaterial=" + mi
             + ";renderActionEditor(window.bbsState);renderAssetDetail(window.bbsState);");
+    }
+
+    /* ---- Camera material timeline commands (lingfeng.bbsnext) ----
+       Operate on Film.cameraMaterials (film-level, shared across the whole camera
+       replay) instead of a single replay's materials. Applied during camera
+       playback to the first-person actor (see WorldFilmController.render). */
+    private static void camAddMaterial(UIFilmPanel panel, String type)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        BaseValue.edit(film, f ->
+        {
+            MaterialClip mc = new MaterialClip("camera_material_" + film.cameraMaterials.getAllTyped().size());
+            mc.type.set(type == null ? MaterialClip.TYPE_MODEL : type);
+            film.cameraMaterials.add(mc);
+            film.cameraMaterials.sync();
+        });
+        refreshHtml();
+    }
+
+    private static void camDeleteMaterial(UIFilmPanel panel, int mi)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        if (mi < 0 || mi >= film.cameraMaterials.getAllTyped().size())
+        {
+            return;
+        }
+
+        BaseValue.edit(film, f ->
+        {
+            film.cameraMaterials.getAllTyped().remove(mi);
+            film.cameraMaterials.sync();
+        });
+        refreshHtml();
+    }
+
+    private static void camSetMaterialField(UIFilmPanel panel, JsonObject req, java.util.function.Consumer<MaterialClip> editor)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        int mi = req.has("mi") ? req.get("mi").getAsInt() : -1;
+
+        if (mi < 0 || mi >= film.cameraMaterials.getAllTyped().size())
+        {
+            return;
+        }
+
+        MaterialClip mc = film.cameraMaterials.getAllTyped().get(mi);
+
+        BaseValue.edit(film, f -> editor.accept(mc));
+        refreshHtml();
     }
 
 
