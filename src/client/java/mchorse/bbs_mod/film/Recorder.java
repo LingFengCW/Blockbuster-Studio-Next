@@ -1,7 +1,8 @@
 package mchorse.bbs_mod.film;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.graphics.Draw;
+import net.minecraft.client.renderer.RenderPipelines;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.client.BBSRendering;
@@ -25,7 +26,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector4f;
@@ -56,8 +56,6 @@ public class Recorder extends WorldFilmController
             return;
         }
 
-        Vector4f vector = Vectors.TEMP_4F;
-        Matrix4f matrix = Matrices.TEMP_4F;
         float x = (float) (position.point.x - camera.position().x);
         float y = (float) (position.point.y - camera.position().y);
         float z = (float) (position.point.z - camera.position().z);
@@ -66,33 +64,55 @@ public class Recorder extends WorldFilmController
 
         perspective.identity().perspective(fov, aspect, 0.001F, 100F).invert();
 
+        Matrix4f matrix = Matrices.TEMP_4F;
         matrix.identity()
             .rotateY(MathUtils.toRad(position.angle.yaw + 180))
             .rotateX(MathUtils.toRad(-position.angle.pitch));
 
-        transformFrustum(vector, matrix, 1F, 1F);
-        transformFrustum(vector, matrix, -1F, 1F);
-        transformFrustum(vector, matrix, 1F, -1F);
-        transformFrustum(vector, matrix, -1F, -1F);
+        /* Frustum: four corner directions projected from the apex. */
+        Vector4f[] corners = new Vector4f[] {
+            frustumCorner(matrix, 1F, 1F),
+            frustumCorner(matrix, -1F, 1F),
+            frustumCorner(matrix, -1F, -1F),
+            frustumCorner(matrix, 1F, -1F)
+        };
 
-        float thickness = 0.025F;
         ByteBufferBuilder byteBuf = new ByteBufferBuilder(4096);
         BufferBuilder builder = new BufferBuilder(byteBuf, PrimitiveTopology.LINES, DefaultVertexFormat.POSITION_COLOR);
         Matrix4f m = stack.last().pose();
-        builder.addVertex(m, x, y, z).setColor(1F, 1F, 1F, 1F);
-        builder.addVertex(m, x + vector.x, y + vector.y, z + vector.z).setColor(1F, 1F, 1F, 1F);
-        MeshData mesh = builder.buildOrThrow();
-        // RenderSystem.disableDepthTest() removed in MC 26.2
+
+        /* Apex to each corner. */
+        for (Vector4f c : corners)
+        {
+            builder.addVertex(m, x, y, z).setColor(1F, 1F, 1F, 1F);
+            builder.addVertex(m, x + c.x, y + c.y, z + c.z).setColor(1F, 1F, 1F, 1F);
+        }
+
+        /* Far rectangle connecting the four corners. */
+        for (int i = 0; i < corners.length; i++)
+        {
+            Vector4f a = corners[i];
+            Vector4f b = corners[(i + 1) % corners.length];
+
+            builder.addVertex(m, x + a.x, y + a.y, z + a.z).setColor(1F, 1F, 1F, 1F);
+            builder.addVertex(m, x + b.x, y + b.y, z + b.z).setColor(1F, 1F, 1F, 1F);
+        }
+
+        Draw.drawBuffer(builder, RenderPipelines.LINES_TRANSLUCENT);
     }
 
-    private static void transformFrustum(Vector4f vector, Matrix4f matrix, float x, float y)
+    private static Vector4f frustumCorner(Matrix4f matrix, float nx, float ny)
     {
-        vector.set(x, y, 0F, 1F);
+        Vector4f vector = Vectors.TEMP_4F;
+        vector.set(nx, ny, 0F, 1F);
         vector.mul(perspective);
         vector.w = 1F;
         vector.normalize().mul(100F);
         vector.w = 1F;
         vector.mul(matrix);
+
+        /* Copy out so the shared TEMP_4F can be reused for the next corner. */
+        return new Vector4f(vector);
     }
 
     public Recorder(Film film, Form form, int replayId, int tick)
