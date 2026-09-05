@@ -6828,29 +6828,50 @@ public class EditorBridge implements IHtmlBridge
     {
         LeashAnchor anchor = "b".equals(which) ? leashAnchorB : leashAnchorA;
         LeashPickResult pick = pickAnchorAt(sx, sy);
-        if (pick == null || !pick.valid)
+        if (pick != null && pick.valid)
         {
-            MCEFUI.injectScript("toast('拴绳：未拾取到角色，请对准角色后重试', true);");
-            return;
+            anchor.valid = true;
+            anchor.proxy = false;
+            anchor.replayId = pick.replayId;
+            anchor.bone = pick.bone;
+            anchor.sx = sx;
+            anchor.sy = sy;
+            anchor.wx = pick.wx;
+            anchor.wy = pick.wy;
+            anchor.wz = pick.wz;
         }
-        anchor.valid = true;
-        anchor.replayId = pick.replayId;
-        anchor.bone = pick.bone;
-        anchor.sx = sx;
-        anchor.sy = sy;
-        anchor.wx = pick.wx;
-        anchor.wy = pick.wy;
-        anchor.wz = pick.wz;
+        else
+        {
+            /* No actor under the cursor: fall back to a fixed-world-point (proxy)
+               endpoint so the lead can be tied to a fence / block. This is what the
+               "点角色/空地(代理端点)" hint promises but was previously unreachable. */
+            Vec3 p = pickProxyPoint(sx, sy);
+            if (p == null)
+            {
+                MCEFUI.injectScript("toast('拴绳：未拾取到角色或空地，请对准角色或方块后重试', true);");
+                return;
+            }
+            anchor.valid = true;
+            anchor.proxy = true;
+            anchor.replayId = "";
+            anchor.bone = "";
+            anchor.sx = sx;
+            anchor.sy = sy;
+            anchor.wx = p.x;
+            anchor.wy = p.y;
+            anchor.wz = p.z;
+        }
         refreshHtml();
     }
 
-    /* Pick an empty-world point as the holder endpoint. Raycasts the screen point
-       against the preview world (F5 proxy endpoint); the chosen position is stored
-       on anchor A flagged proxy=true and materialised later as a BlockDisplay. */
-    private static void leashPickProxy(UIFilmPanel panel, double sx, double sy)
+    /* Raycast the preview world for a solid block (fence / any block) and return
+       the hit point; falls back to the far reach point if nothing is hit. Returns
+       null if the level/player is unavailable. Shared by the proxy (fixed-world-
+       point) leash endpoint so a lead can be tied to a fence or any block. */
+    private static Vec3 pickProxyPoint(double sx, double sy)
     {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.player == null || mc.getWindow() == null) return;
+        if (mc.level == null || mc.player == null || mc.getWindow() == null) return null;
         Vec3 origin = mc.player.getEyePosition();
         Vec3 forward = mc.player.getLookAngle();
         Vec3 worldUp = new Vec3(0, 1, 0);
@@ -6868,7 +6889,16 @@ public class EditorBridge implements IHtmlBridge
         Vec3 to = origin.add(dir.scale(reach));
         ClipContext ctx = new ClipContext(origin, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player);
         BlockHitResult hit = mc.level.clip(ctx);
-        Vec3 point = hit != null ? hit.getLocation() : to;
+        return hit != null ? hit.getLocation() : to;
+    }
+
+    /* Pick an empty-world point as the holder endpoint. Raycasts the screen point
+       against the preview world (proxy endpoint); the chosen position is stored
+       on anchor A flagged proxy=true and materialised later as a BlockDisplay. */
+    private static void leashPickProxy(UIFilmPanel panel, double sx, double sy)
+    {
+        Vec3 point = pickProxyPoint(sx, sy);
+        if (point == null) return;
         leashAnchorA.valid = true;
         leashAnchorA.proxy = true;
         leashAnchorA.replayId = "";
