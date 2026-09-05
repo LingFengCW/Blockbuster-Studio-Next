@@ -963,6 +963,14 @@ public class EditorBridge implements IHtmlBridge
 
         root.add("tracks", tracksArr);
 
+        /* Newly created track highlight: push the id once, then clear so the
+         * flash fires a single time and never re-triggers on later refreshes. */
+        if (!lastPlacedReplayId.isEmpty())
+        {
+            root.addProperty("flashTrackId", lastPlacedReplayId);
+            lastPlacedReplayId = "";
+        }
+
         /* Camera list (for the asset-bin "相机" group). */
         JsonArray camArr = new JsonArray();
 
@@ -6204,6 +6212,11 @@ public class EditorBridge implements IHtmlBridge
         }
     }
 
+    /* Flash target: the replay id of a track that was just created via a
+     * library drop. Consumed once by refreshHtml() so the HTML can play a one-
+     * shot highlight on the new track row. */
+    private static String lastPlacedReplayId = "";
+
     /* Drag a library character (replay) onto the timeline, or move a placed
      * track to a new position. Both are expressed purely in stable replay ids:
      * an id not yet on the timeline is placed (inserted before targetReplayId,
@@ -6266,6 +6279,7 @@ public class EditorBridge implements IHtmlBridge
             }
 
             TrackOrderStore.insert(filmId, replayId, tgt);
+            lastPlacedReplayId = replayId;
         }
 
         panel.save();
