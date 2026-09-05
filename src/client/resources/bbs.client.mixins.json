@@ -16,6 +16,7 @@
         "MouseHandlerMixin",
         "OptionInstanceMixin",
         "WindowMixin",
+        "AvatarRendererMixin",
         "SelectWorldScreenMixin",
         "CreateWorldScreenMixin",
         "iris.CustomUniformsAccessor",

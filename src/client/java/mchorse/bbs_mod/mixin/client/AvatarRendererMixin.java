@@ -78,9 +78,6 @@ public abstract class AvatarRendererMixin
 
         Morph morph = Morph.getMorph(player);
 
-        System.out.println("[BBS MORPH] AvatarRendererMixin.submit: player=" + player.getName().getString()
-            + " morph=" + (morph == null ? "null" : (morph.getForm() == null ? "empty" : morph.getForm().getFormId())));
-
         if (morph == null || !(morph.getForm() instanceof MobForm mobForm))
         {
             return;
