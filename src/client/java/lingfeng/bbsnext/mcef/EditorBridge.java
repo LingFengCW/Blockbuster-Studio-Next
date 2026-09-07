@@ -1672,11 +1672,6 @@ public class EditorBridge implements IHtmlBridge
                 actionEditorSelectedChannel = null;
                 MCEFUI.injectScript("window.bbsState.actionEditorOpen=false;renderActionEditor(window.bbsState);renderAssetDetail(window.bbsState);");
                 break;
-            case "closeActionEditor":
-                actionEditorReplay = -1;
-                actionEditorReplayId = null;
-                MCEFUI.injectScript("window.bbsState.actionEditorOpen=false;renderActionEditor(window.bbsState);renderAssetDetail(window.bbsState);");
-                break;
             case "focusCharacter":
             {
                 String fcId = req.has("id") ? req.get("id").getAsString() : null;
@@ -1986,18 +1981,8 @@ public class EditorBridge implements IHtmlBridge
                     ? req.get("replayId").getAsString()
                     : resolveReplayIdByIndex(panel, req.has("index") ? req.get("index").getAsInt() : -1));
                 break;
-            case "dropActor":
-                dropActor(panel,
-                    req.has("replayId") ? req.get("replayId").getAsString() : "",
-                    req.has("targetReplayId") ? req.get("targetReplayId").getAsString() : "");
-                break;
             case "reorderTrack":
                 reorderTrack(panel,
-                    req.has("replayId") ? req.get("replayId").getAsString() : "",
-                    req.has("targetReplayId") ? req.get("targetReplayId").getAsString() : "");
-                break;
-            case "placeActor":
-                placeActor(panel,
                     req.has("replayId") ? req.get("replayId").getAsString() : "",
                     req.has("targetReplayId") ? req.get("targetReplayId").getAsString() : "");
                 break;
@@ -2019,16 +2004,6 @@ public class EditorBridge implements IHtmlBridge
             case "leashPickAnchor":
                 leashPickAnchor(panel,
                     req.has("which") ? req.get("which").getAsString() : "a",
-                    req.has("sx") ? req.get("sx").getAsDouble() : 0D,
-                    req.has("sy") ? req.get("sy").getAsDouble() : 0D);
-                break;
-            case "leashPickHolder":
-                leashPickAnchor(panel, "a",
-                    req.has("sx") ? req.get("sx").getAsDouble() : 0D,
-                    req.has("sy") ? req.get("sy").getAsDouble() : 0D);
-                break;
-            case "leashPickProxy":
-                leashPickProxy(panel,
                     req.has("sx") ? req.get("sx").getAsDouble() : 0D,
                     req.has("sy") ? req.get("sy").getAsDouble() : 0D);
                 break;
@@ -2096,36 +2071,14 @@ public class EditorBridge implements IHtmlBridge
                 }
                 break;
             }
-            case "toggleReplay":
-                toggleReplay(panel, req.has("index") ? req.get("index").getAsInt() : -1);
-                break;
-            case "setTool":
-                setTool(panel, req.has("tool") ? req.get("tool").getAsString() : "");
-                break;
             case "setCameraMode":
                 panel.getController().setPov(req.get("mode").getAsInt());
-                break;
-            case "toggleControl":
-                panel.getController().toggleControl();
-                break;
-            case "toggleRecord":
-                if (panel.getController().isRecording())
-                {
-                    panel.getController().stopRecording();
-                }
-                else
-                {
-                    panel.getController().startRecording(null);
-                }
                 break;
             case "recordCharacter":
                 recordCharacter(panel, req.has("index") ? req.get("index").getAsInt() : -1);
                 break;
             case "recordToAction":
                 recordToAction(panel, req.has("index") ? req.get("index").getAsInt() : -1);
-                break;
-            case "toggleInstantKeys":
-                panel.getController().toggleInstantKeyframes();
                 break;
             case "newEntity":
                 createEntity(panel, null);
@@ -2141,9 +2094,6 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "exitPreviewWorld":
                 exitPreviewWorld();
-                break;
-            case "newCamera":
-                createCamera(panel, "");
                 break;
             case "recordCamera":
             {

@@ -586,17 +586,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             this.entity.setPos(entity.getX(), entity.getY(), entity.getZ());
             this.entity.setOnGround(entity.isOnGround());
             // Entity.setSneaking removed in MC 26.2
-            // this.entity.setSneaking(entity.isSneaking());
             this.entity.setSprinting(entity.isSprinting());
             this.entity.setPose(entity.isSneaking() ? net.minecraft.world.entity.Pose.CROUCHING : net.minecraft.world.entity.Pose.STANDING);
             // [MC 26.2] Entity.setItemSlot removed
             // Equipment setting is disabled until API is adapted
-            // this.entity.setItemSlot(EquipmentSlot.MAINHAND, entity.getEquipmentStack(EquipmentSlot.MAINHAND));
-            // this.entity.setItemSlot(EquipmentSlot.OFFHAND, entity.getEquipmentStack(EquipmentSlot.OFFHAND));
-            // this.entity.setItemSlot(EquipmentSlot.HEAD, entity.getEquipmentStack(EquipmentSlot.HEAD));
-            // this.entity.setItemSlot(EquipmentSlot.CHEST, entity.getEquipmentStack(EquipmentSlot.CHEST));
-            // this.entity.setItemSlot(EquipmentSlot.LEGS, entity.getEquipmentStack(EquipmentSlot.LEGS));
-            // this.entity.setItemSlot(EquipmentSlot.FEET, entity.getEquipmentStack(EquipmentSlot.FEET));
             this.entity.tickCount = entity.getAge();
             this.entity.noPhysics = true;
 
