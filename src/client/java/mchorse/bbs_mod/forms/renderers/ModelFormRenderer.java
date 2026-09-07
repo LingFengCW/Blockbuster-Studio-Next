@@ -70,6 +70,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     private IAnimator animator;
     private ModelInstance lastModel;
 
+    /** Active model id resolved from a model group; updated by ensureModel(). */
+    private String activeModelId = "";
+
     private IEntity entity = new StubEntity();
 
     @Override
@@ -134,9 +137,52 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         return this.animator;
     }
 
+    /** Resolve the currently-active model id from a model group (time-cycled),
+     *  mirroring MobForm's mobGroup cycling. Uses a stateless modulo on the wall
+     *  clock so the index stays stable across the many getModel() calls per frame. */
+    public void ensureModel()
+    {
+        String group = this.form.modelGroup.get();
+
+        if (group != null && !group.trim().isEmpty())
+        {
+            String[] ids = group.split("\\|");
+
+            if (ids.length > 0)
+            {
+                float dur = Math.max(0.1F, this.form.modelMorphDur.get());
+                long total = (long) (dur * 1000F * ids.length);
+
+                if (total <= 0)
+                {
+                    total = 1;
+                }
+
+                int idx = (int) ((System.currentTimeMillis() % total) / (dur * 1000F)) % ids.length;
+
+                if (idx < 0)
+                {
+                    idx += ids.length;
+                }
+
+                this.activeModelId = ids[idx].trim();
+            }
+            else
+            {
+                this.activeModelId = this.form.model.get();
+            }
+        }
+        else
+        {
+            this.activeModelId = this.form.model.get();
+        }
+    }
+
     public ModelInstance getModel()
     {
-        return getModel(this.form);
+        this.ensureModel();
+
+        return BBSModClient.getModels().getModel(this.activeModelId);
     }
 
     public Pose getPose()

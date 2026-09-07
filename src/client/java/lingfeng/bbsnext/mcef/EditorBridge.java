@@ -4040,7 +4040,33 @@ public class EditorBridge implements IHtmlBridge
 
             Form form = switch (type)
             {
-                case "MODEL" -> new ModelForm();
+                case "MODEL" ->
+                {
+                    ModelForm mf = new ModelForm();
+
+                    if (model != null && !model.isEmpty())
+                    {
+                        if (model.startsWith("group:"))
+                        {
+                            String g = model.substring("group:".length());
+
+                            mf.modelGroup.set(g);
+
+                            String[] parts = g.split("\\|");
+
+                            if (parts.length > 0)
+                            {
+                                mf.model.set(parts[0].trim());
+                            }
+                        }
+                        else
+                        {
+                            mf.model.set(model);
+                        }
+                    }
+
+                    yield mf;
+                }
                 case "PARTICLE" -> new ParticleForm();
                 case "BLOCK" -> new BlockForm();
                 default ->

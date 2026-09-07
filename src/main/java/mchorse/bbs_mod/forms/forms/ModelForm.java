@@ -10,6 +10,7 @@ import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.settings.values.core.ValueString;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.pose.Pose;
 
@@ -20,6 +21,10 @@ public class ModelForm extends Form
 {
     public final ValueLink texture = new ValueLink("texture", null);
     public final ValueString model = new ValueString("model", "");
+    /** Pipe-separated list of model ids that cycle over time (model group). Empty = single model. */
+    public final ValueString modelGroup = new ValueString("modelGroup", "");
+    /** Seconds each model in the group is shown before cycling to the next one. */
+    public final ValueFloat modelMorphDur = new ValueFloat("modelMorphDur", 1.0F, 0.1F, 60F);
     public final ValuePose pose = new ValuePose("pose", new Pose());
     public final ValuePose poseOverlay = new ValuePose("pose_overlay", new Pose());
     public final ValueActionsConfig actions = new ValueActionsConfig("actions", new ActionsConfig());
@@ -40,6 +45,8 @@ public class ModelForm extends Form
 
         this.add(this.texture);
         this.add(this.model);
+        this.add(this.modelGroup);
+        this.add(this.modelMorphDur);
         this.add(this.pose);
         this.add(this.poseOverlay);
 
