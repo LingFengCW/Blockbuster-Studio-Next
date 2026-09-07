@@ -400,6 +400,40 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 .ae-count-ctrl .cc-dot.potion{background:var(--track-pot);}
 /* 动作编辑器左侧分组标签（adLabel） */
 .ad-label{color:var(--c-text-3);font-size:11px;margin:8px 0 3px;}
+
+/* ===== 状态栏（专业软件标配：播放头 / 上下文 / 快捷键提示） ===== */
+.status-bar{height:24px;background:var(--c-bg);border-top:1px solid var(--c-border-2);display:flex;align-items:center;gap:14px;padding:0 12px;font-size:11px;color:var(--c-text-2);flex:0 0 auto;}
+.status-bar .sb-sep{width:1px;height:14px;background:var(--c-border-2);}
+.status-bar .sb-tag{color:var(--c-accent-d);font-weight:600;}
+.status-bar .sb-kbd{display:inline-block;background:var(--c-bg-sub);border:1px solid var(--c-border);border-radius:3px;padding:0 5px;margin:0 2px;font-size:10px;color:var(--c-text);}
+.status-bar .sb-right{margin-left:auto;color:var(--c-text-3);}
+
+/* 播放按钮高亮（播放中） */
+.toolbar-slim button.active, .vp-toolbar button.active{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+
+/* ===== 新手引导 / 教程（coach marks，对标专业软件 onboarding） ===== */
+.coach-mask{position:fixed;inset:0;z-index:9800;background:transparent;display:none;}
+.coach-card{position:fixed;z-index:9900;max-width:320px;background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:8px;box-shadow:var(--c-shadow);padding:14px 16px;font-size:13px;color:var(--c-text);display:none;}
+.coach-card h4{margin:0 0 6px;font-size:14px;color:var(--c-accent-d);}
+.coach-card p{margin:0 0 10px;line-height:1.5;color:var(--c-text-2);}
+.coach-card .coach-actions{display:flex;gap:8px;align-items:center;}
+.coach-card .coach-step{margin-right:auto;color:var(--c-text-3);font-size:11px;}
+.coach-card button{background:var(--c-accent);color:#fff;border:none;border-radius:4px;padding:5px 14px;cursor:pointer;font-size:12px;}
+.coach-card button.ghost{background:var(--c-bg-sub);color:var(--c-text);border:1px solid var(--c-border);}
+.coach-ring{position:fixed;z-index:9850;border:3px solid var(--c-accent);border-radius:6px;box-shadow:0 0 0 9999px rgba(15,20,30,.55);pointer-events:none;transition:all .2s ease;display:none;}
+
+/* 教程模态 */
+.tut-modal{position:fixed;inset:0;z-index:9700;background:rgba(15,20,30,.5);display:none;align-items:center;justify-content:center;}
+.tut-modal.show{display:flex;}
+.tut-box{width:min(640px,92vw);max-height:84vh;overflow:auto;background:var(--c-bg);border-radius:10px;box-shadow:var(--c-shadow);}
+.tut-head{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--c-border);font-size:15px;font-weight:600;color:var(--c-accent-d);}
+.tut-head .x{margin-left:auto;cursor:pointer;color:var(--c-text-3);font-size:18px;line-height:1;}
+.tut-body{padding:8px 18px 18px;}
+.tut-sec{margin:16px 0 4px;font-size:13px;font-weight:600;color:var(--c-text);}
+.tut-sec:first-child{margin-top:8px;}
+.tut-item{padding:7px 0;border-bottom:1px dashed var(--c-border);color:var(--c-text-2);font-size:13px;line-height:1.5;}
+.tut-item b{color:var(--c-text);}
+.tut-kbd{display:inline-block;background:var(--c-bg-sub);border:1px solid var(--c-border);border-radius:3px;padding:0 6px;font-size:11px;color:var(--c-text);}
 </style>
 </head>
 <body>
@@ -442,11 +476,16 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
     <div class="menu-item" data-a="toggleControl" data-i18n="ctx.actorControl">演员控制</div>
     <div class="menu-item" data-a="clipOp" data-op="delete" data-index="-1" data-i18n="menu.delSelectedClip">删除选中剪辑</div>
   </div></div>
-  <div class="menu-top-item" data-i18n="menu.record">录制<div class="menu-dropdown">
+  <div class="menu-top-item" id="menuRecord" data-i18n="menu.record">录制<div class="menu-dropdown">
     <div class="menu-item" data-a="toggleRecord" data-i18n="menu.toggleRecord">开始/停止录制</div>
   </div></div>
   <div class="menu-top-item" data-i18n="menu.window">窗口<div class="menu-dropdown">
     <div class="menu-item" data-a="togglePlay" data-i18n="menu.previewPlay">预览播放</div>
+  </div></div>
+  <div class="menu-top-item" data-i18n="menu.help">帮助<div class="menu-dropdown">
+    <div class="menu-item" id="mHelpTour" data-i18n="menu.helpTour">新手引导</div>
+    <div class="menu-item" id="mHelpShortcuts" data-i18n="menu.helpShortcuts">快捷键一览</div>
+    <div class="menu-item" id="mHelpDoc" data-i18n="menu.helpDoc">教程文档</div>
   </div></div>
 </div>
 
@@ -541,6 +580,34 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="status-bar" id="statusBar">
+  <span><span class="sb-tag">播放头</span> <span id="sbTick">0</span> / <span id="sbDur">0</span> 帧</span>
+  <span class="sb-sep"></span>
+  <span><span class="sb-tag">状态</span> <span id="sbCtx">就绪</span></span>
+  <span class="sb-sep"></span>
+  <span class="sb-right">快捷键：<span class="sb-kbd">空格</span>播放 <span class="sb-kbd">Ctrl+R</span>录制 <span class="sb-kbd">.</span>解除伪装 <span class="sb-kbd">右键素材箱</span>新建</span>
+</div>
+
+<div class="coach-mask" id="coachMask" style="display:none"></div>
+<div class="coach-card" id="coachCard" style="display:none">
+  <h4 id="coachTitle"></h4>
+  <p id="coachText"></p>
+  <div class="coach-actions">
+    <span class="coach-step" id="coachStep"></span>
+    <button class="ghost" id="coachSkip" data-i18n="tour.skip">跳过</button>
+    <button class="ghost" id="coachPrev" data-i18n="tour.prev">上一步</button>
+    <button id="coachNext" data-i18n="tour.next">下一步</button>
+  </div>
+</div>
+<div class="coach-ring" id="coachRing" style="display:none"></div>
+
+<div class="tut-modal" id="tutModal">
+  <div class="tut-box">
+    <div class="tut-head"><span id="tutTitle" data-i18n="menu.help">教程与快捷键</span><span class="x" id="tutClose">×</span></div>
+    <div class="tut-body" id="tutBody"></div>
   </div>
 </div>
 
@@ -794,6 +861,13 @@ var BBS_DEFAULT_STRINGS = {
   "menu.delSelectedClip": "删除选中剪辑",
   "menu.toggleRecord": "开始/停止录制",
   "menu.previewPlay": "预览播放",
+  "menu.help": "帮助",
+  "menu.helpTour": "新手引导",
+  "menu.helpShortcuts": "快捷键一览",
+  "menu.helpDoc": "教程文档",
+  "tour.skip": "跳过",
+  "tour.prev": "上一步",
+  "tour.next": "下一步",
   "tb.play": "播放",
   "tb.playTitle": "播放/暂停 (空格)",
   "tb.actionEditor": "动作编辑器",
@@ -1125,6 +1199,13 @@ var BBS_DEFAULT_STRINGS_EN = {
   "menu.delSelectedClip": "Delete Selected Clip",
   "menu.toggleRecord": "Start/Stop Recording",
   "menu.previewPlay": "Preview Playback",
+  "menu.help": "Help",
+  "menu.helpTour": "Getting Started",
+  "menu.helpShortcuts": "Shortcuts",
+  "menu.helpDoc": "Tutorial",
+  "tour.skip": "Skip",
+  "tour.prev": "Back",
+  "tour.next": "Next",
   "tb.play": "Play",
   "tb.playTitle": "Play/Pause (Space)",
   "tb.actionEditor": "Action Editor",
@@ -2090,6 +2171,101 @@ function buildTrackRow(s, tr, pxPerTick){
         row.appendChild(blk);
       });
       return row;
+    }
+
+/* 序列 / 相机轨视图：把每个 track 渲染成一行并挂到时间轴。buildTrackRow 只负责单行，
+ * 轨道循环与音频占位行由 renderTimeline 统一编排（对标 Premiere / Blender 多轨结构）。 */
+function appendActorTrackSection(s, allTracks, pxPerTick){
+  var tracksEl = document.getElementById('tracks');
+  if(!tracksEl) return;
+  (s.clips || []).forEach(function(cl, i){
+    var row = document.createElement('div'); row.className = 'track-row';
+    var lab = document.createElement('span'); lab.className = 'track-label'; lab.textContent = cl.title || (S('track.clip') + i); row.appendChild(lab);
+    var blk = document.createElement('div'); blk.className = 'clip-block';
+    if(selectedClip === i || selectedClips.has(cl.id)) blk.classList.add('cursor-here');
+    blk.style.left = (120 + cl.tick * pxPerTick) + 'px';
+    blk.style.width = Math.max(20, cl.duration * pxPerTick) + 'px';
+    blk.textContent = cl.title || (S('track.clip') + i);
+    blk.onclick = function(e){
+      e.stopPropagation();
+      if(e.ctrlKey || e.metaKey){
+        if(selectedClips.has(cl.id)) selectedClips.delete(cl.id); else selectedClips.add(cl.id);
+      } else {
+        selectedClips.clear(); selectedClip = i; send('clipOp', { op:'select', index:i });
+      }
+      renderTimeline(s);
+    };
+    blk.oncontextmenu = function(e){
+      e.preventDefault();
+      /* Ctrl+right-click (or any multi-selection) opens the grouping menu. */
+      if(e.ctrlKey || e.metaKey || selectedClips.size >= 1){
+        if(!selectedClips.has(cl.id)) selectedClips.add(cl.id);
+        pendingGroupIds = Array.from(selectedClips);
+        var camIds = new Set((s.cameras || []).map(function(c){ return c.id; }));
+        var allCam = pendingGroupIds.length > 0 && pendingGroupIds.every(function(id){ return camIds.has(id); });
+        var grpItem = document.getElementById('grpCamItem');
+        var warnItem = document.getElementById('grpWarn');
+        if(allCam){ grpItem.classList.remove('ctx-disabled'); warnItem.style.display = 'none'; }
+        else { grpItem.classList.add('ctx-disabled'); warnItem.style.display = ''; }
+        showMenu(clipGroupCtx, e);
+      } else {
+        selectedClip = i; showMenu(clipCtx, e);
+      }
+    };
+    row.appendChild(blk);
+    tracksEl.appendChild(row);
+  });
+}
+
+/* 时间轴主渲染：标签栏 → 刻度尺 → 轨道（多轨：场景/相机/音频；单轨：角色剪辑）→ 播放头 → 拴绳叠加。
+ * 还原 3191a78 重构时丢失的 renderTimeline 头（dur/cursor/ruler/tracks 清空/useTracks 编排）与 appendActorTrackSection 定义。 */
+function renderTimeline(s){
+  var dur = Math.max(s.duration || 0, 1);
+  var cursor = s.cursor || 0;
+  var tickInfo = document.getElementById('tickInfo');
+  if (tickInfo) tickInfo.textContent = cursor + ' / ' + dur;
+
+  var timelineTabs = document.querySelector('.timeline-tabs');
+  if (timelineTabs)
+  {
+    var tabFilm = document.getElementById('tabFilm');
+    var btnNewSeq = document.getElementById('btnNewSeq');
+    var oldTabs = timelineTabs.querySelectorAll('.tab-item[data-seq]');
+    for (var k = 0; k < oldTabs.length; k++) { oldTabs[k].remove(); }
+    (s.sequences || []).forEach(function(seq){
+      var t = document.createElement('div');
+      t.className = 'tab-item';
+      t.setAttribute('data-seq', seq.id);
+      t.textContent = seq.name;
+      if (s.activeSequence === seq.id) t.classList.add('active');
+      t.onclick = (function(id){ return function(){ send('enterSequence', { id: id }); }; })(seq.id);
+      timelineTabs.insertBefore(t, btnNewSeq);
+    });
+    if (tabFilm) tabFilm.textContent = (s.scene || S('tl.tabMain'));
+    if (tabFilm) tabFilm.classList.toggle('active', !s.activeSequence);
+    if (tabFilm && !tabFilm.onclick)
+    {
+      tabFilm.onclick = function(){ send('enterSequence', {}); };
+    }
+  }
+
+  /* ruler */
+  var ruler = document.getElementById('ruler');
+  ruler.innerHTML = '';
+  var tracksEl = document.getElementById('tracks');
+  var w = tracksEl.clientWidth;
+  var pxPerTick = pxPerTickOf(dur, w);
+  for(var t = 0; t <= dur; t += Math.max(1, Math.round(dur / 10))){
+    var sp = document.createElement('span'); sp.style.left = (120 + t * pxPerTick) + 'px'; sp.textContent = t; ruler.appendChild(sp);
+  }
+  /* tracks */
+  tracksEl.innerHTML = '';
+  var allTracks = (s.tracks || []);
+  var useTracks = (!s.activeSequence && s.tracks && s.tracks.length) ? s.tracks : null;
+  if (useTracks)
+  {
+    useTracks.forEach(function(tr){
+      tracksEl.appendChild(buildTrackRow(s, tr, pxPerTick));
     });
     (function(){
       var arow = document.createElement('div'); arow.className = 'track-row kind-audio';
@@ -2099,51 +2275,15 @@ function buildTrackRow(s, tr, pxPerTick){
       arow.appendChild(alab);
       var ahint = document.createElement('span'); ahint.className = 'track-placeholder'; ahint.textContent = S('track.audioEmpty');
       arow.appendChild(ahint);
-      tracks.appendChild(arow);
+      tracksEl.appendChild(arow);
     })();
   }
   else
   {
     appendActorTrackSection(s, allTracks, pxPerTick);
-    (s.clips || []).forEach(function(cl, i){
-      var row = document.createElement('div'); row.className = 'track-row';
-      var lab = document.createElement('span'); lab.className = 'track-label'; lab.textContent = cl.title || (S('track.clip') + i); row.appendChild(lab);
-      var blk = document.createElement('div'); blk.className = 'clip-block';
-      if(selectedClip === i || selectedClips.has(cl.id)) blk.classList.add('cursor-here');
-      blk.style.left = (120 + cl.tick * pxPerTick) + 'px';
-      blk.style.width = Math.max(20, cl.duration * pxPerTick) + 'px';
-      blk.textContent = cl.title || (S('track.clip') + i);
-      blk.onclick = function(e){
-        e.stopPropagation();
-        if(e.ctrlKey || e.metaKey){
-          if(selectedClips.has(cl.id)) selectedClips.delete(cl.id); else selectedClips.add(cl.id);
-        } else {
-          selectedClips.clear(); selectedClip = i; send('clipOp', { op:'select', index:i });
-        }
-        renderTimeline(s);
-      };
-      blk.oncontextmenu = function(e){
-        e.preventDefault();
-        /* Ctrl+right-click (or any multi-selection) opens the grouping menu. */
-        if(e.ctrlKey || e.metaKey || selectedClips.size >= 1){
-          if(!selectedClips.has(cl.id)) selectedClips.add(cl.id);
-          pendingGroupIds = Array.from(selectedClips);
-          var camIds = new Set((s.cameras || []).map(function(c){ return c.id; }));
-          var allCam = pendingGroupIds.length > 0 && pendingGroupIds.every(function(id){ return camIds.has(id); });
-          var grpItem = document.getElementById('grpCamItem');
-          var warnItem = document.getElementById('grpWarn');
-          if(allCam){ grpItem.classList.remove('ctx-disabled'); warnItem.style.display = 'none'; }
-          else { grpItem.classList.add('ctx-disabled'); warnItem.style.display = ''; }
-          showMenu(clipGroupCtx, e);
-        } else {
-          selectedClip = i; showMenu(clipCtx, e);
-        }
-      };
-      row.appendChild(blk);
-      tracks.appendChild(row);
-    });
   }
   /* playhead */
+  var playhead = document.getElementById('playhead');
   playhead.style.left = (120 + cursor * pxPerTick) + 'px';
   /* v3: overlay leash clips onto their replay lanes */
   renderLeashClips(s);
@@ -2251,6 +2391,8 @@ function renderAll(){
   renderRename(s);
   if(!s) return;
   if(!window.__bbsReady){ window.__bbsReady = true; showTrialWarning(); var boot = document.getElementById('bbsBoot'); if(boot){ boot.classList.add('hide'); setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 220); } }
+  /* 首次进入自动跑一次新手引导（localStorage 记忆，仅一次） */
+  if(!localStorage.getItem('bbs_tour_seen')){ try{ localStorage.setItem('bbs_tour_seen','1'); }catch(e){} setTimeout(startTour, 800); }
   /* Selecting a scene enters that scene's bound real-save world preview in
      place (editor overlay stays on top, UI is not lost). Only a scene can
      bind a world; a scene with none just switches without entering. While
@@ -2277,6 +2419,7 @@ function renderAll(){
   renderSeqToolbar(s);
   renderAssetDetail(s);
   renderLeashPanel(s);
+  renderStatusBar(s);
   renderAeDock(s);
 }
 
@@ -3305,6 +3448,139 @@ function renderAeDock(s){
   reportAeViewport();
 }
 
+/* ===== 状态栏（专业软件标配：播放头 / 上下文 / 录制状态） ===== */
+function renderStatusBar(s){
+  var tick = document.getElementById('sbTick');
+  var dur = document.getElementById('sbDur');
+  var ctx = document.getElementById('sbCtx');
+  if(tick) tick.textContent = (s.cursor != null ? s.cursor : 0);
+  if(dur) dur.textContent = (s.duration != null ? s.duration : 0);
+  if(ctx){
+    var recording = false;
+    if(s.cameras && s.cameras.length){
+      for(var i = 0; i < s.cameras.length; i++){ if(s.cameras[i] && s.cameras[i].recording){ recording = true; break; } }
+    }
+    if(recording){ ctx.textContent = '录制中 ●'; ctx.style.color = '#e0556a'; }
+    else if(s.running){ ctx.textContent = '播放中'; ctx.style.color = 'var(--c-accent-d)'; }
+    else { ctx.textContent = '就绪'; ctx.style.color = ''; }
+  }
+}
+
+/* ===== 新手引导（coach marks，对标专业软件 onboarding） ===== */
+var __tourSteps = [
+  { sel:'#assetBox', title:'素材资源库', text:'所有内容都从这里开始：场景、角色、相机、音频。右键空白处或分组即可新建、导入素材。' },
+  { sel:'#mainViewport', title:'实时预览视口', text:'这里显示 Minecraft 的 3D 画面。进入或加载一个世界后预览会自动出现；顶栏工具条可播放 / 截图 / 切换剪切蒙版。' },
+  { sel:'.timeline-wrap', title:'时间轴（多轨道）', text:'非线性编辑核心区，对标 Premiere / Blender：把素材拖入轨道、拖动剪辑块、用播放头逐帧定位关键帧。' },
+  { sel:'#menuRecord', title:'录制', text:'点「开始 / 停止录制」即可用 Ctrl+R 录制关键帧动画，实时捕获你的操作。' },
+  { sel:'#btnPlay', title:'播放 / 暂停', text:'空格键即可播放 / 暂停预览。底部状态栏会实时显示播放头位置与当前状态。' }
+];
+var __tourIdx = 0;
+var __tourActive = false;
+
+function startTour(){ __tourIdx = 0; __tourActive = true; __showCoach(0); }
+
+function __showCoach(i){
+  var steps = __tourSteps;
+  if(i < 0 || i >= steps.length){ endTour(); return; }
+  __tourIdx = i;
+  var step = steps[i];
+  var el = document.querySelector(step.sel);
+  var card = document.getElementById('coachCard');
+  var ring = document.getElementById('coachRing');
+  var mask = document.getElementById('coachMask');
+  if(!card || !ring) return;
+  if(!el){ __showCoach(i + 1); return; }
+  var r = el.getBoundingClientRect();
+  ring.style.display = 'block';
+  ring.style.left = (r.left - 4) + 'px';
+  ring.style.top = (r.top - 4) + 'px';
+  ring.style.width = (r.width + 8) + 'px';
+  ring.style.height = (r.height + 8) + 'px';
+  if(mask) mask.style.display = 'block';
+  var title = document.getElementById('coachTitle');
+  var text = document.getElementById('coachText');
+  var stepEl = document.getElementById('coachStep');
+  if(title) title.textContent = step.title;
+  if(text) text.textContent = step.text;
+  if(stepEl) stepEl.textContent = (i + 1) + ' / ' + steps.length;
+  card.style.display = 'block';
+  var cw = card.offsetWidth || 320;
+  var ch = card.offsetHeight || 130;
+  var top = r.bottom + 10;
+  if(top + ch > window.innerHeight - 8) top = Math.max(8, r.top - ch - 10);
+  var left = r.left;
+  if(left + cw > window.innerWidth - 8) left = window.innerWidth - cw - 8;
+  if(left < 8) left = 8;
+  card.style.top = top + 'px';
+  card.style.left = left + 'px';
+}
+
+function endTour(){
+  __tourActive = false;
+  var card = document.getElementById('coachCard');
+  var ring = document.getElementById('coachRing');
+  var mask = document.getElementById('coachMask');
+  if(card) card.style.display = 'none';
+  if(ring) ring.style.display = 'none';
+  if(mask) mask.style.display = 'none';
+}
+
+function __coachNext(){ if(__tourIdx >= __tourSteps.length - 1){ endTour(); return; } __showCoach(__tourIdx + 1); }
+function __coachPrev(){ __showCoach(__tourIdx - 1); }
+
+/* ===== 教程文档 / 快捷键（模态） ===== */
+var __SHORTCUTS = [
+  ['空格', '播放 / 暂停预览'],
+  ['Ctrl + R', '开始 / 停止录制'],
+  ['.', '解除伪装（morph）'],
+  ['右键素材库', '新建 / 导入素材'],
+  ['F2', '截图导出当前帧'],
+  ['K', '为选中目标添加关键帧'],
+  ['拖动素材 → 轨道', '放置剪辑块'],
+  ['拖动播放头', '逐帧定位']
+];
+
+function openShortcuts(){
+  var body = document.getElementById('tutBody');
+  var title = document.getElementById('tutTitle');
+  if(title) title.textContent = S('menu.helpShortcuts') || '快捷键一览';
+  if(!body) return;
+  var html = '<div class="tut-sec">快捷键一览</div>';
+  for(var i = 0; i < __SHORTCUTS.length; i++){
+    html += '<div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px dashed var(--c-border);font-size:13px;">'
+      + '<span style="color:var(--c-text);font-weight:600;">' + __SHORTCUTS[i][0] + '</span>'
+      + '<span style="color:var(--c-text-2);">' + __SHORTCUTS[i][1] + '</span></div>';
+  }
+  body.innerHTML = html;
+  showTutModal();
+}
+
+function openTutorial(){
+  var body = document.getElementById('tutBody');
+  var title = document.getElementById('tutTitle');
+  if(title) title.textContent = S('menu.helpDoc') || '教程文档';
+  if(!body) return;
+  body.innerHTML = TUTORIAL_HTML;
+  showTutModal();
+}
+
+function showTutModal(){ var m = document.getElementById('tutModal'); if(m) m.classList.add('show'); }
+function hideTutModal(){ var m = document.getElementById('tutModal'); if(m) m.classList.remove('show'); }
+
+var TUTORIAL_HTML = ''
+  + '<div class="tut-sec">① 进入编辑器与工作区</div>'
+  + '<div class="tut-item">编辑器是覆盖在原生 Dashboard 之上的全屏 HTML 界面（基于 MCEF / Chromium），通过 Java↔JS 桥接与游戏世界通信。四大区块：<b>顶栏菜单</b>、<b>左侧资源库</b>、<b>中央预览视口</b>、<b>底部时间轴</b>。</div>'
+  + '<div class="tut-sec">② 场景与角色：从资源库新建</div>'
+  + '<div class="tut-item">资源库<b>右键 → 新建 → 场景 / 实体</b>。角色即「无限角色」的一员，可套用形态系统变身任意实体或模型方块。也可导入音频（wav/ogg）、旧版 .bban 动画、图片序列帧。</div>'
+  + '<div class="tut-sec">③ 时间轴剪辑：轨道、剪辑块与播放头</div>'
+  + '<div class="tut-item">对标 Premiere / Blender 的多轨道结构：场景轨道、相机轨道、音频轨道、标记轨道。把素材拖入对应泳道，拖动两端裁剪、拖动中间移动，右键可拆分 / 波纹删除 / 变速。拖动顶部红色播放头逐帧定位。</div>'
+  + '<div class="tut-sec">④ 动作序列与实时预览播放</div>'
+  + '<div class="tut-item">选中<b>已绑定世界</b>的场景，点主视口工具条 <code>▶ 播放</code> 即进入游戏世界并按关键帧实时播放。点 <code>⏸ 暂停</code> 或退出预览即停止释放。</div>'
+  + '<div class="tut-sec">⑤ 关键帧曲线与材质时间轴</div>'
+  + '<div class="tut-item">选中目标按 <code>K</code> 添加关键帧；插值支持线性 / 缓入 / 缓出 / 贝塞尔。材质与模型方块也拥有独立时间轴，可驱动颜色、可见性、形状（如昼夜渐变、物体生长）。</div>'
+  + '<div class="tut-sec">⑥ 导出与渲染</div>'
+  + '<div class="tut-item">菜单<b>文件 → 导出</b>：场景 .scenebbs / 序列 .seqbbs / PNG 序列帧；<b>渲染</b>管理渲染队列与预设；<code>F2</code> 截图当前帧。</div>';
+
 /* 将 3D 视口（#mainViewport）在浏览器全屏坐标系下的矩形上报给 Java 端，
  * 供「预览时拖动视口旋转相机」的指针命中判定使用。仅在矩形变化时上报。 */
 var __lastVpKey = '';
@@ -3341,6 +3617,8 @@ function adSelect(options, current, onchange){
 function renderViewportToolbar(s){
   var p = document.getElementById('vpPlay');
   if(p) p.classList.toggle('active', !!s.running);
+  var b = document.getElementById('btnPlay');
+  if(b) b.classList.toggle('active', !!s.running);
 }
 
 /* B2: 序列工具栏按钮在「无激活序列」时禁用 */
@@ -3504,6 +3782,22 @@ document.getElementById('renameOk').onclick = function(){
 document.getElementById('renameCancel').onclick = function(){ send('renameCancel'); };
 document.getElementById('renameModal').addEventListener('click', function(e){ if(e.target === this) send('renameCancel'); });
 document.querySelectorAll('.menu-item').forEach(function(it){ it.onclick = function(e){ e.stopPropagation(); var a = it.getAttribute('data-a'); if(!a) return; if(isCreateAction(a)){ openCreateModal(a); return; } if(a === 'closeEditor'){ tryCloseEditor(); return; } var p = {}; if(it.getAttribute('data-mode') != null) p.mode = parseInt(it.getAttribute('data-mode')); if(it.getAttribute('data-op') != null) p.op = it.getAttribute('data-op'); if(it.getAttribute('data-index') != null) p.index = parseInt(it.getAttribute('data-index')); send(a, p); hideMenus(); }; });
+/* 帮助菜单三项：无 data-a，单独接线（新手引导 / 快捷键 / 教程文档） */
+var __mht = document.getElementById('mHelpTour');
+var __mhs = document.getElementById('mHelpShortcuts');
+var __mhd = document.getElementById('mHelpDoc');
+if(__mht) __mht.onclick = function(){ hideMenus(); startTour(); };
+if(__mhs) __mhs.onclick = function(){ hideMenus(); openShortcuts(); };
+if(__mhd) __mhd.onclick = function(){ hideMenus(); openTutorial(); };
+var __tclose = document.getElementById('tutClose');
+if(__tclose) __tclose.onclick = function(){ hideTutModal(); };
+var __cskip = document.getElementById('coachSkip');
+if(__cskip) __cskip.onclick = function(){ endTour(); };
+var __cprev = document.getElementById('coachPrev');
+if(__cprev) __cprev.onclick = function(){ __coachPrev(); };
+var __cnext = document.getElementById('coachNext');
+if(__cnext) __cnext.onclick = function(){ __coachNext(); };
+window.addEventListener('resize', function(){ if(__tourActive) __showCoach(__tourIdx); });
 assetList.addEventListener('contextmenu', function(e){ if(e.target === assetList){ e.preventDefault(); showMenu(assetCtx, e); } });
 
 /* ----- B3: 素材箱折叠 ----- */
