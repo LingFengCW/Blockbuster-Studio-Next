@@ -52,8 +52,12 @@ public class UIOverlay extends UIElement
         }
         else
         {
+            /* 关键：隐藏编辑器叠层时【绝不销毁浏览器】。浏览器实例是跨屏切换
+             * （进/出世界预览）必须存活的单例；把它绑死在 visibility 上会在
+             * openWorld/clearClientLevel 顶掉 mchorse 屏时把编辑器浏览器
+             * 一并销毁，表现为"窗口被顶掉"。true 关闭只由 MCEFUI.shutdown()
+             * （MC 退出）触发。保活逻辑见 UIFilmPanel.keepBrowserAlive。 */
             MCEFUI.clearActiveOverlay(this);
-            MCEFUI.close();
         }
     }
 

@@ -204,6 +204,16 @@ public class UIDashboard extends UIBaseMenu
         return this.panels.panel != null && this.panels.panel.canRefresh();
     }
 
+    /* 重开编辑器时恢复影片面板而非默认项目面板（修复进/出世界预览后编辑器
+     * 被重置成 ProjectsPanel 而不回来的 bug）。由 EditorBridge 在 enterSceneWorld
+     * / reopenEditorUi / exitPreviewWorld 时置位，closeEditor 时清除。 */
+    private boolean returnToEditor = false;
+
+    public void setReturnToEditor(boolean value)
+    {
+        this.returnToEditor = value;
+    }
+
     @Override
     public void onOpen(UIBaseMenu oldMenu)
     {
@@ -216,7 +226,17 @@ public class UIDashboard extends UIBaseMenu
         if (oldMenu != this)
         {
             this.panels.open();
-            this.setPanel(this.panels.panel);
+
+            UIFilmPanel film = this.getPanel(UIFilmPanel.class);
+
+            if (this.returnToEditor && film != null)
+            {
+                this.setPanel(film);
+            }
+            else
+            {
+                this.setPanel(this.panels.panel);
+            }
         }
 
         BBSModClient.getCameraController().add(this.camera);

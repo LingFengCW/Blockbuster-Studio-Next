@@ -122,9 +122,13 @@ import java.nio.file.StandardOpenOption;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -245,6 +249,9 @@ public class EditorBridge implements IHtmlBridge
      *  whether the exit-world button is shown. False the moment the
      *  world is torn down so the button can never outlive the world. */
     private static boolean owningPreviewWorld = false;
+    /** Task #19: 工具栏模式。开启后编辑器隐藏素材箱/时间轴/顶栏等面板，仅保留一条
+     *  悬浮工具栏，中央区域透明、露出背后实时渲染的游玩世界（capturePreview 同步暂停）。 */
+    private static boolean toolbarMode = false;
     /** Folder name of the singleplayer world the editor most recently opened
      *  through enterSceneWorld, or null when no editor-owned world is loaded.
      *  The editor overlay sits on top of a still-running world, so mc.level is
@@ -439,6 +446,7 @@ public class EditorBridge implements IHtmlBridge
         root.addProperty("activeScene", current == null ? "" : current.id);
         root.addProperty("inWorld", inWorld || Minecraft.getInstance().level != null);
         root.addProperty("owningPreviewWorld", owningPreviewWorld);
+        root.addProperty("toolbarMode", toolbarMode);
         root.addProperty("worldLoading", isEnteringWorld());
 
         root.addProperty("cursor", panel.getCursor());
@@ -2123,6 +2131,17 @@ public class EditorBridge implements IHtmlBridge
             case "exitPreviewWorld":
                 exitPreviewWorld();
                 break;
+            case "setToolbarMode":
+            {
+                /* Task #19: 工具栏模式开关。HTML 切换时把标志同步给 Java，
+                 * 让 MCEFUI 暂停/恢复 capturePreview（透明露世界时不需截图预览）。 */
+                boolean on = req.has("on") ? req.get("on").getAsBoolean() : !toolbarMode;
+
+                toolbarMode = on;
+                MCEFUI.setToolbarMode(on);
+                refreshHtml();
+                break;
+            }
             case "recordCamera":
             {
                 int ci = req.has("index") ? req.get("index").getAsInt() : -1;
@@ -2322,11 +2341,24 @@ public class EditorBridge implements IHtmlBridge
                 refreshHtml();
                 break;
             case "enterSequence":
-                /* 硬性保险：选中序列只设 activeSequenceId + 刷新高亮，绝不允许进入世界。
-                 * 进世界只能通过 openScene(绑定世界) 或 "进入世界" 按钮，序列点击与之完全隔离。 */
-                activeSequenceId = req.has("id") ? req.get("id").getAsString() : null;
+            {
+                String seqId = req.has("id") ? req.get("id").getAsString() : null;
+
+                /* 选中序列：设 activeSequenceId + 刷新高亮（原行为保留）。 */
+                activeSequenceId = seqId;
                 refreshHtml();
+
+                /* Task #18: 选中"包含场景的序列"时也自动尝试进世界预览（与 openScene 对齐）。
+                 * 解析序列（含嵌套）引用的第一个有绑定世界的场景，找到则直接进该世界。
+                 * 无场景 / 无绑定世界的序列维持原行为（仅选中，不进世界）。 */
+                String sceneWorld = resolveSequenceSceneWorld(seqId);
+
+                if (sceneWorld != null)
+                {
+                    enterSceneWorldNamed(panel, sceneWorld);
+                }
                 break;
+            }
             case "addToCurrent":
                 /* Click an asset -> it auto-enters the active (or first)
                  * sequence. Characters map to the native "mcpr" ref type. */
@@ -2726,6 +2758,10 @@ public class EditorBridge implements IHtmlBridge
             UIDashboard dashboard = BBSModClient.getDashboard();
             UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
 
+            /* 重开时恢复影片编辑器面板（而非默认项目面板），并标记 returnToEditor
+             * 让 onOpen 据此 setPanel(filmPanel)，修复"进/出世界后编辑器不回来"。 */
+            dashboard.setReturnToEditor(true);
+
             if (panel != null && panel.getData() != null)
             {
                 dashboard.setPanel(panel);
@@ -2841,15 +2877,22 @@ public class EditorBridge implements IHtmlBridge
 
     private static void enterSceneWorld(UIFilmPanel panel)
     {
-        Minecraft mc = Minecraft.getInstance();
-
         SceneManager scenes = SceneManager.get();
         Scene current = scenes == null ? null : scenes.getCurrent();
         String world = (current == null || current.background == null || current.background.isEmpty()) ? null : current.background;
 
-        if (world == null)
+        enterSceneWorldNamed(panel, world);
+    }
+
+    /** 核心：进入指定名称的绑定世界预览。 {@link #enterSceneWorld(UIFilmPanel)} 从"当前场景"
+     *  推导 world；序列自动进预览（Task #18）则直接传入解析出的场景世界名，二者共用此实现。 */
+    private static void enterSceneWorldNamed(UIFilmPanel panel, String world)
+    {
+        Minecraft mc = Minecraft.getInstance();
+
+        if (world == null || world.isEmpty())
         {
-            BBSMod.LOGGER.warn("[EditorBridge] enterSceneWorld: current scene has no bound world (background empty) - nothing to enter");
+            BBSMod.LOGGER.warn("[EditorBridge] enterSceneWorld: target scene has no bound world (background empty) - nothing to enter");
             return;
         }
 
@@ -2970,6 +3013,89 @@ public class EditorBridge implements IHtmlBridge
             loadedPreviewWorldName = null;
             BBSMod.LOGGER.error("[EditorBridge] enterSceneWorld failed to open world '{}'", world, t);
         }
+    }
+
+    /** Task #18: 从序列（含嵌套序列，跟随其 SCENE / SEQUENCE 引用，深度受
+     *  {@link SequenceManager#MAX_DEPTH} 约束）里解析出第一个绑定了世界的场景名。
+     *  返回该场景的 background 世界名；序列无场景 / 场景都未绑定世界时返回 null。 */
+    private static String resolveSequenceSceneWorld(String seqId)
+    {
+        SequenceManager sm = SequenceManager.get();
+
+        if (sm == null || seqId == null || seqId.isEmpty())
+        {
+            return null;
+        }
+
+        Set<String> visited = new HashSet<>();
+        Deque<String> queue = new ArrayDeque<>();
+
+        queue.add(seqId);
+
+        int guard = 0;
+        int maxSteps = SequenceManager.MAX_DEPTH * 8 + 16;
+
+        while (!queue.isEmpty() && guard++ < maxSteps)
+        {
+            String id = queue.poll();
+
+            if (!visited.add(id))
+            {
+                continue;
+            }
+
+            Sequence seq = sm.getById(id);
+
+            if (seq == null)
+            {
+                continue;
+            }
+
+            for (Sequence.SequenceRef ref : seq.refs)
+            {
+                if (Sequence.SequenceRef.SCENE.equals(ref.type))
+                {
+                    Scene scene = findSceneById(ref.id);
+
+                    if (scene != null && scene.background != null && !scene.background.isEmpty())
+                    {
+                        return scene.background;
+                    }
+                }
+                else if (ref.isSequence())
+                {
+                    queue.add(ref.id);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** 按 id 在项目场景列表里查找场景（SceneManager 无 getSceneById，这里线性查找）。 */
+    private static Scene findSceneById(String id)
+    {
+        if (id == null)
+        {
+            return null;
+        }
+
+        SceneManager sm = SceneManager.get();
+
+        if (sm == null)
+        {
+            return null;
+        }
+
+        for (Scene s : sm.getScenes())
+        {
+            if (s.id.equals(id))
+            {
+                return s;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -3836,6 +3962,24 @@ public class EditorBridge implements IHtmlBridge
             {
                 pendingRefresh = false;
                 MCEFUI.pushState();
+            }
+
+            /* Task #21: 进世界预览期间，若编辑器屏（承载 UIDashboard 的 UIScreen）
+             * 被 MC 顶掉（原生世界屏 / LoadingOverlay / 暂停菜单 / 错误屏 等），
+             * 立即重开编辑器屏使其常驻最顶层绘制，浏览器永不被"顶掉"。
+             * 仅在：① 本编辑器拥有预览世界；② 当前确实已加载某世界（mc.level!=null，
+             * 避免在缺世界时把错误屏强行盖成编辑器）；③ 没有世界切换在进行中
+             * （避开 LoadingOverlay 期间反复重开干扰 openWorld）；④ 当前屏不是
+             * 编辑器 UIScreen 时，才执行重断言。重开用 mc.execute 保证主线程。 */
+            if (owningPreviewWorld && Minecraft.getInstance().level != null && !isSwitchingWorld())
+            {
+                if (!(UIScreen.getCurrentMenu() instanceof UIDashboard))
+                {
+                    UIDashboard dashboard = BBSModClient.getDashboard();
+
+                    dashboard.setReturnToEditor(true);
+                    Minecraft.getInstance().execute(() -> UIScreen.open(dashboard));
+                }
             }
         });
     }

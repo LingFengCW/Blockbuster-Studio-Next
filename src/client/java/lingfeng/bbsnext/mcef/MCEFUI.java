@@ -117,6 +117,16 @@ public class MCEFUI
         browserSuspended = suspended;
     }
 
+    /* Task #19: 工具栏模式。开启时编辑器中央透明、露出背后的实时世界，截图预览
+     * 既冗余又需隐藏，故暂停 capturePreview 的 GPU readback（见 capturePreview）。 */
+    private static volatile boolean toolbarMode = false;
+
+    /** 由 EditorBridge 在工具栏模式开关时调用，让预览截图与透明露世界互斥。 */
+    public static void setToolbarMode(boolean on)
+    {
+        toolbarMode = on;
+    }
+
     public static void setViewportMetrics(float top, float left, float bottom)
     {
         if (top > 0f && top < 1f) viewportTopFrac = top;
@@ -297,6 +307,30 @@ public class MCEFUI
 
             browser = null;
         }
+    }
+
+    /**
+     * True teardown: only called when the Minecraft client is stopping. Never
+     * during a screen / world transition - those must keep the editor browser
+     * alive (see {@link UIOverlay#setVisible(boolean)}). Releases the CEF
+     * browser so it does not leak across a client restart.
+     */
+    public static void shutdown()
+    {
+        try
+        {
+            close();
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.error("[MCEF] shutdown failed", t);
+        }
+
+        activeOverlay = null;
+        bridge = null;
+        currentPageUrl = null;
+        initialized = false;
+        api = null;
     }
 
     /* -------- JS bridge -------- */
@@ -738,6 +772,19 @@ public class MCEFUI
     {
         if ((previewTick++ % 4) != 0)
         {
+            return;
+        }
+
+        if (toolbarMode)
+        {
+            /* Task #19: 工具栏模式下世界通过透明叠层直接显示，HTML 截图预览既多余
+             * 又要隐藏，故跳过 GPU readback 以省开销，并确保 <img> 处于 'none' 态。 */
+            if (previewFrame != -1)
+            {
+                previewFrame = -1;
+                injectScript("window.__previewMode='none';");
+            }
+
             return;
         }
 

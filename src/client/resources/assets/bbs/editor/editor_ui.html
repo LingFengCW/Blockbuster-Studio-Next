@@ -408,6 +408,39 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 
 /* ===== 状态栏（专业软件标配：播放头 / 上下文 / 快捷键提示） ===== */
 .status-bar{height:24px;background:var(--c-bg);border-top:1px solid var(--c-border-2);display:flex;align-items:center;gap:14px;padding:0 12px;font-size:11px;color:var(--c-text-2);flex:0 0 auto;}
+
+/* ===== Task #19: 工具栏模式（仅悬浮工具栏，中央透明露实时世界） ===== */
+body.tb-mode{ background:transparent; }
+body.tb-mode .title-bar,
+body.tb-mode .toolbar-slim,
+body.tb-mode .asset-panel,
+body.tb-mode .splitter-v,
+body.tb-mode .splitter-h,
+body.tb-mode .timeline-wrap,
+body.tb-mode .status-bar,
+body.tb-mode .ae-dock,
+body.tb-mode .asset-detail,
+body.tb-mode .leash-panel{ display:none !important; }
+body.tb-mode .editor{ background:transparent !important; }
+body.tb-mode .mid{ background:transparent !important; }
+body.tb-mode .right{ flex:1 1 auto; background:transparent !important; }
+body.tb-mode .viewport-wrap{ position:absolute; inset:0; background:transparent !important; padding:0 !important; gap:0 !important; }
+body.tb-mode #vpImg,
+body.tb-mode #vpMask,
+body.tb-mode #vpGrid,
+body.tb-mode #vpPh,
+body.tb-mode #worldLoad,
+body.tb-mode #mainViewport,
+body.tb-mode .vp-grid{ display:none !important; }
+body.tb-mode .vp-toolbar{
+  position:fixed; top:8px; left:50%; transform:translateX(-50%);
+  z-index:80; box-shadow:var(--c-shadow); border-radius:6px;
+  background:rgba(20,22,28,.82); backdrop-filter:blur(6px);
+  padding:4px 8px;
+}
+body.tb-mode .vp-toolbar button{ background:rgba(40,44,54,.9); }
+#btnToolbarMode{ background:var(--c-bg); color:var(--c-text); border:1px solid var(--c-border); border-radius:3px; padding:4px 12px; font-size:12px; cursor:pointer; }
+body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-color:var(--c-accent); }
 .status-bar .sb-sep{width:1px;height:14px;background:var(--c-border-2);}
 .status-bar .sb-tag{color:var(--c-accent-d);font-weight:600;}
 .status-bar .sb-kbd{display:inline-block;background:var(--c-bg-sub);border:1px solid var(--c-border);border-radius:3px;padding:0 5px;margin:0 2px;font-size:10px;color:var(--c-text);}
@@ -650,6 +683,8 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
           <button id="clipNone" class="active" title="剪切蒙版：无" data-i18n="clip.none" data-i18n-title="clip.noneTitle">无剪切</button>
           <button id="clipRect" title="剪切蒙版：矩形" data-i18n="clip.rect" data-i18n-title="clip.rectTitle">矩形</button>
           <button id="clipCircle" title="剪切蒙版：圆形" data-i18n="clip.circle" data-i18n-title="clip.circleTitle">圆形</button>
+          <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
+          <button id="btnToolbarMode" title="工具栏模式：仅悬浮工具栏、中央透明露游玩世界 (T)" onclick="if(window.bbsSetToolbarMode)window.bbsSetToolbarMode(!window.__toolbarMode)"><img class="ico" src="svg/gip-expand.svg"> 仅工具栏</button>
         </div>
         <img id="vpImg" class="vp-img" alt="实时预览">
         <canvas id="vpMask" class="vp-mask"></canvas>
@@ -2463,6 +2498,16 @@ window.bbsSetWorldLoading = function(on){
   if (wl) wl.style.display = show ? 'block' : 'none';
 };
 
+/* Task #19: 工具栏模式开关。立即切换 body 类让中央透明露世界，并把状态回传 Java
+   （EditorBridge 经 MCEFUI 暂停/恢复 capturePreview）。状态也进 bbsState，
+   renderAll 从状态重放，避免整页重建后丢失。 */
+window.bbsSetToolbarMode = function(on){
+  window.__toolbarMode = !!on;
+  document.body.classList.toggle('tb-mode', window.__toolbarMode);
+  if (window.__toolbarMode) window._sceneWorldEntering = false;
+  send('setToolbarMode', { on: window.__toolbarMode });
+};
+
 /* 拴绳工具面板：开启/关闭工具、锚点状态、绑定/解绑/骨骼。Ctrl+点击视口拾取锚点 A/B。 */
 function renderLeashPanel(s){
   var el = document.getElementById('leashPanel');
@@ -2537,6 +2582,9 @@ function renderAll(){
   if(!window.__bbsReady){ window.__bbsReady = true; showTrialWarning(); var boot = document.getElementById('bbsBoot'); if(boot){ boot.classList.add('hide'); setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 220); } }
   /* 首次进入自动跑一次新手引导（localStorage 记忆，仅一次） */
   if(!localStorage.getItem('bbs_tour_seen')){ try{ localStorage.setItem('bbs_tour_seen','1'); }catch(e){} setTimeout(startTour, 800); }
+  /* Task #19: 工具栏模式从状态重放（整页重建后保持），与 window.bbsSetToolbarMode 即时切换一致。 */
+  window.__toolbarMode = !!(s && s.toolbarMode);
+  document.body.classList.toggle('tb-mode', window.__toolbarMode);
   /* Selecting a scene enters that scene's bound real-save world preview in
      place (editor overlay stays on top, UI is not lost). Only a scene can
      bind a world; a scene with none just switches without entering. While
@@ -4664,6 +4712,8 @@ document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){ hideMenus(); closeCmdPalette(); var tm = document.getElementById('tutModal'); if(tm) tm.classList.remove('show'); return; }
   /* 命令面板优先：Ctrl+K 任意处开关（含输入态） */
   if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')){ e.preventDefault(); var cp = document.getElementById('cmdPalette'); if(cp && cp.classList.contains('show')) closeCmdPalette(); else openCmdPalette(); return; }
+  /* Ctrl+S：保存当前作品（拦截浏览器原生保存对话框） */
+  if((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); send('save'); return; }
   var t = e.target;
   var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
   if(typing) return;
@@ -4676,6 +4726,10 @@ document.addEventListener('keydown', function(e){
   if(e.key === '-' || e.key === '_'){ e.preventDefault(); pxPerTickScale = Math.max(0.25, pxPerTickScale / 1.25); renderTimeline(window.bbsState); updateZoomLabel(); return; }
   if(e.key === 'm' || e.key === 'M'){ e.preventDefault(); addMarker(); return; }
   if(e.key === 's' || e.key === 'S'){ e.preventDefault(); snapEnabled = !snapEnabled; var sn = document.getElementById('tlSnap'); if(sn) sn.classList.toggle('active', snapEnabled); return; }
+  /* e：进入当前选中场景绑定的预览世界（无绑定世界则忽略） */
+  if(e.key === 'e' || e.key === 'E'){ e.preventDefault(); send('enterSceneWorld'); return; }
+  /* t：切换工具栏模式（仅悬浮工具栏 / 中央透明露游玩世界） */
+  if(e.key === 't' || e.key === 'T'){ e.preventDefault(); if(window.bbsSetToolbarMode) window.bbsSetToolbarMode(!window.__toolbarMode); return; }
   if(e.key === '?'){ e.preventDefault(); openCmdPalette(); return; }
   if(e.code === 'Delete' || e.code === 'Backspace'){
     var t2 = e.target;
