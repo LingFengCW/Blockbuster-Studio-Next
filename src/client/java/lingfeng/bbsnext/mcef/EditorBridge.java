@@ -252,6 +252,15 @@ public class EditorBridge implements IHtmlBridge
     /** Task #19: 工具栏模式。开启后编辑器隐藏素材箱/时间轴/顶栏等面板，仅保留一条
      *  悬浮工具栏，中央区域透明、露出背后实时渲染的游玩世界（capturePreview 同步暂停）。 */
     private static boolean toolbarMode = false;
+    /** Task #19/HUD: HUD 强移游玩区。工具栏模式下把整层 vanilla HUD（hotbar/health/
+     *  crosshair/chat/boss/title/vignette 等）通过 GuiGraphicsExtractor.pose() 变换
+     *  + scissor 限定进编辑器中央游玩区，而非铺满整窗。仅 toolbarMode 时启用。 */
+    private static boolean hudRelocation = false;
+    /** 游玩区矩形（占窗口比例 0..1）：{left, top, width, height}。工具栏模式开启时
+     *  取一个轻微内缩矩形，使 HUD 明显"嵌"在游玩视口内。 */
+    private static float[] hudRect = {0.03f, 0.03f, 0.94f, 0.94f};
+    public static boolean isHudRelocationActive() { return hudRelocation; }
+    public static float[] getHudRect() { return hudRect; }
     /** Folder name of the singleplayer world the editor most recently opened
      *  through enterSceneWorld, or null when no editor-owned world is loaded.
      *  The editor overlay sits on top of a still-running world, so mc.level is
@@ -2139,6 +2148,9 @@ public class EditorBridge implements IHtmlBridge
 
                 toolbarMode = on;
                 MCEFUI.setToolbarMode(on);
+                /* Task #19/HUD: 工具栏模式开启即启用 HUD 强移游玩区，关闭时还原。 */
+                hudRelocation = on;
+                hudRect = on ? new float[]{0.03f, 0.03f, 0.94f, 0.94f} : new float[]{0f, 0f, 1f, 1f};
                 refreshHtml();
                 break;
             }

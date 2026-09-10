@@ -18,6 +18,7 @@
         "WindowMixin",
         "AvatarRendererMixin",
         "LivingEntityRendererMixin",
+        "HudRelocateMixin",
         "SelectWorldScreenMixin",
         "CreateWorldScreenMixin",
         "iris.CustomUniformsAccessor",
