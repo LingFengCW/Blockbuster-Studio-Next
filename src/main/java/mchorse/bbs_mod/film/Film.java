@@ -21,6 +21,10 @@ public class Film extends ValueGroup
      * equipment clips applied to the first-person actor while the camera plays. */
     public final MaterialClips cameraMaterials = new MaterialClips("camera_materials");
 
+    /* Timeline markers (tick positions dropped by the user). Persisted on the
+     * film so they survive editor reloads and travel with the project file. */
+    public final MarkerList markers = new MarkerList("markers");
+
     public final Inventory inventory = new Inventory("inventory");
     public final ValueFloat hp = new ValueFloat("hp", 20F);
     public final ValueFloat hunger = new ValueFloat("hunger", 20F);
@@ -38,6 +42,7 @@ public class Film extends ValueGroup
         this.add(this.replays);
         this.add(this.cameraGroups);
         this.add(this.cameraMaterials);
+        this.add(this.markers);
 
         this.add(this.inventory);
         this.add(this.hp);

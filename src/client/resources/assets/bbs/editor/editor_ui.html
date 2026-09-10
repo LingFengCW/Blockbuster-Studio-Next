@@ -4093,15 +4093,15 @@ window.__sbSaveFlash = function(){
   window.__sbSaveT = setTimeout(function(){ el.classList.remove('saving'); if(txt) txt.textContent = '自动保存'; }, 700);
 };
 
-/* 时间轴标记（会话级，刷新页面重置；点击标记跳到该帧） */
+/* 时间轴标记：持久化在后端 Film.markers（刷新页面 / 重开项目后保留，随 .bbb 项目文件走）。
+ * 前端 bbsMarkers 仅作渲染缓存，每次 renderMarkers 从 s.markers 同步。点击跳帧，右键删除。 */
 var bbsMarkers = [];
 function addMarker(){
   var s = window.bbsState || {};
   var t = (s.cursor != null ? s.cursor : 0);
-  bbsMarkers.push({ tick: t, label: '' });
-  bbsMarkers.sort(function(a, b){ return a.tick - b.tick; });
-  renderMarkers(s);
+  send('addMarker', { tick: t });
 }
+function removeMarker(t){ send('removeMarker', { tick: t }); }
 function renderMarkers(s){
   var box = document.getElementById('tlMarkers'); if(!box) return;
   box.innerHTML = '';
@@ -4109,13 +4109,15 @@ function renderMarkers(s){
   var tr = document.getElementById('tracks');
   var w = tr ? tr.clientWidth : 800;
   var px = pxPerTickOf(dur, w);
+  bbsMarkers = (s.markers || []).map(function(t){ return { tick: t, label: '' }; });
   for(var i = 0; i < bbsMarkers.length; i++){
     (function(m){
       var mk = document.createElement('div');
       mk.className = 'tl-marker';
       mk.style.left = (120 + m.tick * px) + 'px';
-      mk.title = '标记 @' + m.tick;
+      mk.title = '标记 @' + m.tick + '（右键删除）';
       mk.onclick = function(e){ e.stopPropagation(); send('setCursor', { tick: m.tick }); };
+      mk.oncontextmenu = function(e){ e.preventDefault(); e.stopPropagation(); removeMarker(m.tick); };
       box.appendChild(mk);
     })(bbsMarkers[i]);
   }

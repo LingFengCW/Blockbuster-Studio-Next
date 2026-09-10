@@ -67,6 +67,7 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import net.minecraft.world.entity.LivingEntity;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
+import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -1142,6 +1143,19 @@ public class EditorBridge implements IHtmlBridge
 
         root.add("leash", buildLeashState(panel));
 
+        /* Persistent timeline markers (drop on the ruler; survive reload). */
+        JsonArray markerArr = new JsonArray();
+
+        if (film != null)
+        {
+            for (ValueInt m : film.markers.getList())
+            {
+                markerArr.add(m.get());
+            }
+        }
+
+        root.add("markers", markerArr);
+
         return GSON.toJson(root);
     }
 
@@ -1985,6 +1999,12 @@ public class EditorBridge implements IHtmlBridge
                 reorderTrack(panel,
                     req.has("replayId") ? req.get("replayId").getAsString() : "",
                     req.has("targetReplayId") ? req.get("targetReplayId").getAsString() : "");
+                break;
+            case "addMarker":
+                addMarker(panel, req.has("tick") ? req.get("tick").getAsInt() : panel.getCursor());
+                break;
+            case "removeMarker":
+                removeMarker(panel, req.has("tick") ? req.get("tick").getAsInt() : -1);
                 break;
             case "unplaceActor":
                 unplaceActor(panel, req.has("replayId") ? req.get("replayId").getAsString() : "");
@@ -6340,6 +6360,63 @@ public class EditorBridge implements IHtmlBridge
     private static void reorderTrack(UIFilmPanel panel, String replayId, String targetReplayId)
     {
         placeOrReorderTrack(panel, replayId, targetReplayId);
+    }
+
+    /* Persistent timeline markers. addMarker drops a marker at the given tick
+     * (defaulting to the current playhead); removeMarker deletes the one at the
+     * given tick. Both mutate the film, persist via panel.save() and refresh. */
+    private static void addMarker(UIFilmPanel panel, int tick)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        for (ValueInt m : film.markers.getList())
+        {
+            if (m.get() == tick)
+            {
+                return;
+            }
+        }
+
+        ValueInt marker = new ValueInt(String.valueOf(film.markers.getList().size()), tick);
+
+        film.markers.add(marker);
+        panel.save();
+        refreshHtml();
+    }
+
+    private static void removeMarker(UIFilmPanel panel, int tick)
+    {
+        Film film = panel.getData();
+
+        if (film == null || tick < 0)
+        {
+            return;
+        }
+
+        List<ValueInt> list = film.markers.getAllTyped();
+        int index = -1;
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            if (list.get(i).get() == tick)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index >= 0)
+        {
+            list.remove(index);
+            film.markers.sync();
+            panel.save();
+            refreshHtml();
+        }
     }
 
     private static void placeOrReorderTrack(UIFilmPanel panel, String replayId, String targetReplayId)
