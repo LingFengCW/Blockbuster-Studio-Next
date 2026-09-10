@@ -115,6 +115,19 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Matrix3f;
+import org.joml.Vector3d;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
+import mchorse.bbs_mod.client.PipGeometry;
+import mchorse.bbs_mod.forms.entities.StubEntity;
+import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.forms.renderers.FormRenderType;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIModelPipRenderState;
+import mchorse.bbs_mod.utils.PoseStackUtils;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -190,11 +203,11 @@ public class EditorBridge implements IHtmlBridge
      *  tracking so deleting a replay cannot shift the focused target). */
     private static String focusedCharacterId = null;
     /* 动作编辑器「预览动作」状态：聚焦角色（Replay）的客户端实时动作预览。
-     * 预览在集成服务器线程上按 tick 调用 replay.applyActions（与 ActionPlayer 生产路径
-     * 一致），复用 spawnReplayActors 已生成的可见 ActorEntity，不另起 ActionPlayer，
-     * 避免重复生成实体。所有客户端集合（actors map / film.replays）仅在起点（客户端
-     * 线程）读取一次并缓存，daemon 线程不再触碰客户端集合，仅通过 world.getEntity 取
-     * 服务端实体。 */
+     * 无世界、无实体：直接用 StubEntity 承载 morph，由 PiP 独立画布（PictureInPicture）
+     * 每帧把形态渲染进编辑器视口（#mainViewport）矩形之上，浏览器整页不透明也无妨，
+     * 因为 PiP 由引擎合成在浏览器 blit 之后、盖在视口区域。applyClientActions（换形 /
+     * 材质切片）+ keyframes.apply（姿态关键帧）与 BaseFilmController 生产路径一致，
+     * daemon 线程只负责推进 tick 并把播放头推给 HTML，渲染在 draw 阶段回调里完成。 */
     private static int aePreviewTick = 0;
     private static int aePreviewDuration = 0;
     private static boolean aePreviewPlaying = false;
@@ -203,6 +216,8 @@ public class EditorBridge implements IHtmlBridge
     private static Film aePreviewFilm = null;
     private static Replay aePreviewReplayRef = null;
     private static int aePreviewEntityId = -1;
+    /** 无世界 / 无实体预览载体：承载 Replay 的基础 morph 与其动作切片结果，供 PiP 画布直接渲染。 */
+    private static StubEntity aePreviewStub = null;
     /** 预览时拖动 3D 视口（#mainViewport）所用的轨道相机控制器；仅预览播放且指针落在
      *  视口矩形内时接管 MC 相机，停止预览即移除，绝不破坏编辑器常态输入。 */
     private static OrbitCamera aePreviewOrbit = null;
@@ -4920,25 +4935,8 @@ public class EditorBridge implements IHtmlBridge
 
     private static void aePreviewApplyAt(int tick)
     {
-        if (aePreviewFilm == null || aePreviewReplayRef == null || aePreviewEntityId < 0) return;
-        ServerLevel world = previewServerLevel();
-        IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
-        if (world == null || server == null) return;
-        final int feid = aePreviewEntityId;
-        final int ftick = tick;
-        final Replay freplay = aePreviewReplayRef;
-        final Film ffilm = aePreviewFilm;
-        server.submit(() ->
-        {
-            Entity e = world.getEntity(feid);
-            if (e instanceof LivingEntity le)
-            {
-                freplay.applyActions(le, SuperFakePlayer.get(world), ffilm, ftick);
-                /* 应用 material/form（含现代 morph 换形）切片，与生产路径 BaseFilmController 每帧 applyClientActions 一致，否则预览时换形/材质变化不显示 */
-                freplay.applyClientActions(ftick, new MCEntity(e), ffilm);
-                freplay.keyframes.apply(ftick, new MCEntity(e));
-            }
-        });
+        /* 无世界 / 无实体：形态渲染在 PiP 画布的每帧回调里完成，这里只记录当前 tick。 */
+        aePreviewTick = tick;
     }
 
     private static void aePreviewStart(UIFilmPanel panel)
@@ -4949,41 +4947,24 @@ public class EditorBridge implements IHtmlBridge
             MCEFUI.injectScript("toast('请先选中一个动作角色再预览', true)");
             return;
         }
-        ServerLevel world = previewServerLevel();
-        if (world == null)
-        {
-            /* 用户要求：前端不得显示“需要进入世界”提示，且选中场景即后台静默进世界。
-               此处若尚未在世界内，则按当前场景绑定世界尝试自动进入，不再弹 toast。 */
-            Scene cur = SceneManager.get() == null ? null : SceneManager.get().getCurrent();
-            if (cur != null && cur.background != null && !cur.background.isEmpty())
-            {
-                enterSceneWorld(panel);
-            }
-            return;
-        }
-        Film film = panel.getData();
-        Map<String, Integer> amap = BBSModClient.getFilms().actors.get(film.getId());
-        Integer eid = amap == null ? null : amap.get(replay.getId());
-        if (eid == null)
-        {
-            /* 角色尚未在世界内生成（通常是刚进世界、actor 尚未创建）：静默返回，
-               不弹“需要进入世界”提示（用户要求前端不显示此类信息），稍后重试即可。 */
-            return;
-        }
+        /* 无世界 / 无实体：直接用 StubEntity 承载 morph，由 PiP 独立画布渲染
+           （见 aePreviewSubmitPip / aePreviewRenderInPip）。不需要进世界、不需要生成 ActorEntity。 */
         aePreviewPanel = panel;
-        aePreviewFilm = film;
+        aePreviewFilm = panel.getData();
         aePreviewReplayRef = replay;
-        aePreviewEntityId = eid;
+        aePreviewEntityId = -1;
         aePreviewDuration = Math.max(1, aePreviewComputeDuration(replay));
         aePreviewTick = 0;
         aePreviewPlaying = true;
+        aePreviewStub = new StubEntity();
+        aePreviewStub.setForm(replay.form.get());
+        aePreviewEnsureOrbit();
         if (aePreviewThread == null || !aePreviewThread.isAlive())
         {
             aePreviewThread = new Thread(EditorBridge::aePreviewLoop, "bbs-ae-preview");
             aePreviewThread.setDaemon(true);
             aePreviewThread.start();
         }
-        aePreviewApplyAt(0);
         aePreviewPushTick(0, aePreviewDuration, true);
     }
 
@@ -4991,29 +4972,13 @@ public class EditorBridge implements IHtmlBridge
     {
         while (aePreviewPlaying)
         {
-            ServerLevel world = previewServerLevel();
-            IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
-            if (world == null || server == null || aePreviewReplayRef == null || aePreviewEntityId < 0)
+            if (aePreviewReplayRef == null)
             {
                 aePreviewPlaying = false;
                 break;
             }
             final int t = aePreviewTick;
             final int dur = aePreviewDuration;
-            final int feid = aePreviewEntityId;
-            final Replay freplay = aePreviewReplayRef;
-            final Film ffilm = aePreviewFilm;
-            server.submit(() ->
-            {
-                Entity e = world.getEntity(feid);
-                if (e instanceof LivingEntity le)
-                {
-                    freplay.applyActions(le, SuperFakePlayer.get(world), ffilm, t);
-                    /* 应用 material/form（含现代 morph 换形）切片，与生产路径 BaseFilmController 每帧 applyClientActions 一致，否则预览时换形/材质变化不显示 */
-                    freplay.applyClientActions(t, new MCEntity(e), ffilm);
-                    freplay.keyframes.apply(t, new MCEntity(e));
-                }
-            });
             aePreviewPushTick(t, dur, true);
             try
             {
@@ -5046,6 +5011,7 @@ public class EditorBridge implements IHtmlBridge
             }
             aePreviewThread = null;
         }
+        aePreviewStub = null;
         aePreviewPushTick(aePreviewTick, aePreviewDuration, false);
     }
 
@@ -5063,6 +5029,89 @@ public class EditorBridge implements IHtmlBridge
         aePreviewPushTick(aePreviewTick, aePreviewDuration, aePreviewPlaying);
     }
 
+    /** 动作预览是否正在播放（供 MCEFUI 判断是否跳过世界截图预览）。 */
+    public static boolean aePreviewActive()
+    {
+        return aePreviewPlaying && aePreviewStub != null;
+    }
+
+    /** 在 GUI 提取阶段把动作预览形态提交为 PiP 独立画布（无世界、无实体）。
+     *  由 MCEFUI.renderBrowser 在浏览器 blit 之后调用，使 3D 画面盖在浏览器之上。 */
+    public static void aePreviewSubmitPip(GuiGraphicsExtractor extractor, int width, int height)
+    {
+        if (!aePreviewActive() || aePreviewReplayRef == null || aePreviewFilm == null || aePreviewOrbit == null || !vpValid)
+        {
+            return;
+        }
+        if (vpW <= 0 || vpH <= 0)
+        {
+            return;
+        }
+        final int bx0 = vpX;
+        final int by0 = vpY;
+        final int bx1 = vpX + vpW;
+        final int by1 = vpY + vpH;
+        extractor.guiRenderState.addPicturesInPictureState(new UIModelPipRenderState(
+            (poseStack, collector) -> aePreviewRenderInPip(poseStack, collector),
+            bx0, by0, bx1, by1, null
+        ));
+    }
+
+    /** PiP 画布回调：每帧把当前 tick 的形态渲染进视口矩形（无世界、无实体）。 */
+    private static void aePreviewRenderInPip(PoseStack stack, SubmitNodeCollector collector)
+    {
+        StubEntity stub = aePreviewStub;
+        Replay replay = aePreviewReplayRef;
+        Film film = aePreviewFilm;
+        OrbitCamera orbit = aePreviewOrbit;
+        if (stub == null || replay == null || film == null || orbit == null || !vpValid)
+        {
+            return;
+        }
+        /* 按当前 tick 应用 morph（基础形态 + 材质/换形切片 + 关键帧姿态），与生产路径一致。 */
+        stub.setForm(replay.form.get());
+        replay.applyClientActions(aePreviewTick, stub, film);
+        replay.keyframes.apply(aePreviewTick, stub);
+        Form form = stub.getForm();
+        if (form == null)
+        {
+            return;
+        }
+        float unitsHeight = vpH / 16F;
+        float dist = Math.max((float) orbit.speed.getValue(), 0.1F);
+        float zoom = unitsHeight / (2F * dist * (float) Math.tan(orbit.fov / 2D));
+        /* 由 OrbitCamera 的环绕焦点 + 距离推算眼睛位置（与 OrbitCamera.rotateVector 一致）。 */
+        org.joml.Matrix3f m = new org.joml.Matrix3f();
+        m.rotateY((float) (Math.PI - orbit.rotation.y));
+        m.rotateX(orbit.rotation.x);
+        org.joml.Vector3f back = new org.joml.Vector3f(0, 0, -dist);
+        m.transform(back);
+        org.joml.Vector3d eye = new org.joml.Vector3d(orbit.position.x + back.x, orbit.position.y + back.y, orbit.position.z + back.z);
+        Camera cam = new Camera();
+        cam.position.set(eye.x, eye.y, eye.z);
+        cam.rotation.set(orbit.rotation.x, orbit.rotation.y, orbit.rotation.z);
+        cam.fov = orbit.fov;
+        cam.updateView();
+        stack.pushPose();
+        stack.translate(0F, -unitsHeight / 2F, 0F);
+        stack.scale(zoom, -zoom, zoom);
+        PoseStackUtils.multiply(stack, cam.view);
+        stack.translate(-eye.x, -eye.y - 0.5F, -eye.z);
+        PipGeometry.setCollector(collector);
+        try
+        {
+            FormUtilsClient.render(form, new FormRenderingContext()
+                .set(FormRenderType.ENTITY, stub, stack, 0xF000F0, 0, 1.0F)
+                .modelRenderer()
+                .camera(cam));
+        }
+        finally
+        {
+            PipGeometry.setCollector(null);
+        }
+        stack.popPose();
+    }
+
     /* ---------- 预览时拖动 3D 视口旋转/缩放相机 ---------- */
 
     /** 指针是否落在 #mainViewport 矩形内（浏览器全屏坐标，与鼠标事件同坐标系）。 */
@@ -5077,12 +5126,12 @@ public class EditorBridge implements IHtmlBridge
     {
         if (aePreviewOrbit == null)
         {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null) return;
-            Camera bbsCam = new Camera();
-            bbsCam.set(mc.player, MathUtils.toRad(mc.options.fov().get()));
+            /* 以角色中心（约 y=1）为环绕焦点，初始距离 5、3/4 视角；无需 MC 玩家或世界。 */
             aePreviewOrbit = new OrbitCamera();
-            aePreviewOrbit.setup(bbsCam);
+            aePreviewOrbit.position.set(0, 1, 0);
+            aePreviewOrbit.rotation.set(0.2F, 0.6F, 0F);
+            aePreviewOrbit.fov = MathUtils.toRad(60F);
+            aePreviewOrbit.speed.setX(5);
         }
         if (aePreviewOrbitCtrl == null)
         {

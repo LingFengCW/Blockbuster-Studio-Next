@@ -741,12 +741,16 @@ public class MCEFUI
                 0xFFFFFFFF,
                 context.scissorStack.peek()));
 
+            /* 动作编辑器：在浏览器之上叠加 PiP 独立画布，直接渲染 morph（无世界、无实体）。 */
+            lingfeng.bbsnext.mcef.EditorBridge.aePreviewSubmitPip(context, width, height);
+
             /* Preview readback is paused while an OS-native dialog is open
              * (browserSuspended) so camera/scene creation doesn't fight the
              * PNG writer. The editor page itself keeps rendering - we must
              * NOT skip the blit, or the screen shows the raw clear colour
-             * (a solid blue/black) behind the native window. */
-            if (!browserSuspended)
+             * (a solid blue/black) behind the native window.
+             * 动作预览进行中跳过世界截图（PiP 已覆盖视口，避免无谓的 GPU readback）。 */
+            if (!browserSuspended && !lingfeng.bbsnext.mcef.EditorBridge.aePreviewActive())
             {
                 capturePreview();
             }
