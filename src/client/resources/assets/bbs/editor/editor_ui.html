@@ -501,6 +501,31 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
 #ctxMenu .ctx-item:hover{background:var(--c-accent);color:#fff;}
 #ctxMenu .ctx-sep{height:1px;background:var(--c-border);margin:3px 0;}
 
+/* ===== 面板最大化（Premiere/FCP 式单面板展开） ===== */
+.editor[data-pmax="asset"] .splitter-v,
+.editor[data-pmax="asset"] .right{display:none;}
+.editor[data-pmax="view"] .asset-panel,
+.editor[data-pmax="view"] .splitter-v,
+.editor[data-pmax="view"] .timeline-wrap,
+.editor[data-pmax="view"] .splitter-h{display:none;}
+.editor[data-pmax="tl"] .asset-panel,
+.editor[data-pmax="tl"] .splitter-v,
+.editor[data-pmax="tl"] .viewport-wrap,
+.editor[data-pmax="tl"] .splitter-h{display:none;}
+.max-btn{cursor:pointer;color:var(--c-text-3);font-size:13px;margin-left:4px;padding:0 3px;border-radius:3px;}
+.max-btn:hover{background:var(--c-accent);color:#fff;}
+.max-btn.active{background:var(--c-accent);color:#fff;}
+.ico-btn{background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:3px;padding:3px 8px;font-size:12px;cursor:pointer;}
+.ico-btn:hover{background:var(--c-accent);color:#fff;}
+
+/* ===== 时间轴总览条（navigator） ===== */
+.tl-overview{position:relative;height:20px;margin:2px 8px;background:var(--c-bg-sub);border:1px solid var(--c-border);border-radius:4px;overflow:hidden;cursor:pointer;flex:0 0 auto;}
+.tl-ov-clip{position:absolute;top:2px;bottom:2px;background:var(--c-accent);opacity:.5;border-radius:2px;min-width:2px;}
+.tl-ov-ph{position:absolute;top:0;bottom:0;width:2px;background:var(--c-danger);}
+
+/* ===== 命令面板分组头 ===== */
+.cp-head{padding:4px 10px;font-size:10px;letter-spacing:1px;color:var(--c-text-3);text-transform:uppercase;}
+
 </style>
 </head>
 <body>
@@ -598,7 +623,7 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
   <div class="editor">
     <div class="mid">
     <div class="asset-panel" id="assetBox">
-      <div class="asset-head"><span id="btnCollapse" title="折叠/展开素材箱" data-i18n-title="bin.collapse">⟨</span><span><span data-i18n="bin.title">素材资源箱</span> <span style="color:var(--c-text-3);font-size:11px">(<span data-i18n="bin.createHint">右键空白新建</span>)</span></span><span id="btnEquip" data-i18n="bin.equip" style="cursor:pointer;color:var(--c-accent);font-size:11px;padding:0 4px;">装备</span></div>
+      <div class="asset-head"><span id="btnCollapse" title="折叠/展开素材箱" data-i18n-title="bin.collapse">⟨</span><span><span data-i18n="bin.title">素材资源箱</span> <span style="color:var(--c-text-3);font-size:11px">(<span data-i18n="bin.createHint">右键空白新建</span>)</span></span><span id="btnEquip" data-i18n="bin.equip" style="cursor:pointer;color:var(--c-accent);font-size:11px;padding:0 4px;">装备</span><span id="btnMaxAsset" class="max-btn" title="最大化素材库">▢</span></div>
       <input class="asset-search" id="assetSearch" type="text" placeholder="搜索素材…">
       <div class="asset-detail" id="assetDetail"></div>
       <div class="asset-list" id="assetList"></div>
@@ -613,6 +638,7 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
           <button id="vpToStart" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/gip-first-frame.svg"></button>
           <button id="vpToEnd" title="跳到结尾" data-i18n-title="tl.toEnd"><img class="ico" src="svg/gip-last-frame.svg"></button>
           <button id="vpShot" title="截图" data-i18n-title="tb.screenshot"><img class="ico" src="svg/camera.svg"></button>
+          <button id="btnMaxView" class="ico-btn" title="最大化视口">▢</button>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
           <button id="clipNone" class="active" title="剪切蒙版：无" data-i18n="clip.none" data-i18n-title="clip.noneTitle">无剪切</button>
           <button id="clipRect" title="剪切蒙版：矩形" data-i18n="clip.rect" data-i18n-title="clip.rectTitle">矩形</button>
@@ -640,6 +666,7 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
       <button id="tlSnap" class="active" title="吸附开关 (S)" data-i18n="tl.snap" data-i18n-title="tl.snapTitle">吸附</button>
           <button id="tlAddMarker" title="在播放头添加标记 (M)">★标记</button>
           <button id="tlZoomFit" title="适应窗口（重置缩放）">适应</button>
+          <button id="btnMaxTl" title="最大化时间轴">▢</button>
           <input class="tl-zoom-slider" id="tlZoomSlider" type="range" min="0.25" max="8" step="0.25" value="1" title="缩放时间轴">
           <span id="tlZoomLbl" class="tl-zoom-lbl">100%</span>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
@@ -654,6 +681,7 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
           <div class="tab-add" id="btnNewSeq" title="新建序列" data-i18n="tl.tabNew" data-i18n-title="tl.newSeqTitle">+ 序列</div>
           <div style="margin-left:auto;padding:0 10px;font-size:11px;color:var(--c-text-3)"><span id="tickInfo">0 / 0</span></div>
         </div>
+        <div class="tl-overview" id="tlOverview"></div>
         <div class="timeline-body">
           <div class="tl-ruler" id="ruler"></div>
           <div class="tl-tracks" id="tracks"></div>
@@ -2508,6 +2536,7 @@ function renderAll(){
   renderAssets(s);
   applyAssetFilter();
   renderTimeline(s);
+  renderOverview(s);
   renderMarkers(s);
   renderCameraStatus(s);
   renderUpdate(s);
@@ -4174,23 +4203,31 @@ function openCmdPalette(){
 }
 function closeCmdPalette(){ var p = document.getElementById('cmdPalette'); if(p) p.classList.remove('show'); }
 function __cpFilter(q){ q=(q||'').toLowerCase(); return BBS_COMMANDS.filter(function(c){ return !q || c.label.toLowerCase().indexOf(q)>=0 || (c.kw && c.kw.toLowerCase().indexOf(q)>=0); }); }
+function getRecents(){ try{ return JSON.parse(localStorage.getItem('bbs_cmd_recents')||'[]'); }catch(e){ return []; } }
+function pushRecent(label){ try{ var a=getRecents().filter(function(x){return x!==label;}); a.unshift(label); if(a.length>5) a=a.slice(0,5); localStorage.setItem('bbs_cmd_recents', JSON.stringify(a)); }catch(e){} }
+function currentCmdList(q){
+  q=(q||'').toLowerCase();
+  if(!q){ var rec=getRecents().map(function(l){ return BBS_COMMANDS.find(function(c){ return c.label===l; }); }).filter(Boolean); if(rec.length) return rec.concat(BBS_COMMANDS); }
+  return __cpFilter(q);
+}
 function renderCmdList(q){
   var list = document.getElementById('cpList'); if(!list) return;
-  var cmds = __cpFilter(q);
+  var cmds = currentCmdList(q);
   list.innerHTML = '';
   if(!cmds.length){ list.innerHTML = '<div class="cp-empty">无匹配命令</div>'; __cpIdx = 0; return; }
   if(__cpIdx >= cmds.length) __cpIdx = 0;
   if(__cpIdx < 0) __cpIdx = 0;
+  if(!q && getRecents().length>0){ var h=document.createElement('div'); h.className='cp-head'; h.textContent='最近使用'; list.appendChild(h); }
   cmds.forEach(function(c, idx){
     var it = document.createElement('div');
     it.className = 'cp-item' + (idx === __cpIdx ? ' active' : '');
     it.innerHTML = '<span class="cp-ico">' + (c.ico||'▸') + '</span><span>' + c.label + '</span>' + (c.sub ? '<span class="cp-sub">' + c.sub + '</span>' : '');
     it.onmouseenter = function(){ __cpIdx = idx; var items = list.querySelectorAll('.cp-item'); items.forEach(function(x,i){ x.classList.toggle('active', i===__cpIdx); }); };
-    it.onclick = function(){ closeCmdPalette(); c.run(); };
+    it.onclick = function(){ execCmd(c); };
     list.appendChild(it);
   });
 }
-function runCmdAt(cmds){ if(cmds[__cpIdx]){ closeCmdPalette(); cmds[__cpIdx].run(); } }
+function execCmd(c){ pushRecent(c.label); closeCmdPalette(); c.run(); }
 
 /* ===== 接线 ===== */
 var __mhcmd = document.getElementById('mHelpCmd');
@@ -4205,21 +4242,61 @@ var __cpi = document.getElementById('cpInput');
 if(__cpi){
   __cpi.oninput = function(){ __cpIdx = 0; renderCmdList(__cpi.value); };
   __cpi.onkeydown = function(e){
-    var cmds = __cpFilter(__cpi.value);
+    var cmds = currentCmdList(__cpi.value);
     if(e.key === 'ArrowDown'){ e.preventDefault(); __cpIdx = Math.min(cmds.length-1, __cpIdx+1); renderCmdList(__cpi.value); }
     else if(e.key === 'ArrowUp'){ e.preventDefault(); __cpIdx = Math.max(0, __cpIdx-1); renderCmdList(__cpi.value); }
-    else if(e.key === 'Enter'){ e.preventDefault(); runCmdAt(cmds); }
+    else if(e.key === 'Enter'){ e.preventDefault(); var cmds2=currentCmdList(__cpi.value); if(cmds2[__cpIdx]) execCmd(cmds2[__cpIdx]); }
     else if(e.key === 'Escape'){ e.preventDefault(); closeCmdPalette(); }
   };
 }
 document.getElementById('cmdPalette').addEventListener('click', function(e){ if(e.target === this) closeCmdPalette(); });
 
-/* 初始化：恢复工作区、刷新缩放标签、启动 tooltip */
+/* ===== 时间轴总览条（Premiere navigator：全时长缩略 + 点击跳转） ===== */
+function renderOverview(s){
+  var ov = document.getElementById('tlOverview'); if(!ov) return;
+  var dur = Math.max(s.duration || 0, 1);
+  ov.innerHTML = '';
+  var clips = [];
+  (s.tracks || []).forEach(function(t){ (t.clips || []).forEach(function(c){ clips.push(c); }); });
+  if(s.clips) s.clips.forEach(function(c){ clips.push(c); });
+  clips.forEach(function(c){
+    var b = document.createElement('div'); b.className = 'tl-ov-clip';
+    b.style.left = (Math.max(0, c.tick || 0) / dur * 100) + '%';
+    b.style.width = (Math.max(2, (c.duration || 1)) / dur * 100) + '%';
+    ov.appendChild(b);
+  });
+  var ph = document.createElement('div'); ph.className = 'tl-ov-ph'; ph.style.left = ((s.cursor || 0) / dur * 100) + '%'; ov.appendChild(ph);
+}
+(function(){
+  var ov = document.getElementById('tlOverview');
+  if(ov) ov.addEventListener('click', function(e){
+    var s = window.bbsState || {}; var dur = s.duration || 0; if(!dur) return;
+    var rect = ov.getBoundingClientRect(); var pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    send('setCursor', { tick: Math.round(pct * dur) });
+  });
+})();
+
+/* 初始化：恢复工作区、刷新缩放标签、启动 tooltip、面板最大化 */
 (function(){
   var ws = localStorage.getItem('bbs_workspace');
   if(ws) applyWorkspace(ws);
   updateZoomLabel();
   initTooltips();
+  /* 面板最大化（Premiere/FCP 式单面板展开） */
+  function applyPanelMax(){
+    var m = localStorage.getItem('bbs_pmax') || 'none';
+    var ed = document.querySelector('.editor'); if(ed) ed.setAttribute('data-pmax', m);
+    ['asset','view','tl'].forEach(function(w){
+      var b = document.getElementById('btnMax' + w.charAt(0).toUpperCase() + w.slice(1));
+      if(b) b.classList.toggle('active', m === w);
+    });
+  }
+  function togglePanelMax(w){ var cur = localStorage.getItem('bbs_pmax') || 'none'; var next = (cur === w) ? 'none' : w; try{ localStorage.setItem('bbs_pmax', next); }catch(e){} applyPanelMax(); }
+  ['asset','view','tl'].forEach(function(w){
+    var b = document.getElementById('btnMax' + w.charAt(0).toUpperCase() + w.slice(1));
+    if(b) b.onclick = function(){ togglePanelMax(w); };
+  });
+  applyPanelMax();
 })();
 dropView.addEventListener('dragenter', function(){ dropView.classList.add('drag-over'); });
 dropView.addEventListener('dragleave', function(){ dropView.classList.remove('drag-over'); });
