@@ -943,6 +943,8 @@ public class EditorBridge implements IHtmlBridge
                 rt.addProperty("id", replay.getId());
                 rt.addProperty("index", ri);
                 rt.addProperty("label", replay.getName());
+                rt.addProperty("enabled", replay.enabled.get());
+                rt.addProperty("locked", replay.locked.get());
                 JsonArray aClips = new JsonArray();
                 for (Clip clip : replay.actions.get())
                 {
@@ -2005,6 +2007,12 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "removeMarker":
                 removeMarker(panel, req.has("tick") ? req.get("tick").getAsInt() : -1);
+                break;
+            case "setTrackFlag":
+                setTrackFlag(panel,
+                    req.has("replayId") ? req.get("replayId").getAsString() : "",
+                    req.has("flag") ? req.get("flag").getAsString() : "",
+                    req.has("value") ? req.get("value").getAsBoolean() : false);
                 break;
             case "unplaceActor":
                 unplaceActor(panel, req.has("replayId") ? req.get("replayId").getAsString() : "");
@@ -5743,6 +5751,13 @@ public class EditorBridge implements IHtmlBridge
             return "{\"ok\":false}";
         }
 
+        Replay owner = findReplayOwningClip(film, id);
+
+        if (owner != null && owner.locked.get())
+        {
+            return "{\"ok\":false,\"locked\":true}";
+        }
+
         BaseValue.edit(film, f ->
         {
             Clip c = findClipById(f, id);
@@ -5765,6 +5780,13 @@ public class EditorBridge implements IHtmlBridge
         if (film == null || id == null || id.isEmpty())
         {
             return "{\"ok\":false}";
+        }
+
+        Replay owner = findReplayOwningClip(film, id);
+
+        if (owner != null && owner.locked.get())
+        {
+            return "{\"ok\":false,\"locked\":true}";
         }
 
         BaseValue.edit(film, f ->
@@ -6417,6 +6439,61 @@ public class EditorBridge implements IHtmlBridge
             panel.save();
             refreshHtml();
         }
+    }
+
+    /* Per-track header toggles (eye = enabled, lock = locked). Lets the editor's
+     * track-header buttons flip a specific replay's flag without going through the
+     * focused-character path. enabled already gates rendering in BaseFilmController. */
+    private static void setTrackFlag(UIFilmPanel panel, String replayId, String flag, boolean value)
+    {
+        Film film = panel.getData();
+
+        if (film == null || replayId == null || replayId.isEmpty() || flag == null || flag.isEmpty())
+        {
+            return;
+        }
+
+        for (Replay r : film.replays.getList())
+        {
+            if (r.getId().equals(replayId))
+            {
+                if ("enabled".equals(flag))
+                {
+                    r.enabled.set(value);
+                }
+                else if ("locked".equals(flag))
+                {
+                    r.locked.set(value);
+                }
+
+                break;
+            }
+        }
+
+        panel.save();
+        refreshHtml();
+    }
+
+    /* Find the replay that owns a clip (by id), for the track-lock guard. */
+    private static Replay findReplayOwningClip(Film film, String clipId)
+    {
+        if (film == null || clipId == null || clipId.isEmpty())
+        {
+            return null;
+        }
+
+        for (Replay r : film.replays.getList())
+        {
+            for (Clip c : r.actions.get())
+            {
+                if (c.id.get().equals(clipId))
+                {
+                    return r;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static void placeOrReorderTrack(UIFilmPanel panel, String replayId, String targetReplayId)

@@ -121,6 +121,11 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
 .tl-tracks{flex:1;overflow-y:auto;min-height:0;position:relative;scrollbar-gutter:stable;}
 .track-row{height:38px;background:var(--c-bg);border-radius:4px;margin:5px 0;display:flex;align-items:center;padding-left:10px;font-size:12px;position:relative;border:1px solid transparent;color:var(--c-text);}
 .track-row .track-label{width:110px;color:var(--c-text-3);flex-shrink:0;}
+.track-flags{display:inline-flex;gap:3px;margin-right:6px;flex:0 0 auto;}
+.track-flag{width:20px;height:20px;line-height:18px;text-align:center;border:1px solid var(--c-border-2);background:var(--c-bg);border-radius:3px;cursor:pointer;font-size:11px;padding:0;color:var(--c-text-2);}
+.track-flag:hover{border-color:var(--c-accent);color:var(--c-accent);}
+.track-flag.off{opacity:.5;}
+.track-flag.active{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
 .clip-block{position:absolute;top:4px;height:30px;background:var(--c-clip);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;overflow:hidden;white-space:nowrap;padding:0 4px;}
 .clip-block:hover{background:var(--c-clip-d);}
 .clip-block.cursor-here{outline:1px solid var(--c-sel);}
@@ -2243,6 +2248,18 @@ function buildTrackRow(s, tr, pxPerTick){
       /* F3.2: right-click a placed track to remove it (back to library) or delete
        * the underlying replay. Both key on the stable replay id. */
       if(tr.kind === 'replay'){ row.oncontextmenu = function(e){ e.preventDefault(); itemTarget = { type: 'character', id: tr.id }; showMenu(trackCtx, e); }; row.onmousedown = function(e){ if(e.button !== 0) return; startCustomDrag(e, 'replay', tr.id); }; }
+      if(tr.kind === 'replay'){
+        var flags = document.createElement('span'); flags.className = 'track-flags';
+        var eye = document.createElement('button'); eye.type = 'button';
+        eye.className = 'track-flag' + (tr.enabled === false ? ' off' : '');
+        eye.title = '显示 / 隐藏该轨道'; eye.textContent = (tr.enabled === false ? '🚫' : '👁');
+        eye.onclick = function(e){ e.stopPropagation(); send('setTrackFlag', { replayId: tr.id, flag:'enabled', value: (tr.enabled === false) }); };
+        var lk = document.createElement('button'); lk.type = 'button';
+        lk.className = 'track-flag' + (tr.locked ? ' active' : '');
+        lk.title = '锁定 / 解锁该轨道（锁定后禁止拖动剪辑）'; lk.textContent = (tr.locked ? '🔒' : '🔓');
+        lk.onclick = function(e){ e.stopPropagation(); send('setTrackFlag', { replayId: tr.id, flag:'locked', value: !tr.locked }); };
+        flags.appendChild(eye); flags.appendChild(lk); row.appendChild(flags);
+      }
       var lab = document.createElement('span'); lab.className = 'track-label';
       lab.textContent = tr.label || (tr.kind === 'camera' ? S('bin.camera') : (tr.kind === 'replay' ? S('track.replay') : S('track.audio')));
       row.appendChild(lab);
@@ -4438,13 +4455,20 @@ function snapTicks(cands, value, thr){
 function startClipDrag(e, cl, blk, mode){
   if(e.button !== 0) return;
   e.stopPropagation(); e.preventDefault();
-  clipDrag = { mode: mode, cl: cl, blk: blk, sx: e.clientX, sy: e.clientY, origTick: cl.tick, origDur: cl.duration, moved: false,
+  var rowEl = blk.parentNode;
+  var rid = (rowEl && rowEl.dataset) ? rowEl.dataset.replayId : '';
+  var locked = false;
+  var s0 = window.bbsState || {};
+  (s0.tracks || []).forEach(function(t){ if(t.id === rid) locked = !!t.locked; });
+  if(locked) toast('轨道已锁定，禁止拖动剪辑', true);
+  clipDrag = { mode: mode, cl: cl, blk: blk, sx: e.clientX, sy: e.clientY, origTick: cl.tick, origDur: cl.duration, moved: false, locked: locked,
     rowKind: (blk.parentNode && blk.parentNode.dataset && blk.parentNode.dataset.kind) ? blk.parentNode.dataset.kind : 'replay' };
   document.addEventListener('mousemove', clipDragMove);
   document.addEventListener('mouseup', clipDragUp);
 }
 function clipDragMove(e){
   if(!clipDrag) return;
+  if(clipDrag.locked) return;
   var px = clipPxPerTick();
   var dt = Math.round((e.clientX - clipDrag.sx) / px);
   if(Math.abs(e.clientX - clipDrag.sx) > 3) clipDrag.moved = true;
