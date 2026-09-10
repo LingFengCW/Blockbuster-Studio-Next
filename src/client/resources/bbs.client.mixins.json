@@ -17,6 +17,7 @@
         "OptionInstanceMixin",
         "WindowMixin",
         "AvatarRendererMixin",
+        "LivingEntityRendererMixin",
         "SelectWorldScreenMixin",
         "CreateWorldScreenMixin",
         "iris.CustomUniformsAccessor",

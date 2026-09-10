@@ -1,117 +1,142 @@
 package mchorse.bbs_mod.mixin.client;
 
+import mchorse.bbs_mod.client.renderer.MorphRenderer;
+import mchorse.bbs_mod.client.renderer.PlayerMorphCapture;
+import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.entities.MCEntity;
+import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.forms.renderers.FormRenderType;
+import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
-import mchorse.bbs_mod.utils.pose.Pose;
-import mchorse.bbs_mod.utils.pose.PoseTransform;
-import mchorse.bbs_mod.utils.pose.Transform;
-import net.minecraft.client.model.geom.ModelPart;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import mchorse.bbs_mod.morphing.Morph;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.world.entity.LivingEntity;
+import com.mojang.math.Axis;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.Map;
-
+/**
+ * Hooks the inherited LivingEntityRenderer.submit — the real body-draw entry point
+ * for the player, since AvatarRenderer (which renders the player in 26.2) does not
+ * override it. The active morph (MobForm / ModelForm) replaces the vanilla player
+ * mesh here. The player entity is captured upstream by AvatarRendererMixin and read
+ * from PlayerMorphCapture.
+ *
+ * Note: this replaces the old 1.12-era LivingEntityRendererMixin (which hooked the
+ * removed render()/setAngles() API) — that code was dead on 26.2.
+ */
 @Mixin(LivingEntityRenderer.class)
 public abstract class LivingEntityRendererMixin
 {
-    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/model/EntityModel;setAngles(Lnet/minecraft/entity/Entity;FFFFF)V", ordinal = 0, shift = At.Shift.AFTER))
-    public void onSetAngles(LivingEntity livingEntity, float f, float g, PoseStack matrixStack, VertexConsumer vertexConsumerProvider, int i, CallbackInfo info)
+    @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V", at = @At("HEAD"), cancellable = true)
+    private void bbs$onSubmit(LivingEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo ci)
     {
-        Pose pose = MobFormRenderer.getCurrentPose();
-        Pose poseOverlay = MobFormRenderer.getCurrentPoseOverlay();
+        Player player = PlayerMorphCapture.PLAYER.get();
+        float partialTick = PlayerMorphCapture.TICK.get() == null ? 0F : PlayerMorphCapture.TICK.get();
 
-        if (pose != null)
+        PlayerMorphCapture.PLAYER.remove();
+        PlayerMorphCapture.TICK.remove();
+
+        if (player == null)
         {
-            pose = pose.copy();
-
-            for (Map.Entry<String, PoseTransform> transformEntry : poseOverlay.transforms.entrySet())
-            {
-                PoseTransform poseTransform = pose.get(transformEntry.getKey());
-                PoseTransform value = transformEntry.getValue();
-
-                if (value.fix != 0)
-                {
-                    poseTransform.translate.lerp(value.translate, value.fix);
-                    poseTransform.scale.lerp(value.scale, value.fix);
-                    poseTransform.rotate.lerp(value.rotate, value.fix);
-                    poseTransform.rotate2.lerp(value.rotate2, value.fix);
-                }
-                else
-                {
-                    poseTransform.translate.add(value.translate);
-                    poseTransform.scale.add(value.scale).sub(1, 1, 1);
-                    poseTransform.rotate.add(value.rotate);
-                    poseTransform.rotate2.add(value.rotate2);
-                }
-            }
-
-            Map<String, ModelPart> parts = MobFormRenderer.getParts().get(livingEntity.getClass());
-
-            if (parts != null)
-            {
-                for (Map.Entry<String, ModelPart> entry : parts.entrySet())
-                {
-                    String key = entry.getKey();
-                    ModelPart value = entry.getValue();
-                    PoseTransform poseTransform = pose.transforms.get(key);
-
-                    if (poseTransform != null)
-                    {
-                        Transform transform = new Transform();
-
-                        transform.translate.x = value.x;
-                        transform.translate.y = value.y;
-                        transform.translate.z = value.z;
-                        transform.rotate.x = value.xRot;
-                        transform.rotate.y = value.yRot;
-                        transform.rotate.z = value.zRot;
-                        transform.scale.x = value.xScale;
-                        transform.scale.y = value.yScale;
-                        transform.scale.z = value.zScale;
-
-                        value.x += poseTransform.translate.x;
-                        value.y += poseTransform.translate.y;
-                        value.z += poseTransform.translate.z;
-                        value.xRot += poseTransform.rotate.x;
-                        value.yRot += poseTransform.rotate.y;
-                        value.zRot += poseTransform.rotate.z;
-                        value.xScale += poseTransform.scale.x - 1F;
-                        value.yScale += poseTransform.scale.y - 1F;
-                        value.zScale += poseTransform.scale.z - 1F;
-
-                        MobFormRenderer.getCache().put(value, transform);
-                    }
-                }
-            }
-        }
-    }
-
-    @Inject(method = "render", at = @At("TAIL"))
-    public void onRenderEnd(LivingEntity livingEntity, float f, float g, PoseStack matrixStack, VertexConsumer vertexConsumerProvider, int i, CallbackInfo info)
-    {
-        for (Map.Entry<ModelPart, Transform> entry : MobFormRenderer.getCache().entrySet())
-        {
-            Transform transform = entry.getValue();
-            ModelPart value = entry.getKey();
-
-            value.x = transform.translate.x;
-            value.y = transform.translate.y;
-            value.z = transform.translate.z;
-            value.xRot = transform.rotate.x;
-            value.yRot = transform.rotate.y;
-            value.zRot = transform.rotate.z;
-            value.xScale = transform.scale.x;
-            value.yScale = transform.scale.y;
-            value.zScale = transform.scale.z;
+            return;
         }
 
-        MobFormRenderer.getCache().clear();
+        if (MorphRenderer.hidePlayer)
+        {
+            Form current = FormUtilsClient.getCurrentForm();
+
+            if (current instanceof MobForm mob && !mob.isPlayer())
+            {
+                ci.cancel();
+
+                return;
+            }
+
+            if (current instanceof ModelForm)
+            {
+                ci.cancel();
+
+                return;
+            }
+        }
+
+        Morph morph = Morph.getMorph(player);
+
+        if (morph == null)
+        {
+            return;
+        }
+
+        Form form = morph.getForm();
+
+        if (form instanceof MobForm mobForm)
+        {
+            MobFormRenderer renderer = (MobFormRenderer) FormUtilsClient.getRenderer(mobForm);
+
+            renderer.ensureEntity();
+
+            Entity mobEntity = renderer.getEntity();
+
+            if (mobEntity == null)
+            {
+                return;
+            }
+
+            EntityRenderDispatcher dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
+
+            @SuppressWarnings("rawtypes")
+            EntityRenderer mobRenderer = dispatcher.getRenderer(mobEntity);
+
+            if (mobRenderer == null)
+            {
+                return;
+            }
+
+            EntityRenderState mobState = mobRenderer.createRenderState();
+            mobRenderer.extractRenderState(mobEntity, mobState, partialTick);
+
+            float bodyYaw = Lerps.lerp(player.yBodyRotO, player.yBodyRot, partialTick);
+
+            poseStack.pushPose();
+            poseStack.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+
+            mobRenderer.submit(mobState, poseStack, collector, cameraState);
+
+            poseStack.popPose();
+
+            ci.cancel();
+
+            return;
+        }
+
+        if (form instanceof ModelForm modelForm)
+        {
+            poseStack.pushPose();
+
+            FormUtilsClient.render(modelForm, new FormRenderingContext()
+                .set(FormRenderType.ENTITY, new MCEntity(player), poseStack, state.lightCoords, 0, partialTick)
+                .camera(Minecraft.getInstance().gameRenderer.mainCamera()));
+
+            poseStack.popPose();
+
+            ci.cancel();
+
+            return;
+        }
     }
 }
-
-
