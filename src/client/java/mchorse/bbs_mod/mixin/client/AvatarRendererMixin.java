@@ -3,7 +3,7 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.renderer.PlayerMorphCapture;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Avatar;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,9 +22,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class AvatarRendererMixin
 {
     @Inject(method = "extractRenderState", at = @At("HEAD"))
-    private void bbs$onExtract(Entity entity, AvatarRenderState state, float partialTick, CallbackInfo ci)
+    private void bbs$onExtract(Avatar avatar, AvatarRenderState state, float partialTick, CallbackInfo ci)
     {
-        if (entity instanceof Player player)
+        if (avatar instanceof Player player)
         {
             PlayerMorphCapture.PLAYER.set(player);
             PlayerMorphCapture.TICK.set(partialTick);
