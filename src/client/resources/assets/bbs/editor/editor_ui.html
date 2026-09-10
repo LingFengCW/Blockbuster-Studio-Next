@@ -473,6 +473,34 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
 .sb-save .dot{width:7px;height:7px;border-radius:50%;background:#3fae6a;}
 .sb-save.saving .dot{background:#e0a020;animation:bbsPulse 1s infinite;}
 @keyframes bbsPulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+
+/* ===== 明/暗主题（暗色变量覆盖） ===== */
+[data-theme="dark"]{
+  --c-bg:#1e2127; --c-bg-app:#15171b; --c-bg-sub:#23262d; --c-bg-hover:#2c3038; --c-bg-active:#34405a;
+  --c-text:#e6e9ef; --c-text-2:#aab2c0; --c-text-3:#7b8492;
+  --c-border:#33373f; --c-border-2:#3c414b;
+  --c-accent:#5b9bff; --c-accent-d:#4a86f0; --c-sel:#ffce4d; --c-ico:var(--c-text); --c-sel-stroke:#6ea8ff;
+  --c-scroll-track:#23262d; --c-scroll-thumb:#3c414b;
+  --track-mat:#5b7fd6; --track-act:#3fae93; --track-pot:#a866c4; --track-char:#5b9bff; --track-equip:#d68a3a;
+  --c-clip:#5b7fd6; --c-clip-d:#6f93e0; --c-danger:#e06b66; --c-danger-bg:#3a2326;
+  --c-success:#46b878; --c-amber:#e0b24a; --c-amber-bg:#3a311c;
+  --c-overlay:rgba(0,0,0,.5); --c-shadow:0 10px 30px rgba(0,0,0,.5);
+  --c-grid:rgba(120,150,200,.22); --c-grid-2:rgba(120,150,200,.10);
+}
+
+/* ===== 资源搜索框 ===== */
+.asset-search{width:calc(100% - 4px);margin:2px 0 6px;padding:5px 8px;font-size:12px;border:1px solid var(--c-border);border-radius:4px;background:var(--c-bg);color:var(--c-text);}
+.asset-search::placeholder{color:var(--c-text-3);}
+.title-btn.theme-toggle{margin-left:6px;}
+.title-btn.active{background:var(--c-accent);color:#fff;}
+/* ===== 时间轴缩放滑块 ===== */
+.tl-zoom-slider{width:90px;vertical-align:middle;accent-color:var(--c-accent);}
+/* ===== 时间轴右键上下文菜单 ===== */
+#ctxMenu{position:fixed;z-index:9500;min-width:170px;background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:6px;box-shadow:var(--c-shadow);padding:4px;display:none;}
+#ctxMenu .ctx-item{padding:7px 11px;font-size:12px;border-radius:4px;cursor:pointer;color:var(--c-text);}
+#ctxMenu .ctx-item:hover{background:var(--c-accent);color:#fff;}
+#ctxMenu .ctx-sep{height:1px;background:var(--c-border);margin:3px 0;}
+
 </style>
 </head>
 <body>
@@ -489,6 +517,7 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
   <div class="title-btn" id="btnSave" data-i18n="menu.save"><img class="ico" src="svg/gip-save.svg"> S('menu.save')</div>
   <div class="title-btn" id="enterPreviewBtn" style="display:none" data-i18n="preview.enter"><img class="ico" src="svg/world.svg"> 进入世界</div>
   <div class="title-btn warn" id="exitPreviewBtn" style="display:none" data-i18n="preview.exit"><img class="ico" src="svg/world.svg"> 退出预览世界</div>
+  <div class="title-btn theme-toggle" id="btnTheme" title="切换明暗主题">主题</div>
   <div class="title-btn" id="btnClose" data-i18n="menu.close"><img class="ico" src="svg/close.svg"> 关闭</div>
 </div>
 
@@ -570,6 +599,7 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
     <div class="mid">
     <div class="asset-panel" id="assetBox">
       <div class="asset-head"><span id="btnCollapse" title="折叠/展开素材箱" data-i18n-title="bin.collapse">⟨</span><span><span data-i18n="bin.title">素材资源箱</span> <span style="color:var(--c-text-3);font-size:11px">(<span data-i18n="bin.createHint">右键空白新建</span>)</span></span><span id="btnEquip" data-i18n="bin.equip" style="cursor:pointer;color:var(--c-accent);font-size:11px;padding:0 4px;">装备</span></div>
+      <input class="asset-search" id="assetSearch" type="text" placeholder="搜索素材…">
       <div class="asset-detail" id="assetDetail"></div>
       <div class="asset-list" id="assetList"></div>
     </div>
@@ -610,6 +640,7 @@ body[data-ws] .timeline-wrap{height:var(--tl-h);}
       <button id="tlSnap" class="active" title="吸附开关 (S)" data-i18n="tl.snap" data-i18n-title="tl.snapTitle">吸附</button>
           <button id="tlAddMarker" title="在播放头添加标记 (M)">★标记</button>
           <button id="tlZoomFit" title="适应窗口（重置缩放）">适应</button>
+          <input class="tl-zoom-slider" id="tlZoomSlider" type="range" min="0.25" max="8" step="0.25" value="1" title="缩放时间轴">
           <span id="tlZoomLbl" class="tl-zoom-lbl">100%</span>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
           <span style="font-size:11px;color:var(--c-text-3)" data-i18n="tl.allKeyframes">整体关键帧</span>
@@ -2452,6 +2483,7 @@ function showTrialWarning(){
 function renderAll(){
   var s = window.bbsState;
   applyStaticI18n();
+  applyTheme();
   renderRename(s);
   if(!s) return;
   if(!window.__bbsReady){ window.__bbsReady = true; showTrialWarning(); var boot = document.getElementById('bbsBoot'); if(boot){ boot.classList.add('hide'); setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 220); } }
@@ -2474,6 +2506,7 @@ function renderAll(){
   if(sw) sw.textContent = s.sceneWorld ? (S('preview.world') + '：' + s.sceneWorld) : '';
   dirtyMark.className = 'title-dirty' + (s.dirty ? ' show' : '');
   renderAssets(s);
+  applyAssetFilter();
   renderTimeline(s);
   renderMarkers(s);
   renderCameraStatus(s);
@@ -3911,9 +3944,80 @@ document.getElementById('tlRenameSeq').onclick = function(){ var s = window.bbsS
   var kfL = document.getElementById('tlKfAllL'); if(kfL) kfL.onclick = function(){ send('shiftAllKeyframes', { tick: -1 }); };
   var kfR = document.getElementById('tlKfAllR'); if(kfR) kfR.onclick = function(){ send('shiftAllKeyframes', { tick: 1 }); };
   var kfA = document.getElementById('tlKfAllApply'); if(kfA) kfA.onclick = function(){ var n = parseInt(document.getElementById('tlKfAllN').value) || 0; if(n) send('shiftAllKeyframes', { tick: n }); };
-document.getElementById('tlZoomIn').onclick = function(){ pxPerTickScale = Math.min(8, pxPerTickScale * 1.25); renderTimeline(window.bbsState); updateZoomLabel(); };
-document.getElementById('tlZoomOut').onclick = function(){ pxPerTickScale = Math.max(0.25, pxPerTickScale / 1.25); renderTimeline(window.bbsState); updateZoomLabel(); };
+document.getElementById('tlZoomIn').onclick = function(){ pxPerTickScale = Math.min(8, pxPerTickScale * 1.25); renderTimeline(window.bbsState); updateZoomLabel(); syncZoomSlider(); };
+document.getElementById('tlZoomOut').onclick = function(){ pxPerTickScale = Math.max(0.25, pxPerTickScale / 1.25); renderTimeline(window.bbsState); updateZoomLabel(); syncZoomSlider(); };
 document.getElementById('tlSnap').onclick = function(){ snapEnabled = !snapEnabled; this.classList.toggle('active', snapEnabled); };
+
+/* ===== 主题（明/暗切换） ===== */
+function applyTheme(){
+  var t = localStorage.getItem('bbs_theme');
+  if(t !== 'dark' && t !== 'light') t = 'light';
+  document.documentElement.dataset.theme = t;
+  var btn = document.getElementById('btnTheme');
+  if(btn) btn.classList.toggle('active', t === 'dark');
+}
+(function(){
+  var btn = document.getElementById('btnTheme');
+  if(btn) btn.onclick = function(){
+    var cur = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = cur;
+    try{ localStorage.setItem('bbs_theme', cur); }catch(e){}
+    applyTheme();
+  };
+  applyTheme();
+})();
+
+/* ===== 时间轴缩放滑块 ===== */
+function syncZoomSlider(){ var z = document.getElementById('tlZoomSlider'); if(z) z.value = pxPerTickScale; }
+(function(){
+  var z = document.getElementById('tlZoomSlider');
+  if(z) z.addEventListener('input', function(){ pxPerTickScale = parseFloat(this.value) || 1; renderTimeline(window.bbsState); updateZoomLabel(); });
+})();
+
+/* ===== 资源库搜索过滤 ===== */
+function applyAssetFilter(){
+  var box = document.getElementById('assetSearch');
+  var q = box ? (box.value || '').trim().toLowerCase() : '';
+  document.querySelectorAll('#assetList .asset-item').forEach(function(it){
+    var lbl = it.querySelector('.lbl');
+    var txt = (lbl ? lbl.textContent : it.textContent) || '';
+    it.style.display = (!q || txt.toLowerCase().indexOf(q) >= 0) ? '' : 'none';
+  });
+  document.querySelectorAll('#assetList .asset-group').forEach(function(g){
+    var n = g.nextElementSibling, any = false;
+    while(n && n.classList && n.classList.contains('asset-item')){ if(n.style.display !== 'none'){ any = true; break; } n = n.nextElementSibling; }
+    g.style.display = any ? '' : 'none';
+  });
+}
+(function(){ var s = document.getElementById('assetSearch'); if(s) s.addEventListener('input', applyAssetFilter); })();
+
+/* ===== 时间轴右键上下文菜单 ===== */
+var __ctx = document.getElementById('ctxMenu');
+function showCtx(x, y){
+  if(!__ctx) return;
+  __ctx.style.display = 'block';
+  var mw = __ctx.offsetWidth, mh = __ctx.offsetHeight;
+  __ctx.style.left = Math.max(4, Math.min(x, window.innerWidth - mw - 8)) + 'px';
+  __ctx.style.top = Math.max(4, Math.min(y, window.innerHeight - mh - 8)) + 'px';
+}
+function hideCtx(){ if(__ctx) __ctx.style.display = 'none'; }
+(function(){
+  var zone = document.querySelector('.timeline-wrap');
+  if(zone) zone.addEventListener('contextmenu', function(e){ e.preventDefault(); showCtx(e.clientX, e.clientY); });
+  document.addEventListener('click', hideCtx);
+  if(__ctx){
+    __ctx.querySelectorAll('.ctx-item').forEach(function(it){
+      it.onclick = function(){
+        hideCtx();
+        var a = it.getAttribute('data-a');
+        if(a === 'marker'){ addMarker(); }
+        else if(a === 'snap'){ snapEnabled = !snapEnabled; var sn = document.getElementById('tlSnap'); if(sn) sn.classList.toggle('active', snapEnabled); }
+        else if(a === 'fit'){ pxPerTickScale = 1; renderTimeline(window.bbsState); updateZoomLabel(); syncZoomSlider(); }
+        else if(a === 'delClip'){ if(selectedClips && selectedClips.size > 0){ send('clipOp', { op:'delete', index:-1 }); } }
+      };
+    });
+  }
+})();
 
 /* ----- 二次确认弹窗 ----- */
 document.getElementById('confirmOk').onclick = function(){ var cb = confirmCb; confirmCb = null; document.getElementById('confirmModal').classList.remove('show'); if(cb) cb(); };
