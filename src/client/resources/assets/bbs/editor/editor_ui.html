@@ -580,7 +580,6 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
   <span id="filmName" style="color:var(--c-text-3)"></span>
   <span id="sceneWorld" style="color:var(--track-act);margin-left:6px;"></span>
   <div class="title-btn" id="btnSave" data-i18n="menu.save"><img class="ico" src="svg/gip-save.svg"> S('menu.save')</div>
-  <div class="title-btn" id="enterPreviewBtn" style="display:none" data-i18n="preview.enter"><img class="ico" src="svg/world.svg"> 进入世界</div>
   <div class="title-btn warn" id="exitPreviewBtn" style="display:none" data-i18n="preview.exit"><img class="ico" src="svg/world.svg"> 退出预览世界</div>
   <div class="title-btn theme-toggle" id="btnTheme" title="切换明暗主题">主题</div>
   <div class="title-btn" id="btnClose" data-i18n="menu.close"><img class="ico" src="svg/close.svg"> 关闭</div>
@@ -1003,7 +1002,6 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
 var BBS_DEFAULT_STRINGS = {
   "app.title": "BBS 编辑器",
   "menu.save": "保存",
-  "preview.enter": "进入世界",
   "preview.exit": "退出预览世界",
   "menu.close": "关闭",
   "menu.file": "文件",
@@ -1050,7 +1048,7 @@ var BBS_DEFAULT_STRINGS = {
   "clip.circle": "圆形",
   "clip.circleTitle": "剪切蒙版：圆形",
   "preview.loading": "正在加载世界…",
-  "preview.empty": "实时预览：进入或加载一个世界后，这里会显示 Minecraft 的 3D 画面。",
+  "preview.empty": "实时预览",
   "preview.world": "预览世界",
   "tl.newSeq": "＋序列",
   "tl.newSeqTitle": "新建序列",
@@ -1154,7 +1152,6 @@ var BBS_DEFAULT_STRINGS = {
   "ae.composeConfirm1": "将把当前时间轴上的 <b>",
   "ae.composeConfirm2": "</b> 个动作组合成一个可复用动作组：<br>",
   "ae.composeConfirm3": "<br><br>确定组合？",
-  "ae.noclientBadge": "⚠ 需进入预览世界才播放",
   "ae.f.name": "名称",
   "ae.f.duration": "时长 (duration)",
   "ae.f.frequency": "每组帧数 (frequency)",
@@ -1289,7 +1286,6 @@ var BBS_DEFAULT_STRINGS = {
   "cam.recording": "录制中",
   "toast.charUnavailable": "该角色不可用",
   "toast.noActionToCompose": "没有可组合的动作，请先添加动作到时间轴",
-  "toast.nonClientGroup": "此动作组需进入预览世界才会播放",
   "toast.exitedPreview": "已退出预览世界",
   "toast.noActionGroup": "暂无动作组，先用「组合动作组」生成",
   "toast.addedGroup": "已加入动作组 @ tick ",
@@ -1341,7 +1337,6 @@ var BBS_DEFAULT_STRINGS = {
 var BBS_DEFAULT_STRINGS_EN = {
   "app.title": "BBS Editor",
   "menu.save": "Save",
-  "preview.enter": "Enter World",
   "preview.exit": "Exit Preview World",
   "menu.close": "Close",
   "menu.file": "File",
@@ -1388,7 +1383,7 @@ var BBS_DEFAULT_STRINGS_EN = {
   "clip.circle": "Circle",
   "clip.circleTitle": "Clip mask: Circle",
   "preview.loading": "Loading world…",
-  "preview.empty": "Live preview: after entering or loading a world, Minecraft's 3D view will appear here.",
+  "preview.empty": "Live preview",
   "tl.newSeq": "+ Sequence",
   "tl.newSeqTitle": "New Sequence",
   "tl.rename": "Rename",
@@ -1491,7 +1486,6 @@ var BBS_DEFAULT_STRINGS_EN = {
   "ae.composeConfirm1": "Will combine <b>",
   "ae.composeConfirm2": "</b> actions on the current timeline into a reusable action group:<br>",
   "ae.composeConfirm3": "<br><br>Combine?",
-  "ae.noclientBadge": "⚠ Plays only in preview world",
   "ae.f.name": "Name",
   "ae.f.duration": "Duration",
   "ae.f.frequency": "Frames per group (frequency)",
@@ -1626,7 +1620,6 @@ var BBS_DEFAULT_STRINGS_EN = {
   "cam.recording": "Recording",
   "toast.charUnavailable": "This character is unavailable",
   "toast.noActionToCompose": "No actions to combine; add actions to the timeline first",
-  "toast.nonClientGroup": "This action group only plays in the preview world",
   "toast.exitedPreview": "Exited preview world",
   "toast.noActionGroup": "No action groups yet; use 'Compose Action Group' first",
   "toast.addedGroup": "Added to action group @ tick ",
@@ -2136,8 +2129,7 @@ function dialog(opts){
   if (opts.opened !== false) send('dialogOpened', { id: dialogId });
   return { dismiss: dismiss, el: el, id: dialogId };
 }
-/* D: 播放时选中「非实时（client=false）」动作组的占位提示文案（待 chun-ux 提供最终版本后替换） */
-var NON_CLIENT_GROUP_TOAST = 'toast.nonClientGroup';
+/* 非实时（client=false）动作组照常加入，播放时不再弹相关提示（用户要求前端不显示此类信息）。 */
 /* A2: 带上限的 tick 输入框（上限参考时间轴总时长），超限自动回弹 */
 function tickInput(value, dur){
   var i = document.createElement('input'); i.type = 'number'; i.min = '0'; i.step = '1';
@@ -2492,10 +2484,9 @@ function renderRename(s){
    元素的显隐，避免任何地方再散落裸 window._sceneWorldEntering = ... 赋值。
    on=true 显示"正在加载预览世界…"，on=false 隐藏。 */
 window.bbsSetWorldLoading = function(on){
-  var show = !!on;
-  window._sceneWorldEntering = show;
-  var wl = document.getElementById('worldLoad');
-  if (wl) wl.style.display = show ? 'block' : 'none';
+  /* 用户要求：进世界全程前端不显示任何“正在加载/需要进入世界”提示，
+     选中场景即后台静默进世界。这里只维护内部标记，不再弹出旋转器。 */
+  window._sceneWorldEntering = !!on;
 };
 
 /* Task #19: 工具栏模式开关。立即切换 body 类让中央透明露世界，并把状态回传 Java
@@ -2590,10 +2581,6 @@ function renderAll(){
      bind a world; a scene with none just switches without entering. While
      the world loads, the Java side sets window._sceneWorldEntering so the
      preview wait animation shows. */
-  var wl = document.getElementById('worldLoad');
-  if(wl) wl.style.display = (window._sceneWorldEntering || (s && s.worldLoading)) ? 'block' : 'none';
-  var pv = document.getElementById('enterPreviewBtn');
-  if(pv) pv.style.display = (!s.inWorld && s.sceneWorld) ? 'inline-block' : 'none';
   var ex = document.getElementById('exitPreviewBtn');
   if(ex) ex.style.display = s.owningPreviewWorld ? 'flex' : 'none';
   projName.textContent = s.project || S('app.title');
@@ -2749,17 +2736,10 @@ function openAeGroupMenuPopup(e){
   } else {
     groups.forEach(function(g){
       var it = document.createElement('div'); it.className = 'ctx-main-item'; it.style.justifyContent = 'space-between';
-      var span = document.createElement('span'); span.textContent = g.title; it.appendChild(span);
-      /* D: client=false 的组在预览中不播放，给出徽标 */
-      if(g.client === false){
-        var badge = document.createElement('span'); badge.textContent = S('ae.noclientBadge'); badge.className = 'grp-noclient';
-        it.appendChild(badge);
-      }
+      var span = document.createElement('span'); span.textContent = g.title;       it.appendChild(span);
       it.onclick = function(ev){
         ev.stopPropagation(); popup.remove();
         send('addActionGroup', { id: g.id });
-        /* D: 播放时选中非实时组，提示不播放 */
-        if(running && g.client === false){ toast(S(NON_CLIENT_GROUP_TOAST), true); }
       };
       popup.appendChild(it);
     });
@@ -3219,8 +3199,7 @@ function renderAeTracks(ae, tl){
       send('addActionGroup', { id: gid, tick: tick });
       var g = ((window.bbsState && window.bbsState.actionEditor && window.bbsState.actionEditor.actionGroups) || []).filter(function(x){ return x.id === gid; })[0];
       var running = !!(window.bbsState && window.bbsState.running);
-      if(running && g && g.client === false){ toast(S(NON_CLIENT_GROUP_TOAST), true); }
-      else { toast(S('toast.addedGroup') + tick); }
+      toast(S('toast.addedGroup') + tick);
       return;
     }
     if(raw.indexOf('act:') !== 0) return;
@@ -3952,10 +3931,6 @@ document.addEventListener('contextmenu', hideMenus, true);
 /* ----- 顶部/工具按钮 ----- */
 btnSave.onclick = function(){ send('save'); };
 btnClose.onclick = tryCloseEditor;
-document.getElementById('enterPreviewBtn').onclick = function(){
-  window.bbsSetWorldLoading(true);
-  send('enterSceneWorld', {});
-};
 document.getElementById('exitPreviewBtn').onclick = function(){
   /* 退出前清掉“正在加载预览世界”标记，避免遮罩误显示；复用既有 Java 退出通道 */
   window.bbsSetWorldLoading(false);
@@ -4749,7 +4724,7 @@ setInterval(function(){
   if (mode !== lastMode) {
     lastMode = mode;
     var ph = document.getElementById('vpPh');
-    if (ph) ph.style.display = (mode === 'none') ? 'flex' : 'none';
+    if (ph) ph.style.display = (mode === 'none' && !window.__toolbarMode) ? 'flex' : 'none';
   }
   var e = document.getElementById('vpImg');
   if (mode === 'gl' && f !== lastPF) {

@@ -186,7 +186,6 @@ public final class EditorStrings
         put("ae.composeConfirm1", "将把当前时间轴上的 <b>", "Will combine <b>");
         put("ae.composeConfirm2", "</b> 个动作组合成一个可复用动作组：<br>", "</b> actions on the current timeline into a reusable action group:<br>");
         put("ae.composeConfirm3", "<br><br>确定组合？", "<br><br>Combine?");
-        put("ae.noclientBadge", "⚠ 需进入预览世界才播放", "⚠ Plays only in preview world");
 
         /* ----- action editor form fields ----- */
         put("ae.f.name", "名称", "Name");
@@ -342,7 +341,6 @@ public final class EditorStrings
         /* ----- toasts (static / composed) ----- */
         put("toast.charUnavailable", "该角色不可用", "This character is unavailable");
         put("toast.noActionToCompose", "没有可组合的动作，请先添加动作到时间轴", "No actions to combine; add actions to the timeline first");
-        put("toast.nonClientGroup", "此动作组需进入预览世界才会播放", "This action group only plays in the preview world");
         put("toast.exitedPreview", "已退出预览世界", "Exited preview world");
         put("toast.noActionGroup", "暂无动作组，先用「组合动作组」生成", "No action groups yet; use 'Compose Action Group' first");
         put("toast.addedGroup", "已加入动作组 @ tick ", "Added to action group @ tick ");

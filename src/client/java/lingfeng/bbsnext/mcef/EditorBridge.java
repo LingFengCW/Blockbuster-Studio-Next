@@ -4952,7 +4952,13 @@ public class EditorBridge implements IHtmlBridge
         ServerLevel world = previewServerLevel();
         if (world == null)
         {
-            MCEFUI.injectScript("toast('请先进入世界以预览动作', true)");
+            /* 用户要求：前端不得显示“需要进入世界”提示，且选中场景即后台静默进世界。
+               此处若尚未在世界内，则按当前场景绑定世界尝试自动进入，不再弹 toast。 */
+            Scene cur = SceneManager.get() == null ? null : SceneManager.get().getCurrent();
+            if (cur != null && cur.background != null && !cur.background.isEmpty())
+            {
+                enterSceneWorld(panel);
+            }
             return;
         }
         Film film = panel.getData();
@@ -4960,7 +4966,8 @@ public class EditorBridge implements IHtmlBridge
         Integer eid = amap == null ? null : amap.get(replay.getId());
         if (eid == null)
         {
-            MCEFUI.injectScript("toast('角色尚未在世界中生成，请先进入世界', true)");
+            /* 角色尚未在世界内生成（通常是刚进世界、actor 尚未创建）：静默返回，
+               不弹“需要进入世界”提示（用户要求前端不显示此类信息），稍后重试即可。 */
             return;
         }
         aePreviewPanel = panel;
@@ -5584,7 +5591,7 @@ public class EditorBridge implements IHtmlBridge
 
         if (mc.level == null || mc.gameRenderer == null || mc.gameRenderer.mainRenderTarget() == null)
         {
-            MCEFUI.injectScript("toast('没有可截图的画面（请先进入一个世界）', true)");
+            MCEFUI.injectScript("toast('没有可截图的画面', true)");
             return;
         }
 
@@ -7214,7 +7221,7 @@ public class EditorBridge implements IHtmlBridge
         Integer leashedId = map.get(targetId);
         if (leashedId == null)
         {
-            MCEFUI.injectScript("toast('拴绳：被拴角色尚未进入预览世界', true);");
+            MCEFUI.injectScript("toast('拴绳：被拴角色尚未生成', true);");
             return;
         }
         final boolean proxy = leashAnchorA.proxy;
@@ -7236,7 +7243,7 @@ public class EditorBridge implements IHtmlBridge
             Integer holderId = map.get(fHolderReplayId);
             if (holderId == null)
             {
-                MCEFUI.injectScript("toast('拴绳：持有端角色尚未进入预览世界', true);");
+                MCEFUI.injectScript("toast('拴绳：持有端角色尚未生成', true);");
                 return;
             }
         }
