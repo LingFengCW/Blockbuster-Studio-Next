@@ -461,6 +461,8 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 .tl-markers{position:absolute;inset:0;pointer-events:none;}
 .tl-marker{position:absolute;top:0;bottom:0;width:2px;background:#e0a020;pointer-events:auto;cursor:pointer;}
 .tl-marker::after{content:'';position:absolute;top:0;left:-4px;border:5px solid transparent;border-top-color:#e0a020;}
+/* 拖拽吸附时显示的吸附参考线（与 clip/marker 同一坐标系：left = 120 + tick*px） */
+.snap-line{position:absolute;top:0;bottom:0;width:2px;background:#4c8dff;box-shadow:0 0 5px #4c8dff;pointer-events:none;display:none;z-index:6;}
 .tl-zoom-lbl{font-size:11px;color:var(--c-text-3);min-width:40px;text-align:center;}
 
 /* ===== 自定义 tooltip ===== */
@@ -687,6 +689,7 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
           <div class="tl-tracks" id="tracks"></div>
           <div class="tl-playhead" id="playhead"></div>
           <div class="tl-markers" id="tlMarkers"></div>
+          <div class="snap-line" id="snapLine"></div>
         </div>
       </div>
     </div>
@@ -4408,6 +4411,30 @@ function hideTrackPreview(){ if(previewTrackEl && previewTrackEl.parentNode){ pr
 /* B: drag a clip block to move it, or drag its edges to resize duration. */
 var clipDrag = null;
 function clipPxPerTick(){ var s = window.bbsState || {}; return pxPerTickOf(s.duration || 0, tracks.clientWidth); }
+/* B2: real snapping. Snap targets (tick positions) come from markers, every other
+ * clip's left/right edge, and the playhead. The dragged clip is excluded by id so
+ * it never snaps to its own edges. */
+function clipSnapCandidates(excludeId){
+  var s = window.bbsState || {};
+  var cand = [];
+  (s.markers || []).forEach(function(m){ cand.push(m); });
+  if(typeof s.cursor === 'number') cand.push(s.cursor);
+  function addFrom(list){ (list || []).forEach(function(c){
+    if(c.id === excludeId) return;
+    if(typeof c.tick === 'number'){ cand.push(c.tick); if(typeof c.duration === 'number') cand.push(c.tick + c.duration); }
+  }); }
+  addFrom(s.clips);
+  (s.tracks || []).forEach(function(t){ addFrom(t.clips); });
+  return cand;
+}
+function snapTicks(cands, value, thr){
+  var best = value, bestD = thr + 0.0001;
+  for(var i = 0; i < cands.length; i++){
+    var d = Math.abs(cands[i] - value);
+    if(d <= thr && d < bestD){ bestD = d; best = cands[i]; }
+  }
+  return best;
+}
 function startClipDrag(e, cl, blk, mode){
   if(e.button !== 0) return;
   e.stopPropagation(); e.preventDefault();
@@ -4431,6 +4458,24 @@ function clipDragMove(e){
     c.tick = Math.max(0, clipDrag.origTick + (clipDrag.origDur - nd));
     c.duration = nd;
   }
+  /* B2: real snapping — when enabled, snap the dragged edge to markers / other
+   * clip edges / playhead within a pixel threshold, and show a snap line. */
+  var snapLine = document.getElementById('snapLine');
+  var snappedAt = -1;
+  if(snapEnabled){
+    var thr = Math.max(1, Math.round(8 / px));
+    var cand = clipSnapCandidates(c.id);
+    if(clipDrag.mode === 'resize-r'){
+      var re = c.tick + c.duration;
+      var sre = snapTicks(cand, re, thr);
+      if(sre !== re){ c.duration = Math.max(1, sre - c.tick); snappedAt = sre; }
+    } else {
+      var le = c.tick;
+      var sle = snapTicks(cand, le, thr);
+      if(sle !== le){ c.tick = sle; snappedAt = sle; }
+    }
+  }
+  if(snapLine){ if(snappedAt >= 0){ snapLine.style.left = (120 + snappedAt * px) + 'px'; snapLine.style.display = 'block'; } else { snapLine.style.display = 'none'; } }
   var b = clipDrag.blk;
   b.style.left = (120 + c.tick * px) + 'px';
   b.style.width = Math.max(20, c.duration * px) + 'px';
@@ -4446,6 +4491,7 @@ function clipDragUp(){
   document.removeEventListener('mousemove', clipDragMove);
   document.removeEventListener('mouseup', clipDragUp);
   hideTrackPreview();
+  var sl = document.getElementById('snapLine'); if(sl) sl.style.display = 'none';
   if(clipDrag && clipDrag.moved){
     var c = clipDrag.cl;
     if(clipDrag.mode === 'move') send('moveClip', { id: c.id, tick: c.tick });
