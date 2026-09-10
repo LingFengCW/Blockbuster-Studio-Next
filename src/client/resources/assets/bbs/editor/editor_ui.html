@@ -454,8 +454,8 @@ button:focus-visible{outline:2px solid var(--c-accent);outline-offset:1px;}
 .ws-seg button{background:transparent;border:none;color:var(--c-text-2);font-size:11px;padding:3px 9px;cursor:pointer;}
 .ws-seg button.active{background:var(--c-accent);color:#fff;}
 #wsReset{background:transparent;border:1px solid var(--c-border-2);border-radius:6px;color:var(--c-text-2);font-size:11px;padding:3px 8px;cursor:pointer;}
-body[data-ws] .asset-panel{width:var(--asset-w);}
-body[data-ws] .timeline-wrap{height:var(--tl-h);}
+/* 面板尺寸由 JS 在 applyWorkspace / startDrag 中直接写入 --left-w / --bottom-h
+ * （flex-basis 会覆盖 width/height，故不再用 body[data-ws] 的 width/height 规则）*/
 
 /* ===== 时间轴标记 ===== */
 .tl-markers{position:absolute;inset:0;pointer-events:none;}
@@ -2118,7 +2118,7 @@ function startDrag(e, axis, varName, min, max){
     var v = Math.max(min, Math.min(max, base + (cur - start)));
     rootStyle.setProperty(varName, v + 'px');
   }
-  function up(){ document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); pushMetrics(); }
+  function up(){ document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); saveWsSize(); pushMetrics(); }
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', up);
 }
@@ -4124,15 +4124,37 @@ function renderMarkers(s){
 /* 缩放标签同步 */
 function updateZoomLabel(){ var l = document.getElementById('tlZoomLbl'); if(l) l.textContent = Math.round(pxPerTickScale * 100) + '%'; }
 
-/* 工作区预设（localStorage 持久化，对标 Premiere 工作区 / DaVinci Pages） */
+/* 工作区预设（localStorage 持久化，对标 Premiere 工作区 / DaVinci Pages）
+ * 直接驱动面板真实尺寸变量 --left-w / --bottom-h（旧实现误写到被 flex-basis 覆盖的
+ * --asset-w/--tl-h，导致预设切换不改变面板尺寸）。每个工作区的分隔条拖拽尺寸单独
+ * 持久化到 bbs_ws_sizes，重启 / 切换工作区后各自恢复。 */
+var WS_DEFAULTS = { animation:[300,200], editing:[238,330], preview:[186,168] };
+function wsSizes(){ try{ return JSON.parse(localStorage.getItem('bbs_ws_sizes') || '{}'); }catch(e){ return {}; } }
+function getWsSize(name){
+  var m = wsSizes();
+  if(name && m[name]) return m[name];
+  var v = WS_DEFAULTS[name] || [260,240];
+  return { left:v[0], bottom:v[1] };
+}
+function saveWsSize(){
+  var name = document.body.getAttribute('data-ws');
+  if(!name) return;
+  var m = wsSizes();
+  m[name] = { left: Math.round(cssVar('--left-w')) || 200, bottom: Math.round(cssVar('--bottom-h')) || 240 };
+  try{ localStorage.setItem('bbs_ws_sizes', JSON.stringify(m)); }catch(e){}
+}
 function applyWorkspace(name){
-  if(!name){ document.body.removeAttribute('data-ws'); localStorage.removeItem('bbs_workspace'); }
-  else {
+  if(!name){
+    document.body.removeAttribute('data-ws');
+    localStorage.removeItem('bbs_workspace');
+    localStorage.removeItem('bbs_ws_sizes');
+    rootStyle.setProperty('--left-w', '200px');
+    rootStyle.setProperty('--bottom-h', '240px');
+  } else {
     document.body.setAttribute('data-ws', name);
-    var map = { animation:['300px','200px'], editing:['238px','330px'], preview:['186px','168px'] };
-    var v = map[name] || ['260px','240px'];
-    document.body.style.setProperty('--asset-w', v[0]);
-    document.body.style.setProperty('--tl-h', v[1]);
+    var sz = getWsSize(name);
+    rootStyle.setProperty('--left-w', sz.left + 'px');
+    rootStyle.setProperty('--bottom-h', sz.bottom + 'px');
     localStorage.setItem('bbs_workspace', name);
   }
   syncWsSeg();
