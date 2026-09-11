@@ -31,9 +31,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * single-player world join (which the editor does not own) is completely
  * untouched - its native LoadingOverlay shows as usual.
  *
- * <p>Registered as {@code required: false}: if the 26.2
- * {@code LoadingOverlay.extractRenderState} signature ever drifts, the mixin
- * simply skips instead of crashing the game.
+ * <p>Registered as {@code required: true} in its own config
+ * ({@code bbs.loadingoverlay.mixins.json}) so a weaving failure fails loudly
+ * (naming this mixin) instead of silently skipping and leaving the browser
+ * swallowed with no error. The native LoadingOverlay is only suppressed while
+ * the editor owns a preview world (guarded by
+ * {@link EditorBridge#isBrowserOverlayActive()}).
  */
 @Mixin(LoadingOverlay.class)
 public abstract class LoadingOverlayRenderMixin
@@ -47,6 +50,23 @@ public abstract class LoadingOverlayRenderMixin
     private static boolean bbs$loggedInjected = false;
     private static boolean bbs$loggedGuardFalse = false;
     private static boolean bbs$loggedViewNull = false;
+
+    /* 静态初始化日志：只要 Fabric 解析到本 mixin 配置并把类加载进来，就会打印。
+     * 配合 TAIL 里的 woven marker，可一次性区分：
+     *   - 本行出现 + marker 出现  => 配置已加载且织入成功（修复生效）
+     *   - 本行出现 + 无 marker    => 配置加载了，但 extractRenderState 在本次进世界没被调用（hook 点错）
+     *   - 本行不出现              => 配置根本没被 Fabric 读取（required:false 静默跳过已改为 true） */
+    static
+    {
+        try
+        {
+            BBSMod.LOGGER.info("[EditorBridge] LoadingOverlayRenderMixin CLASS INIT (config parsed & class loaded)");
+        }
+        catch (Throwable t)
+        {
+            System.out.println("[EditorBridge] LoadingOverlayRenderMixin CLASS INIT (fallback println)");
+        }
+    }
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void bbs$drawBrowserOnTop(GuiGraphicsExtractor extractor, int mouseX, int mouseY, float partialTick, CallbackInfo ci)
