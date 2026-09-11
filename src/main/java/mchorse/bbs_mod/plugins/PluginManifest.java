@@ -14,6 +14,7 @@ import com.google.gson.JsonObject;
  *   "version": "1.0.0",
  *   "author": "Someone",
  *   "description": "Does something cool",
+ *   "icon": "🎬",
  *   "main": "main.js"
  * }
  * </pre>
@@ -25,6 +26,12 @@ public class PluginManifest
     public String version = "1.0.0";
     public String author = "";
     public String description = "";
+    /**
+     * A single glyph or emoji used as the plugin's badge in the plugins panel.
+     * Pure text (no image file) so it renders identically across MC 26.2's
+     * UI backends without touching the texture pipeline. Empty means "no icon".
+     */
+    public String icon = "";
     /** Entry script, relative to the plugin root. Defaults to {@code main.js}. */
     public String main = "main.js";
 
@@ -55,6 +62,11 @@ public class PluginManifest
         if (json.has("description"))
         {
             manifest.description = json.get("description").getAsString();
+        }
+
+        if (json.has("icon"))
+        {
+            manifest.icon = json.get("icon").getAsString();
         }
 
         if (json.has("main"))

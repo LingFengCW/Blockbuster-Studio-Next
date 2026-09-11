@@ -7,6 +7,7 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
+import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
 
@@ -30,12 +31,21 @@ public class ActionGroup extends ActionClip
 {
     public final Clips subActions = new Clips("subActions", BBSMod.getFactoryActionClips());
 
+    /** Who authored this generic action (for the shareable library). */
+    public final ValueString author = new ValueString("author", "");
+
+    /** Comma-separated entity/custom-group ids this action is meant for.
+     *  Empty means "applies to any character". */
+    public final ValueString appliesTo = new ValueString("appliesTo", "");
+
     public ActionGroup()
     {
         super();
 
         this.frequency.set(1);
         this.add(this.subActions);
+        this.add(this.author);
+        this.add(this.appliesTo);
     }
 
     @Override

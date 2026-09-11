@@ -513,6 +513,9 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
 .sb-save .dot{width:7px;height:7px;border-radius:50%;background:#3fae6a;}
 .sb-save.saving .dot{background:#e0a020;animation:bbsPulse 1s infinite;}
 @keyframes bbsPulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.sb-lang{display:inline-flex;align-items:center;}
+.sb-lang-sel{height:22px;font-size:12px;color:var(--c-text);background:var(--c-bg-sub);border:1px solid var(--c-border,#33383f);border-radius:5px;padding:0 4px;outline:none;cursor:pointer;}
+.sb-lang-sel:hover{background:var(--c-bg-hover);}
 
 /* ===== 明/暗主题（暗色变量覆盖） ===== */
 [data-theme="dark"]{
@@ -742,9 +745,10 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
   <span class="sb-sep"></span>
   <span><span class="sb-tag">状态</span> <span id="sbCtx">就绪</span></span>
   <span class="sb-sep"></span>
-  <span class="sb-save" id="sbSave"><span class="dot"></span><span id="sbSaveTxt">自动保存</span></span>
-  <span class="sb-sep"></span>
-  <span class="sb-right">快捷键：<span class="sb-kbd">空格</span>播放 <span class="sb-kbd">Ctrl+K</span>命令 <span class="sb-kbd">←/→</span>逐帧 <span class="sb-kbd">M</span>标记 <span class="sb-kbd">S</span>吸附 <span class="sb-kbd">右键素材箱</span>新建</span>
+          <span class="sb-save" id="sbSave"><span class="dot"></span><span id="sbSaveTxt">自动保存</span></span>
+          <span class="sb-sep"></span>
+          <span class="sb-lang"><select id="langSelect" class="sb-lang-sel" aria-label="界面语言"></select></span>
+          <span class="sb-right">快捷键：<span class="sb-kbd">空格</span>播放 <span class="sb-kbd">Ctrl+K</span>命令 <span class="sb-kbd">←/→</span>逐帧 <span class="sb-kbd">M</span>标记 <span class="sb-kbd">S</span>吸附 <span class="sb-kbd">右键素材箱</span>新建</span>
 </div>
 
 <div class="cmd-palette" id="cmdPalette">
@@ -904,6 +908,12 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
   <div class="ctx-main-item" data-a="deleteSequence" data-i18n="ctx.delete"><img class="ico" src="svg/gip-trash.svg"> 删除</div>
 </div>
 
+<!-- 通用动作（ActionGroup）右键菜单 -->
+<div class="context-menu" id="actGroupCtx">
+  <div class="ctx-main-item" onclick="agAddToChar()"><img class="ico" src="svg/plus.svg"> 添加到当前角色</div>
+  <div class="ctx-main-item" onclick="agEditMeta()"><img class="ico" src="svg/settings.svg"> 编辑信息（适用实体 / 作者）</div>
+</div>
+
 <!-- HTML 原生弹窗（替代被 MCEF 遮挡的 Swing 命名窗口） -->
 <div class="modal-mask" id="modalMask">
   <div class="modal">
@@ -990,6 +1000,21 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
     <div class="modal-actions">
       <button class="btn" id="confirmCancel" data-i18n="dlg.cancel">取消</button>
       <button class="btn ok" id="confirmOk" data-i18n="dlg.ok">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通用动作信息编辑（适用实体 / 作者），创建或编辑时弹出 -->
+<div class="modal-mask" id="groupMetaModal">
+  <div class="modal">
+    <div class="modal-title" id="groupMetaTitle">动作信息</div>
+    <div class="modal-body">
+      <div class="modal-field"><label>作者（谁弄出来的）</label><input id="gmAuthor" type="text" placeholder="你的名字 / 工作室"></div>
+      <div class="modal-field"><label>适用实体 / 自定义组 id（逗号分隔，留空=任意）</label><input id="gmAppliesTo" type="text" placeholder="minecraft:zombie,my_group"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="groupMetaCancel">取消</button>
+      <button class="btn ok" id="groupMetaOk">保存</button>
     </div>
   </div>
 </div>
@@ -2252,6 +2277,23 @@ function renderAssets(s){
       send('openActionEditor', { index: a.charIndex, action: a.actionIndex });
     });
   });
+  /* F: 通用动作（ActionGroup）天然出现在素材箱，可拖到角色轨道 / 点击加入当前角色。
+   * 声明了 appliesTo（适用实体/自定义组 id）与 author（作者），本地以可分享格式存档。 */
+  addGroup('通用动作');
+  (s.actionGroups || []).forEach(function(g){
+    var d = document.createElement('div'); d.className = 'asset-item'; d.dataset.type = 'actgroup';
+    d.appendChild(iconImg('group'));
+    var s1 = document.createElement('span'); s1.className = 'lbl'; s1.textContent = g.title; d.appendChild(s1);
+    var sub = document.createElement('div'); sub.className = 'asset-sub';
+    var scope = (g.appliesTo && g.appliesTo.trim()) ? g.appliesTo : '任意实体';
+    var who = (g.author && g.author.trim()) ? g.author : '未知作者';
+    sub.textContent = '适用: ' + scope + ' · 作者: ' + who;
+    d.appendChild(sub);
+    d.onclick = function(){ if(selectedChar == null || selectedChar < 0){ toast('请先选择角色', true); return; } send('addActionGroup', { id: g.id }); };
+    d.oncontextmenu = function(e){ e.preventDefault(); actGroupTarget = g.id; showMenu(actGroupCtx, e); };
+    d.addEventListener('mousedown', function(e){ if(e.button!==0) return; startCustomDrag(e, 'group', g.id); });
+    assetList.appendChild(d);
+  });
   addGroup(S('bin.backpack'));
   (s.backpack || []).forEach(function(b){ addBagItem(b); });
 }
@@ -2602,6 +2644,7 @@ function renderAll(){
   renderAssetDetail(s);
   renderLeashPanel(s);
   renderStatusBar(s);
+  renderLangSelect(s);
   renderAeDock(s);
 }
 
@@ -2717,7 +2760,7 @@ function confirmComposeGroup(){
   if(acts.length === 0){ toast(S('toast.noActionToCompose'), true); return; }
   var list = acts.map(function(a){ return '· ' + escapeHtml(a.title); }).join('<br>');
   var msg = S('ae.composeConfirm1') + acts.length + S('ae.composeConfirm2') + list + S('ae.composeConfirm3');
-  confirmDialog(S('ae.compose'), msg, function(){ send('composeActionGroup', {}); }, true);
+  confirmDialog(S('ae.compose'), msg, function(){ openGroupMetaModal('create', null); }, true);
 }
 /* A1: 动作组下拉改为 body 级弹层，避免被 .ae 的 overflow:hidden 裁剪 */
 function openAeGroupMenuPopup(e){
@@ -2766,6 +2809,46 @@ function renderAeGroupMenu(menu){
   });
 }
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+/* ===== 通用动作（ActionGroup）：素材箱拖放终点 + 信息编辑 ===== */
+var actGroupTarget = null;
+var groupMetaMode = 'create';
+var groupMetaId = null;
+
+function agAddToChar(){
+  if(actGroupTarget == null) return;
+  if(selectedChar == null || selectedChar < 0){ toast('请先选择角色', true); return; }
+  send('addActionGroup', { id: actGroupTarget });
+}
+function agEditMeta(){
+  if(actGroupTarget == null) return;
+  openGroupMetaModal('edit', actGroupTarget);
+}
+function openGroupMetaModal(mode, gid){
+  groupMetaMode = mode || 'create';
+  groupMetaId = gid;
+  var author = '', appliesTo = '';
+  if(groupMetaMode === 'edit' && gid){
+    var ae = window.bbsState && window.bbsState.actionEditor;
+    var gs = (ae && ae.actionGroups) || [];
+    for(var i = 0; i < gs.length; i++){ if(gs[i].id === gid){ author = gs[i].author || ''; appliesTo = gs[i].appliesTo || ''; break; } }
+  }
+  document.getElementById('groupMetaTitle').textContent = (groupMetaMode === 'edit') ? '编辑动作信息' : '创建动作（声明信息）';
+  document.getElementById('gmAuthor').value = author;
+  document.getElementById('gmAppliesTo').value = appliesTo;
+  document.getElementById('groupMetaModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('gmAuthor').focus(); }, 0);
+}
+function closeGroupMetaModal(){ document.getElementById('groupMetaModal').classList.remove('show'); }
+document.getElementById('groupMetaOk').onclick = function(){
+  var author = document.getElementById('gmAuthor').value.trim();
+  var appliesTo = document.getElementById('gmAppliesTo').value.trim();
+  if(groupMetaMode === 'create'){ send('composeActionGroup', { author: author, appliesTo: appliesTo }); }
+  else if(groupMetaId){ send('setActionGroupMeta', { id: groupMetaId, author: author, appliesTo: appliesTo }); }
+  closeGroupMetaModal();
+};
+document.getElementById('groupMetaCancel').onclick = closeGroupMetaModal;
+document.getElementById('groupMetaModal').addEventListener('click', function(e){ if(e.target === this) closeGroupMetaModal(); });
 
 /* 动作编辑器左侧：动作/路径/身体通道列表。参数化以便素材详情面板复用同一渲染。 */
 function renderAeLeft(rootEl, ae){
@@ -3640,6 +3723,28 @@ function renderStatusBar(s){
     else if(s.running){ ctx.textContent = '播放中'; ctx.style.color = 'var(--c-accent-d)'; }
     else { ctx.textContent = '就绪'; ctx.style.color = ''; }
   }
+}
+
+/* 编辑器内语言切换：把状态里的 languages 列表渲染成下拉，选中即发 setLanguage。
+ * 选值由 Java 端 BBSSettings.language 的 postCallback 自动 reload + pushState，
+ * 页面随 __onState 重渲染，无需本端额外刷新。 */
+function renderLangSelect(s){
+  var sel = document.getElementById('langSelect');
+  if(!sel || !s) return;
+  if(sel._langSig === (s.lang + '|' + (s.languages ? s.languages.length : 0))) return;
+  sel._langSig = s.lang + '|' + (s.languages ? s.languages.length : 0);
+  sel.innerHTML = '';
+  var list = s.languages || [];
+  for(var i = 0; i < list.length; i++){
+    var o = document.createElement('option');
+    o.value = list[i].code;
+    o.textContent = list[i].label;
+    sel.appendChild(o);
+  }
+  sel.value = s.lang;
+  sel.onchange = function(){
+    if(this.value && this.value !== s.lang){ send('setLanguage', { code: this.value }); }
+  };
 }
 
 /* ===== 新手引导（coach marks，对标专业软件 onboarding） ===== */

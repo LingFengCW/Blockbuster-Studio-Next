@@ -2,6 +2,7 @@ package mchorse.bbs_mod;
 
 import lingfeng.bbsnext.mcef.MCEFUI;
 
+import com.google.gson.Gson;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -48,6 +49,7 @@ import mchorse.bbs_mod.items.GunZoom;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.morphing.Morph;
+import mchorse.bbs_mod.plugins.PluginAPI;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.particles.ParticleManager;
@@ -492,6 +494,11 @@ public class BBSModClient implements ClientModInitializer
              * MCEFUI: a no-op unless the editor browser is actually open. */
             MCEFUI.pushState();
         });
+
+        /* Let script plugins surface a toast through the editor overlay. The
+         * message is JSON-escaped into a valid JS string literal so arbitrary
+         * text can't break the injected script. No-op if the editor isn't open. */
+        PluginAPI.setToastHandler(msg -> MCEFUI.injectScript("toast(" + new Gson().toJson(msg) + ");"));
         BBSSettings.editorSeconds.postCallback((v, f) ->
         {
             if (dashboard != null && dashboard.getPanels().panel instanceof UIFilmPanel panel)

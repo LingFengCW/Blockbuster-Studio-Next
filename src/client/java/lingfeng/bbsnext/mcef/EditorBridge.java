@@ -43,6 +43,7 @@ import lingfeng.bbsnext.update.UpdateConfig;
 import lingfeng.bbsnext.update.LiveUi;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.types.RecordedPathActionClip;
+import mchorse.bbs_mod.ui.utils.Label;
 import mchorse.bbs_mod.camera.clips.overwrite.IdleClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
@@ -446,6 +447,19 @@ public class EditorBridge implements IHtmlBridge
         }
         root.addProperty("lang", currentLang);
         root.add("strings", EditorStrings.stringsFor(currentLang));
+
+        /* Editor-language picker: hand the page the full list of supported
+         * languages (display label + code) so it can render an in-editor
+         * switcher instead of forcing the user into the native settings. */
+        JsonArray langs = new JsonArray();
+        for (Label<String> label : BBSModClient.getL10n().getSupportedLanguageLabels())
+        {
+            JsonObject lo = new JsonObject();
+            lo.addProperty("code", label.value);
+            lo.addProperty("label", label.title.get());
+            langs.add(lo);
+        }
+        root.add("languages", langs);
 
         UIFilmPanel panel = bridge.panel;
 
@@ -1816,6 +1830,12 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "addActionGroup":
                 addActionGroup(panel, req);
+                break;
+            case "setActionGroupMeta":
+                setActionGroupMeta(panel, req);
+                break;
+            case "setLanguage":
+                setLanguage(panel, req);
                 break;
             case "aeCreateAction":
                 aeCreateAction(panel, req.has("preset") ? req.get("preset").getAsInt() : -1);
@@ -4710,6 +4730,8 @@ public class EditorBridge implements IHtmlBridge
                 go.addProperty("id", group.id.get());
                 go.addProperty("title", group.title.get().isEmpty() ? ("动作组" + (groups.size() + 1)) : group.title.get());
                 go.addProperty("count", group.subActions.get().size());
+                go.addProperty("author", group.author.get());
+                go.addProperty("appliesTo", group.appliesTo.get());
 
                 boolean allClient = !group.subActions.get().isEmpty();
 
@@ -5202,6 +5224,11 @@ public class EditorBridge implements IHtmlBridge
         String name = (req != null && req.has("name") && !req.get("name").isJsonNull()) ? req.get("name").getAsString() : "";
         ActionGroup group = new ActionGroup();
         group.title.set(name.isEmpty() ? ("动作组" + (ActionGroupLibrary.get().get().size() + 1)) : name);
+        if (req != null)
+        {
+            if (req.has("author") && !req.get("author").isJsonNull()) group.author.set(req.get("author").getAsString());
+            if (req.has("appliesTo") && !req.get("appliesTo").isJsonNull()) group.appliesTo.set(req.get("appliesTo").getAsString());
+        }
         BaseValue.edit(film, f ->
         {
             int end = 0;
@@ -5298,6 +5325,63 @@ public class EditorBridge implements IHtmlBridge
             replay.actions.addClip(copy);
         });
         refreshHtml();
+    }
+
+    /** Edit the shareable metadata of a library action group (author / appliesTo). */
+    private static void setActionGroupMeta(UIFilmPanel panel, JsonObject req)
+    {
+        if (req == null || !req.has("id") || req.get("id").isJsonNull())
+        {
+            return;
+        }
+
+        String id = req.get("id").getAsString();
+        ActionGroup group = ActionGroupLibrary.find(id);
+
+        if (group == null)
+        {
+            MCEFUI.injectScript("toast('未找到该动作组', true);");
+            return;
+        }
+
+        if (req.has("author") && !req.get("author").isJsonNull())
+        {
+            group.author.set(req.get("author").getAsString());
+        }
+
+        if (req.has("appliesTo") && !req.get("appliesTo").isJsonNull())
+        {
+            group.appliesTo.set(req.get("appliesTo").getAsString());
+        }
+
+        ActionGroupLibrary.addGroup(group);
+        refreshHtml();
+    }
+
+    /**
+     * In-editor language switch. Setting {@link BBSSettings#language} fires its
+     * postCallback (BBSModClient:487) which reloads the localization and pushes
+     * the new editor state, so the page re-renders in the chosen language with
+     * no extra wiring here. We only persist the choice.
+     */
+    private static void setLanguage(UIFilmPanel panel, JsonObject req)
+    {
+        if (req == null || !req.has("code") || req.get("code").isJsonNull())
+        {
+            return;
+        }
+
+        String code = req.get("code").getAsString();
+
+        if (code == null || code.isEmpty())
+        {
+            return;
+        }
+
+        BBSSettings.language.set(code);
+
+        var module = BBSMod.getSettings().modules.get("bbs");
+        if (module != null) module.save();
     }
 
     private static int editorReplayIndex()
