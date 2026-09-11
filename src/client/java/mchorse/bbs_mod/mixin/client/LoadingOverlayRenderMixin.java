@@ -2,6 +2,7 @@ package mchorse.bbs_mod.mixin.client;
 
 import lingfeng.bbsnext.mcef.EditorBridge;
 import lingfeng.bbsnext.mcef.MCEFUI;
+import mchorse.bbs_mod.BBSMod;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.LoadingOverlay;
 import org.spongepowered.asm.mixin.Mixin;
@@ -37,9 +38,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LoadingOverlay.class)
 public abstract class LoadingOverlayRenderMixin
 {
+    /* One-shot flag so the log shows, on first invocation, that this mixin was
+     * actually woven into LoadingOverlay.extractRenderState at runtime. If the
+     * log never contains this line while the editor owns a preview world,
+     * the mixin silently failed to apply (e.g. refmap drift) and the browser
+     * would be "swallowed" by the vanilla loading screen with no error - this
+     * marker makes that failure observable. */
+    private static boolean bbs$loggedInjected = false;
+
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void bbs$drawBrowserOnTop(GuiGraphicsExtractor extractor, int mouseX, int mouseY, float partialTick, CallbackInfo ci)
     {
+        if (!bbs$loggedInjected)
+        {
+            bbs$loggedInjected = true;
+            BBSMod.LOGGER.info("[EditorBridge] LoadingOverlayRenderMixin woven into LoadingOverlay.extractRenderState (browser will paint on top of vanilla loading screen)");
+        }
+
         if (!EditorBridge.isBrowserOverlayActive())
         {
             return;
