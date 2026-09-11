@@ -1,0 +1,11 @@
+{
+    "required": false,
+    "package": "mchorse.bbs_mod.mixin.client",
+    "compatibilityLevel": "JAVA_21",
+    "client": [
+        "LoadingOverlayRenderMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}

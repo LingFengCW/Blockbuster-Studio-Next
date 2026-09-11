@@ -49,7 +49,8 @@
     "mixins": [
         "bbs.mixins.json",
         "bbs.title.mixins.json",
-        "bbs.client.mixins.json"
+        "bbs.client.mixins.json",
+        "bbs.loadingoverlay.mixins.json"
     ],
     "accessWidener": "bbs.accesswidener",
     "depends": {
