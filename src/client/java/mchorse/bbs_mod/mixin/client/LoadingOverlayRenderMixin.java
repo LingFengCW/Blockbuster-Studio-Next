@@ -45,12 +45,20 @@ public abstract class LoadingOverlayRenderMixin
      * would be "swallowed" by the vanilla loading screen with no error - this
      * marker makes that failure observable. */
     private static boolean bbs$loggedInjected = false;
+    private static boolean bbs$loggedGuardFalse = false;
+    private static boolean bbs$loggedViewNull = false;
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void bbs$drawBrowserOnTop(GuiGraphicsExtractor extractor, int mouseX, int mouseY, float partialTick, CallbackInfo ci)
     {
         if (!EditorBridge.isBrowserOverlayActive())
         {
+            if (!bbs$loggedGuardFalse)
+            {
+                bbs$loggedGuardFalse = true;
+                boolean ready = MCEFUI.isReady();
+                BBSMod.LOGGER.warn("[EditorBridge] LoadingOverlay mixin: guard false during overlay render (browserReady=" + ready + "; true=>owningPreviewWorld not set, false=>browser null)");
+            }
             return;
         }
 
@@ -60,11 +68,20 @@ public abstract class LoadingOverlayRenderMixin
             BBSMod.LOGGER.info("[EditorBridge] LoadingOverlayRenderMixin woven into LoadingOverlay.extractRenderState (native render discarded, browser shown instead)");
         }
 
-        /* 编辑器进预览世界时，从代码侧删掉原生 LoadingOverlay 的渲染输出：
-         * 不取消 extractRenderState（否则会卡死世界），而是用 reset() 清空
-         * guiRenderState 里原生刚绘制的所有 GUI 元素，再只把浏览器贴上去。
-         * 这样原生 Mojang 进度条/动画根本不进屏幕，只有浏览器自己的加载动画。
+        /* 先确认浏览器当前有可用纹理帧，再丢弃原生渲染、只画浏览器。
+         * 否则若浏览器在 loading 期间暂停（getTextureView() 返回 null），
+         * reset() 清空原生后又没东西可画会留空白屏——此时保留原生更稳妥。
          * 注：26.2 的 GuiRenderState 清屏方法是 reset()（无 clear()）。 */
+        if (MCEFUI.getTextureView() == null)
+        {
+            if (!bbs$loggedViewNull)
+            {
+                bbs$loggedViewNull = true;
+                BBSMod.LOGGER.warn("[EditorBridge] LoadingOverlay mixin: isBrowserOverlayActive() true but getTextureView() null (browser paused during load?)");
+            }
+            return;
+        }
+
         extractor.guiRenderState.reset();
 
         int w = extractor.guiWidth();
