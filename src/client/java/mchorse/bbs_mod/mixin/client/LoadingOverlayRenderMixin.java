@@ -49,16 +49,23 @@ public abstract class LoadingOverlayRenderMixin
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void bbs$drawBrowserOnTop(GuiGraphicsExtractor extractor, int mouseX, int mouseY, float partialTick, CallbackInfo ci)
     {
-        if (!bbs$loggedInjected)
-        {
-            bbs$loggedInjected = true;
-            BBSMod.LOGGER.info("[EditorBridge] LoadingOverlayRenderMixin woven into LoadingOverlay.extractRenderState (browser will paint on top of vanilla loading screen)");
-        }
-
         if (!EditorBridge.isBrowserOverlayActive())
         {
             return;
         }
+
+        if (!bbs$loggedInjected)
+        {
+            bbs$loggedInjected = true;
+            BBSMod.LOGGER.info("[EditorBridge] LoadingOverlayRenderMixin woven into LoadingOverlay.extractRenderState (native render discarded, browser shown instead)");
+        }
+
+        /* 编辑器进预览世界时，从代码侧删掉原生 LoadingOverlay 的渲染输出：
+         * 不取消 extractRenderState（否则会卡死世界），而是用 reset() 清空
+         * guiRenderState 里原生刚绘制的所有 GUI 元素，再只把浏览器贴上去。
+         * 这样原生 Mojang 进度条/动画根本不进屏幕，只有浏览器自己的加载动画。
+         * 注：26.2 的 GuiRenderState 清屏方法是 reset()（无 clear()）。 */
+        extractor.guiRenderState.reset();
 
         int w = extractor.guiWidth();
         int h = extractor.guiHeight();
