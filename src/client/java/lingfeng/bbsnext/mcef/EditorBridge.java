@@ -2391,11 +2391,21 @@ public class EditorBridge implements IHtmlBridge
             {
                 String seqId = req.has("id") ? req.get("id").getAsString() : null;
 
-                /* 选中序列：仅设 activeSequenceId + 刷新高亮，不自动进世界。
-                 * 世界预览改由编辑器内"进入世界"按钮显式触发
-                 * （诉求：进入菜单 / 点侧边栏不应加载世界）。 */
                 activeSequenceId = seqId;
                 refreshHtml();
+
+                /* 诉求（已反转）：选中序列且顺着引用链解析出绑定了世界的场景，
+                 * 就默认自动进世界预览。resolveSequenceSceneWorld 找不到绑定世界
+                 * 时返回 null，这里据此跳过，避免 enterSceneWorldNamed 打无谓 warn。 */
+                if (seqId != null)
+                {
+                    String world = resolveSequenceSceneWorld(seqId);
+
+                    if (world != null)
+                    {
+                        enterSceneWorldNamed(panel, world);
+                    }
+                }
                 break;
             }
             case "addToCurrent":
@@ -2779,6 +2789,18 @@ public class EditorBridge implements IHtmlBridge
          * overlay of a subsequent, unrelated (normal) world join. */
         enteringWorldUntil = 0L;
         return false;
+    }
+
+    /**
+     * True when the editor currently owns a preview world (i.e. we entered a
+     * scene/sequence-bound world). Used by the LoadingOverlay mixin to decide
+     * whether to paint the browser on top of the native loading screen. When
+     * false (a normal single-player world join the editor does not own) the
+     * vanilla LoadingOverlay is left completely alone.
+     */
+    public static boolean isBrowserOverlayActive()
+    {
+        return owningPreviewWorld && MCEFUI.isReady();
     }
 
     /**
@@ -6209,6 +6231,11 @@ public class EditorBridge implements IHtmlBridge
                  * Without this the left-sidebar highlight never moves and the
                  * user sees "clicked a scene, nothing switched". */
                 refreshHtml();
+
+                /* 诉求：编辑器里有场景且绑定了世界，就默认自动进世界预览
+                 * （无需手动点"进入世界"）。enterSceneWorld 内部会判断当前场景的
+                 * background 世界是否为空，空则直接 no-op，不会误进世界。 */
+                enterSceneWorld(panel);
 
                 return;
             }

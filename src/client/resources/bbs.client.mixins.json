@@ -30,7 +30,12 @@
         "iris.SliderElementWidgetMixin",
         "iris.StringElementWidgetInvoker",
         "iris.SystemTimeUniformsTimerMixin",
-        "sodium.ColorAttributeMixin"
+        "sodium.ColorAttributeMixin",
+        {
+            "LoadingOverlayRenderMixin": {
+                "required": false
+            }
+        }
     ],
     "injectors": {
         "defaultRequire": 1

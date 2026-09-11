@@ -762,6 +762,51 @@ public class MCEFUI
     }
 
     /**
+     * Composite the browser on top of the vanilla LoadingOverlay while the editor
+     * is entering/switching its preview world. Unlike {@link #renderBrowser}
+     * this takes no menu (it is called from a LoadingOverlay render hook, not a
+     * UIScreen) and deliberately skips {@code capturePreview()} - there is no
+     * live level to read back during the load gap, so grabbing the main render
+     * target would error. We just blit the last composited browser frame (which
+     * already shows the in-page loading spinner driven by
+     * {@code window.bbsSetWorldLoading}) so the editor never appears to be "pushed
+     * off" by the native overlay.
+     */
+    public static void renderBrowserOnTop(GuiGraphicsExtractor context, int width, int height)
+    {
+        if (browser == null)
+        {
+            return;
+        }
+
+        GpuTextureView view = getTextureView();
+
+        if (view == null)
+        {
+            return;
+        }
+
+        try
+        {
+            context.guiRenderState.addGuiElement(new BlitRenderState(
+                RenderPipelines.GUI_TEXTURED,
+                TextureSetup.singleTexture(view, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),
+                new Matrix3x2f(context.pose()),
+                0, 0, width, height,
+                0.0F, 1.0F, 0.0F, 1.0F,
+                0xFFFFFFFF,
+                context.scissorStack.peek()));
+
+            /* 动作编辑器 PiP 叠加（若有）一并画在最上层。 */
+            lingfeng.bbsnext.mcef.EditorBridge.aePreviewSubmitPip(context, width, height);
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.error("[MCEF] renderBrowserOnTop failed", t);
+        }
+    }
+
+    /**
      * Pushes the live 3D world (Minecraft's main render target) into the HTML
      * editor centre as a PNG image, so the preview "player" shows a real
      * picture. Throttled to keep the GPU readback cheap.

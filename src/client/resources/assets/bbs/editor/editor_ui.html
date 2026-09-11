@@ -2526,9 +2526,13 @@ function renderRename(s){
    元素的显隐，避免任何地方再散落裸 window._sceneWorldEntering = ... 赋值。
    on=true 显示"正在加载预览世界…"，on=false 隐藏。 */
 window.bbsSetWorldLoading = function(on){
-  /* 用户要求：进世界全程前端不显示任何“正在加载/需要进入世界”提示，
-     选中场景即后台静默进世界。这里只维护内部标记，不再弹出旋转器。 */
+  /* 诉求（已反转）：进入/切换预览世界时，浏览器内要显示自己的加载动画，
+     而不是被原生 LoadingOverlay 盖住。这里同时维护内部标记并显形 #worldLoad
+     旋转器；原生 overlay 由 Java 端 LoadingOverlayRenderMixin 把浏览器画到最上层盖住。 */
   window._sceneWorldEntering = !!on;
+  var el = document.getElementById('worldLoad');
+  if (el) el.style.display = on ? 'flex' : 'none';
+  document.body.classList.toggle('world-loading', !!on);
 };
 
 /* Task #19: 工具栏模式开关。立即切换 body 类让中央透明露世界，并把状态回传 Java
@@ -2537,7 +2541,7 @@ window.bbsSetWorldLoading = function(on){
 window.bbsSetToolbarMode = function(on){
   window.__toolbarMode = !!on;
   document.body.classList.toggle('tb-mode', window.__toolbarMode);
-  if (window.__toolbarMode) window._sceneWorldEntering = false;
+  if (window.__toolbarMode) { window._sceneWorldEntering = false; var wl = document.getElementById('worldLoad'); if (wl) wl.style.display = 'none'; }
   send('setToolbarMode', { on: window.__toolbarMode });
 };
 
