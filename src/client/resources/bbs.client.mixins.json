@@ -32,9 +32,8 @@
         "iris.SystemTimeUniformsTimerMixin",
         "sodium.ColorAttributeMixin",
         {
-            "LoadingOverlayRenderMixin": {
-                "required": false
-            }
+            "target": "LoadingOverlayRenderMixin",
+            "required": false
         }
     ],
     "injectors": {
