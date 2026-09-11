@@ -2371,19 +2371,11 @@ public class EditorBridge implements IHtmlBridge
             {
                 String seqId = req.has("id") ? req.get("id").getAsString() : null;
 
-                /* 选中序列：设 activeSequenceId + 刷新高亮（原行为保留）。 */
+                /* 选中序列：仅设 activeSequenceId + 刷新高亮，不自动进世界。
+                 * 世界预览改由编辑器内"进入世界"按钮显式触发
+                 * （诉求：进入菜单 / 点侧边栏不应加载世界）。 */
                 activeSequenceId = seqId;
                 refreshHtml();
-
-                /* Task #18: 选中"包含场景的序列"时也自动尝试进世界预览（与 openScene 对齐）。
-                 * 解析序列（含嵌套）引用的第一个有绑定世界的场景，找到则直接进该世界。
-                 * 无场景 / 无绑定世界的序列维持原行为（仅选中，不进世界）。 */
-                String sceneWorld = resolveSequenceSceneWorld(seqId);
-
-                if (sceneWorld != null)
-                {
-                    enterSceneWorldNamed(panel, sceneWorld);
-                }
                 break;
             }
             case "addToCurrent":
@@ -6133,11 +6125,6 @@ public class EditorBridge implements IHtmlBridge
                  * Without this the left-sidebar highlight never moves and the
                  * user sees "clicked a scene, nothing switched". */
                 refreshHtml();
-
-                if (scene.background != null && !scene.background.isEmpty())
-                {
-                    enterSceneWorld(panel);
-                }
 
                 return;
             }
