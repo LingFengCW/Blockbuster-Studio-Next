@@ -130,9 +130,14 @@ import mchorse.bbs_mod.utils.PoseStackUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -283,6 +288,30 @@ public class EditorBridge implements IHtmlBridge
      *  a useless "am I in the target world" probe; this is the only reliable
      *  one and lets a scene switch decide between no-op and full reload. */
     private static volatile String loadedPreviewWorldName = null;
+    /** The scene-bound world that the fixed preview world (bbs_preview) was last
+     *  copied from. Lets a scene re-entry detect "already previewing this exact
+     *  scene's world" and skip the copy/reload. */
+    private static volatile String previewSourceWorld = null;
+    /** Reserved fixed preview world name. The editor always copies the active
+     *  scene's bound world into this world and opens IT, instead of opening the
+     *  user's actual scene save. Matches the user's explicit instruction:
+     *  copy the bound world, rename it to this, delete the old one first. */
+    private static final String PREVIEW_WORLD = "bbs_preview";
+
+    /** Known mods that conflict with BBS-Next (MCEF browser overlay + Sodium/Iris
+     *  Vulkan renderer). Surfaced as a one-time startup warning (warnKnownConflicts)
+     *  and documented here so the conflict list is reviewable in code rather than
+     *  buried in chat. */
+    private static final java.util.List<String[]> KNOWN_CONFLICTING_MODS = java.util.List.of(
+        new String[]{"optifine", "OptiFine 与 Sodium/Vulkan 后端不兼容，会导致崩溃/黑屏；请改用 Iris + Sodium。"},
+        new String[]{"mcef", "独立的 MCEF/CEF 模组会与本模组自带的 CEF 实例重复初始化，造成浏览器崩溃。"},
+        new String[]{"webdisplays", "WebDisplays 同样基于 CEF，会与本模组的浏览器层冲突。"},
+        new String[]{"vivecraft", "Vivecraft(VR) 走完全不同的渲染路径，与预览世界渲染冲突。"},
+        new String[]{"fancymenu", "FancyMenu 等主菜单/加载屏接管模组可能遮挡或移除本模组的编辑器入口按钮。"},
+        new String[]{"custommainmenu", "CustomMainMenu 接管主菜单，可能移除本模组的编辑器入口按钮。"},
+        new String[]{"embeddium", "Embeddium 与本项目锁定的 Sodium 0.9.0 渲染后端冲突。"}
+    );
+    private static boolean conflictsWarned = false;
     /** Deadline guarding a scene-to-scene world switch. openWorld is
      *  asynchronous and its completion callback is never invoked when the
      *  target folder is missing (vanilla shows its own error screen instead),
@@ -1535,6 +1564,22 @@ public class EditorBridge implements IHtmlBridge
         }
 
         status.addProperty("baseCount", base.size());
+
+        /* No base camera clips configured yet: this is the normal starting state
+         * of a new film, NOT an error. Don't raise lost/overlap warnings (the user
+         * simply hasn't placed a camera). Real gaps/overlaps between existing
+         * cameras are still reported below. Fixes the false "相机丢失" alarm that
+         * popped even when no camera had been placed. */
+        if (base.isEmpty())
+        {
+            status.addProperty("lost", false);
+            status.addProperty("overlap", false);
+            status.addProperty("currentLost", false);
+            status.addProperty("currentOverlap", false);
+            status.add("lostRanges", new JsonArray());
+            status.add("overlapRanges", new JsonArray());
+            return status;
+        }
 
         boolean lost = false;
         boolean overlap = false;
@@ -2814,6 +2859,10 @@ public class EditorBridge implements IHtmlBridge
     {
         Minecraft mc = Minecraft.getInstance();
 
+        /* Silence ambient background music while the editor overlay is up. */
+        stopBackgroundMusic();
+        warnKnownConflicts();
+
         try
         {
             UIDashboard dashboard = BBSModClient.getDashboard();
@@ -2860,6 +2909,51 @@ public class EditorBridge implements IHtmlBridge
         catch (Throwable t)
         {
             BBSMod.LOGGER.error("[EditorBridge] reopenEditorUi failed", t);
+        }
+    }
+
+    /** Stop MC's ambient/menu background music. The editor is a rendering surface
+     *  for the preview world, not a thing the user "plays", so we silence music
+     *  whenever the editor overlay is (re)shown. Best-effort: any failure is
+     *  ignored and the user can still mute via the in-game slider. */
+    private static void stopBackgroundMusic()
+    {
+        try
+        {
+            Minecraft.getInstance().getMusicManager().stopPlaying();
+        }
+        catch (Throwable t)
+        {
+            /* ignore - music is non-critical */
+        }
+    }
+
+    /** One-time warning for known conflicting mods (see KNOWN_CONFLICTING_MODS).
+     *  Guarded so it logs at most once per session, when the editor first opens. */
+    private static void warnKnownConflicts()
+    {
+        if (conflictsWarned)
+        {
+            return;
+        }
+
+        conflictsWarned = true;
+
+        try
+        {
+            net.fabricmc.loader.api.FabricLoader loader = net.fabricmc.loader.api.FabricLoader.getInstance();
+
+            for (String[] entry : KNOWN_CONFLICTING_MODS)
+            {
+                if (loader.isModLoaded(entry[0]))
+                {
+                    BBSMod.LOGGER.warn("[EditorBridge] 已知冲突模组已加载: '{}' — {}", entry[0], entry[1]);
+                }
+            }
+        }
+        catch (Throwable t)
+        {
+            /* loader API unavailable - ignore */
         }
     }
 
@@ -2979,13 +3073,13 @@ public class EditorBridge implements IHtmlBridge
         boolean inLevel = mc.level != null;
         String loaded = inLevel ? resolveLoadedWorldName(mc) : "";
 
-        if (inLevel && world.equals(loaded))
+        if (inLevel && (world.equals(loaded) || (isReservedWorld(loaded) && world.equals(previewSourceWorld))))
         {
-            BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: already in bound world '{}' - reusing it", world);
+            BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: already previewing bound world '{}' - reusing it", world);
 
             owningPreviewWorld = true;
             inWorld = true;
-            loadedPreviewWorldName = world;
+            loadedPreviewWorldName = loaded.isEmpty() ? world : loaded;
             refreshHtml();
             return;
         }
@@ -3008,12 +3102,13 @@ public class EditorBridge implements IHtmlBridge
 
             markEnteringWorld();
             owningPreviewWorld = true;
-            loadedPreviewWorldName = world;
+            loadedPreviewWorldName = null;
+            previewSourceWorld = null;
             inWorld = false;
 
             if (inLevel)
             {
-                BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: switching from '{}' to bound world '{}'", loaded, world);
+                BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: switching away from '{}' to preview '{}' (source '{}')", loaded, PREVIEW_WORLD, world);
 
                 Film old = target == null ? null : target.getData();
 
@@ -3022,14 +3117,30 @@ public class EditorBridge implements IHtmlBridge
                     Films.stopFilm(old.getId());
                 }
 
+                /* Closing the current level releases its session.lock so the old
+                 * bbs_preview can be deleted/copied safely below. */
                 mc.clearClientLevel(null);
             }
             else
             {
-                BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: opening bound world '{}'", world);
+                BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: copying '{}' -> '{}' for preview", world, PREVIEW_WORLD);
             }
 
-            mc.createWorldOpenFlows().openWorld(world, () ->
+            /* Copy the scene's bound world into the reserved preview world (delete
+             * the stale copy first), then open THAT. Skips the copy when the
+             * source is unchanged so re-entering the same scene is instant. */
+            boolean copied = copyWorldIfChanged(world, PREVIEW_WORLD);
+            String openName = copied ? PREVIEW_WORLD : world;
+
+            loadedPreviewWorldName = openName;
+            previewSourceWorld = copied ? world : null;
+
+            if (!copied)
+            {
+                BBSMod.LOGGER.warn("[EditorBridge] enterSceneWorld: copy '{}' -> '{}' failed, opening source directly", world, PREVIEW_WORLD);
+            }
+
+            mc.createWorldOpenFlows().openWorld(openName, () ->
             {
                 endWorldSwitch();
                 clearEnteringWorld();
@@ -3083,8 +3194,118 @@ public class EditorBridge implements IHtmlBridge
             clearEnteringWorld();
             owningPreviewWorld = false;
             loadedPreviewWorldName = null;
+            previewSourceWorld = null;
             BBSMod.LOGGER.error("[EditorBridge] enterSceneWorld failed to open world '{}'", world, t);
         }
+    }
+
+    /**
+     * Copy a singleplayer save folder {@code srcName} into the reserved preview
+     * world {@code dstName}, deleting any previous copy first. Skips the copy
+     * (returns true, reusing the existing dst) when the source's level.dat is not
+     * newer than the destination's, so re-entering the same scene is instant.
+     * Returns false only if the source is missing or the copy threw.
+     */
+    private static boolean copyWorldIfChanged(String srcName, String dstName)
+    {
+        try
+        {
+            LevelStorageSource source = Minecraft.getInstance().getLevelSource();
+            Path base = source.getBaseDir();
+            Path src = base.resolve(srcName);
+            Path dst = base.resolve(dstName);
+
+            if (!Files.exists(src))
+            {
+                BBSMod.LOGGER.warn("[EditorBridge] copyWorldIfChanged: source world '{}' does not exist - cannot build preview", srcName);
+                return false;
+            }
+
+            Path srcLevel = src.resolve("level.dat");
+            Path dstLevel = dst.resolve("level.dat");
+
+            if (Files.exists(dst) && Files.exists(srcLevel) && Files.exists(dstLevel))
+            {
+                long srcMod = Files.getLastModifiedTime(srcLevel).toMillis();
+                long dstMod = Files.getLastModifiedTime(dstLevel).toMillis();
+
+                if (srcMod <= dstMod)
+                {
+                    /* Source unchanged since last copy: reuse the existing preview. */
+                    return true;
+                }
+            }
+
+            if (Files.exists(dst))
+            {
+                deleteRecursive(dst);
+            }
+
+            copyRecursive(src, dst);
+            return true;
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.error("[EditorBridge] copyWorldIfChanged: failed to copy '{}' -> '{}'", srcName, dstName, t);
+            return false;
+        }
+    }
+
+    private static void deleteRecursive(Path path) throws IOException
+    {
+        if (!Files.exists(path))
+        {
+            return;
+        }
+
+        Files.walkFileTree(path, new SimpleFileVisitor<Path>()
+        {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+            {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
+            {
+                if (exc != null)
+                {
+                    throw exc;
+                }
+
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private static void copyRecursive(Path src, Path dst) throws IOException
+    {
+        Files.walkFileTree(src, new SimpleFileVisitor<Path>()
+        {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException
+            {
+                Files.createDirectories(dst.resolve(src.relativize(dir).toString()));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+            {
+                /* session.lock is held by the open world and must NOT be copied
+                 * into the preview; MC re-creates it on openWorld. */
+                if (file.getFileName() != null && "session.lock".equals(file.getFileName().toString()))
+                {
+                    return FileVisitResult.CONTINUE;
+                }
+
+                Files.copy(file, dst.resolve(src.relativize(file).toString()), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     /** Task #18: 从序列（含嵌套序列，跟随其 SCENE / SEQUENCE 引用，深度受
@@ -3364,6 +3585,7 @@ public class EditorBridge implements IHtmlBridge
             owningPreviewWorld = false;
             inWorld = false;
             loadedPreviewWorldName = null;
+            previewSourceWorld = null;
             endWorldSwitch();
             reopenEditorUi();
         }

@@ -692,7 +692,7 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
         <canvas id="vpMask" class="vp-mask"></canvas>
         <div id="vpGrid" class="vp-grid"></div>
         <div id="worldLoad" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:50;background:var(--c-bg);color:var(--c-accent-d);border:1px solid var(--c-border-2);border-radius:4px;padding:6px 14px;font-size:12px;" data-i18n="preview.loading"><span class="bbs-spinner"></span>正在加载预览世界…</div>
-        <div id="vpPh" class="vp-ph" data-i18n="preview.empty">实时预览：进入或加载一个世界后，这里会显示 Minecraft 的 3D 画面。</div>
+        <div id="vpPh" class="vp-ph" data-i18n="preview.empty">预览待机</div>
         <div class="viewport" id="mainViewport"></div>
         <div id="leashPanel" class="leash-panel"></div>
       </div>
@@ -1073,7 +1073,7 @@ var BBS_DEFAULT_STRINGS = {
   "clip.circle": "圆形",
   "clip.circleTitle": "剪切蒙版：圆形",
   "preview.loading": "正在加载世界…",
-  "preview.empty": "实时预览",
+  "preview.empty": "预览待机",
   "preview.world": "预览世界",
   "tl.newSeq": "＋序列",
   "tl.newSeqTitle": "新建序列",
@@ -1408,7 +1408,7 @@ var BBS_DEFAULT_STRINGS_EN = {
   "clip.circle": "Circle",
   "clip.circleTitle": "Clip mask: Circle",
   "preview.loading": "Loading world…",
-  "preview.empty": "Live preview",
+  "preview.empty": "Preview idle",
   "tl.newSeq": "+ Sequence",
   "tl.newSeqTitle": "New Sequence",
   "tl.rename": "Rename",
@@ -2526,9 +2526,10 @@ function renderRename(s){
    元素的显隐，避免任何地方再散落裸 window._sceneWorldEntering = ... 赋值。
    on=true 显示"正在加载预览世界…"，on=false 隐藏。 */
 window.bbsSetWorldLoading = function(on){
-  /* 诉求（已反转）：进入/切换预览世界时，浏览器内要显示自己的加载动画，
-     而不是被原生 LoadingOverlay 盖住。这里同时维护内部标记并显形 #worldLoad
-     旋转器；原生 overlay 由 Java 端 LoadingOverlayRenderMixin 把浏览器画到最上层盖住。 */
+  /* 进入/切换预览世界时，浏览器内显示自己的加载提示（#worldLoad 旋转器），
+     原生 LoadingOverlay 正常播放（不再被压制/盖住）。Java 端把场景绑定世界
+     复制进固定预览世界 bbs_preview 后 openWorld，世界加载完成后由 reopenEditorUi
+     把编辑器浏览器重新挂回最上层。 */
   window._sceneWorldEntering = !!on;
   var el = document.getElementById('worldLoad');
   if (el) el.style.display = on ? 'flex' : 'none';
