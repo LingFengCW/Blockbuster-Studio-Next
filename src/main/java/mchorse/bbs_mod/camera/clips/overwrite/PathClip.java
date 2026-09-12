@@ -124,7 +124,9 @@ public class PathClip extends CameraClip
     }
 
     /**
-     * Apply angle  
+     * Apply angle, taking the shortest angular path between keyframes so the
+     * camera never spins the long way around (e.g. yaw 350° → 10° would
+     * otherwise sweep backwards through 180°).
      */
     private void applyAngle(Angle angle, int index, float progress)
     {
@@ -133,13 +135,37 @@ public class PathClip extends CameraClip
         Position p2 = this.getPoint(index + 1);
         Position p3 = this.getPoint(index + 2);
 
-        /* Interpolating the angle */
-        float yaw   = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.yaw, p1.angle.yaw, p2.angle.yaw, p3.angle.yaw, progress));
-        float pitch = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.pitch, p1.angle.pitch, p2.angle.pitch, p3.angle.pitch, progress));
-        float roll  = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.roll, p1.angle.roll, p2.angle.roll, p3.angle.roll, progress));
+        float yaw   = this.interpolateAngle(p0.angle.yaw,   p1.angle.yaw,   p2.angle.yaw,   p3.angle.yaw,   progress);
+        float pitch = this.interpolateAngle(p0.angle.pitch, p1.angle.pitch, p2.angle.pitch, p3.angle.pitch, progress);
+        float roll  = this.interpolateAngle(p0.angle.roll,  p1.angle.roll,  p2.angle.roll,  p3.angle.roll,  progress);
         float fov   = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.fov, p1.angle.fov, p2.angle.fov, p3.angle.fov, progress));
 
         angle.set(yaw, pitch, roll, fov);
+    }
+
+    /**
+     * Interpolate an angular channel along the shortest arc. Neighbour
+     * keyframes are unwrapped relative to the current keyframe before the
+     * Hermite / easing interpolation is evaluated, so the spline proceeds
+     * along the short path instead of wrapping the long way.
+     */
+    private float interpolateAngle(float a0, float a1, float a2, float a3, float progress)
+    {
+        float w0 = a1 + shortestAngleDelta(a1, a0);
+        float w2 = a1 + shortestAngleDelta(a1, a2);
+        float w3 = a1 + shortestAngleDelta(a1, a3);
+
+        return (float) this.interpolationAngle.interpolate(IInterp.context.set(w0, a1, w2, w3, progress));
+    }
+
+    private static float shortestAngleDelta(float from, float to)
+    {
+        float d = (to - from) % 360F;
+
+        if (d > 180F) d -= 360F;
+        else if (d < -180F) d += 360F;
+
+        return d;
     }
 
     @Override

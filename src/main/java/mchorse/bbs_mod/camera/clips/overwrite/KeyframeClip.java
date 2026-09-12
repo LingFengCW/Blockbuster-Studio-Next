@@ -44,6 +44,12 @@ public class KeyframeClip extends CameraClip
             this.add(channel);
         }
 
+        /* Angular channels interpolate along the shortest arc, so consecutive
+         * keyframes like yaw 350° → 10° take the -20° path instead of spinning. */
+        this.yaw.setCyclic(true);
+        this.pitch.setCyclic(true);
+        this.roll.setCyclic(true);
+
         this.add(this.additive);
     }
 

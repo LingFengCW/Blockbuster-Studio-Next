@@ -51,6 +51,13 @@ public class OrbitCamera
 
     protected boolean fovRoll = true;
 
+    /* Drag momentum (inertia) so releasing the mouse keeps a little spin,
+     * matching the feel of Blender / Unity orbit controls. */
+    protected float momentumYaw;
+    protected float momentumPitch;
+    protected float momentumRoll;
+    protected float momentumFov;
+
     public void setFovRoll(boolean fovRoll)
     {
         this.fovRoll = fovRoll;
@@ -60,6 +67,10 @@ public class OrbitCamera
     {
         this.velocityPosition.set(0);
         this.velocityAngle.set(0);
+        this.momentumYaw = 0F;
+        this.momentumPitch = 0F;
+        this.momentumRoll = 0F;
+        this.momentumFov = 0F;
     }
 
     public void setup(Camera camera)
@@ -142,6 +153,10 @@ public class OrbitCamera
         this.dragging = mouseButton;
         this.lastX = mouseX;
         this.lastY = mouseY;
+        this.momentumYaw = 0F;
+        this.momentumPitch = 0F;
+        this.momentumRoll = 0F;
+        this.momentumFov = 0F;
     }
 
     public void release()
@@ -217,6 +232,8 @@ public class OrbitCamera
             {
                 this.rotation.x += y * angleFactor;
                 this.rotation.y += x * angleFactor;
+                this.momentumPitch = y * angleFactor;
+                this.momentumYaw = x * angleFactor;
 
                 this.lastX = mouseX;
                 this.lastY = mouseY;
@@ -233,6 +250,7 @@ public class OrbitCamera
                 if (x != 0)
                 {
                     this.rotation.z += x * angleFactor;
+                    this.momentumRoll = x * angleFactor;
 
                     this.lastX = mouseX;
                     this.lastY = mouseY;
@@ -247,6 +265,7 @@ public class OrbitCamera
                 if (y != 0)
                 {
                     this.fov += y * angleFactor;
+                    this.momentumFov = y * angleFactor;
 
                     this.lastX = mouseX;
                     this.lastY = mouseY;
@@ -351,6 +370,56 @@ public class OrbitCamera
             this.rotation.y += this.velocityAngle.y * angleSpeed;
 
             changed = true;
+        }
+
+        /* Drag inertia: keep a little spin after releasing the mouse. */
+        if (!this.isDragging())
+        {
+            float decay = 0.88F;
+
+            if (Math.abs(this.momentumYaw) > 1e-5F)
+            {
+                this.rotation.y += this.momentumYaw;
+                this.momentumYaw *= decay;
+                changed = true;
+            }
+            else
+            {
+                this.momentumYaw = 0F;
+            }
+
+            if (Math.abs(this.momentumPitch) > 1e-5F)
+            {
+                this.rotation.x += this.momentumPitch;
+                this.momentumPitch *= decay;
+                changed = true;
+            }
+            else
+            {
+                this.momentumPitch = 0F;
+            }
+
+            if (Math.abs(this.momentumRoll) > 1e-5F)
+            {
+                this.rotation.z += this.momentumRoll;
+                this.momentumRoll *= decay;
+                changed = true;
+            }
+            else
+            {
+                this.momentumRoll = 0F;
+            }
+
+            if (Math.abs(this.momentumFov) > 1e-5F)
+            {
+                this.fov += this.momentumFov;
+                this.momentumFov *= decay;
+                changed = true;
+            }
+            else
+            {
+                this.momentumFov = 0F;
+            }
         }
 
         return changed;

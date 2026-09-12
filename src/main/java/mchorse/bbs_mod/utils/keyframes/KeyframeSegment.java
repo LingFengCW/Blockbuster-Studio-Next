@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.utils.keyframes;
 
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.keyframes.factories.DoubleKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 
 /**
@@ -88,7 +89,32 @@ public class KeyframeSegment <T>
             return factory.copy(this.a.getValue());
         }
 
+        KeyframeChannel<T> channel = (KeyframeChannel<T>) this.a.getParent();
+
+        /* Angular (cyclic) channels interpolate along the shortest arc so values
+         * such as yaw 350° → 10° don't spin the long way around. */
+        if (channel != null && channel.isCyclic() && factory instanceof DoubleKeyframeFactory)
+        {
+            DoubleKeyframeFactory df = (DoubleKeyframeFactory) factory;
+            double av = (Double) this.a.getValue();
+            double preA = av + shortestAngleDelta(av, (Double) this.preA.getValue());
+            double bv = av + shortestAngleDelta(av, (Double) this.b.getValue());
+            double postB = av + shortestAngleDelta(av, (Double) this.postB.getValue());
+
+            return (T) (Double) df.interpolate(preA, av, bv, postB, this.a.getInterpolation(), this.x);
+        }
+
         return factory.copy(factory.interpolate(this.preA, this.a, this.b, this.postB, this.a.getInterpolation(), this.x));
+    }
+
+    private static double shortestAngleDelta(double from, double to)
+    {
+        double d = (to - from) % 360D;
+
+        if (d > 180D) d -= 360D;
+        else if (d < -180D) d += 360D;
+
+        return d;
     }
 
     public boolean isSame()

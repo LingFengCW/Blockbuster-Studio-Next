@@ -22,7 +22,24 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 {
     private IKeyframeFactory<T> factory;
 
+    /**
+     * When enabled, the channel is treated as an angular (cyclic) dimension and
+     * its values are interpolated along the shortest arc (e.g. 350° → 10° takes
+     * the -20° path instead of spinning +340°). Used by camera yaw/pitch/roll.
+     */
+    private boolean cyclic = false;
+
     private int lastIndex = -1;
+
+    public boolean isCyclic()
+    {
+        return this.cyclic;
+    }
+
+    public void setCyclic(boolean cyclic)
+    {
+        this.cyclic = cyclic;
+    }
 
     public KeyframeChannel(String id, IKeyframeFactory<T> factory)
     {
