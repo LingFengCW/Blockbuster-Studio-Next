@@ -360,6 +360,9 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             keyframe.lx = -(float) ((this.keyframes.fromGraphX(context.mouseX)) - keyframe.getTick());
             keyframe.ly = (float) (this.fromGraphY(context.mouseY) - factory.getY(originalV));
 
+            int kfY = this.toGraphY(factory.getY(originalV));
+            if (Math.abs(context.mouseY - kfY) < 8) keyframe.ly = 0F;
+
             if (!Window.isShiftPressed())
             {
                 keyframe.rx = keyframe.lx;
@@ -370,6 +373,9 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         {
             keyframe.rx = (float) ((this.keyframes.fromGraphX(context.mouseX)) - keyframe.getTick());
             keyframe.ry = (float) (this.fromGraphY(context.mouseY) - factory.getY(originalV));
+
+            int kfY = this.toGraphY(factory.getY(originalV));
+            if (Math.abs(context.mouseY - kfY) < 8) keyframe.ry = 0F;
 
             if (!Window.isShiftPressed())
             {

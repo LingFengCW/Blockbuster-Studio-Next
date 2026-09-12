@@ -5,8 +5,10 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.interps.Interpolation;
+import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
+import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -117,7 +119,55 @@ public class UIKeyframeSheet
     {
         for (Keyframe keyframe : this.selection.getSelected())
         {
+            boolean wasBezier = keyframe.getInterpolation().getInterp() == Interpolations.BEZIER;
+
             keyframe.getInterpolation().copy(interpolation);
+
+            if (interpolation.getInterp() == Interpolations.BEZIER && !wasBezier)
+            {
+                this.initBezierHandles(keyframe);
+            }
+        }
+    }
+
+    /**
+     * Initialize tangent handles to follow the linear slope of the adjacent
+     * segment, so a freshly eased keyframe shows a visible smooth curve
+     * instead of flat (horizontal) handles. Handle length is ~1/3 of the
+     * neighbouring segment, clamped to a sane minimum.
+     */
+    private void initBezierHandles(Keyframe keyframe)
+    {
+        List keyframes = this.channel.getKeyframes();
+        int index = keyframes.indexOf(keyframe);
+
+        if (index < 0)
+        {
+            return;
+        }
+
+        IKeyframeFactory factory = this.channel.getFactory();
+        Keyframe prev = index > 0 ? (Keyframe) keyframes.get(index - 1) : null;
+        Keyframe next = index < keyframes.size() - 1 ? (Keyframe) keyframes.get(index + 1) : null;
+
+        if (next != null)
+        {
+            float dt = Math.max(1F, next.getTick() - keyframe.getTick());
+            float len = Math.max(2F, dt * 0.33F);
+            float slope = (float) (factory.getY(next.getValue()) - factory.getY(keyframe.getValue())) / dt;
+
+            keyframe.rx = len;
+            keyframe.ry = slope * len;
+        }
+
+        if (prev != null)
+        {
+            float dt = Math.max(1F, keyframe.getTick() - prev.getTick());
+            float len = Math.max(2F, dt * 0.33F);
+            float slope = (float) (factory.getY(keyframe.getValue()) - factory.getY(prev.getValue())) / dt;
+
+            keyframe.lx = len;
+            keyframe.ly = -slope * len;
         }
     }
 
