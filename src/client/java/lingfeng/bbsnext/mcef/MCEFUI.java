@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import net.fabricmc.loader.api.FabricLoader;
-import lingfeng.bbsnext.client.GlTextureBridge;
 import mchorse.bbs_mod.ui.supporters.Supporters;
 import mchorse.bbs_mod.ui.supporters.Supporter;
 
@@ -92,20 +91,12 @@ public class MCEFUI
     private static double lastMouseX;
     private static double lastMouseY;
 
-    /* Editor layout fractions (0..1) reported by the page (title+menu+toolbar
-     * band, asset-panel width, timeline height). Previously used to carve a
-     * transparent "hole" in the editor so the 3D world showed through; now the
-     * world is instead pushed into the HTML centre as a PNG (see capturePreview),
-     * so these are retained only as reported metrics and are no longer read for
-     * compositing. */
+    /* Editor layout fractions (0..1) reported by the page. Retained only as
+     * reported metrics; the live preview rectangle is now tracked by
+     * EditorBridge (vpX/vpY/vpW/vpH, see EditorBridge.getPreviewRect). */
     private static float viewportTopFrac = 0.08f;
     private static float viewportLeftFrac = 0.14f;
     private static float viewportBottomFrac = 0.22f;
-
-    /* Live 3D-world preview push (delivered to the HTML centre as a PNG). */
-    private static int previewTick = 0;
-    private static int previewFrame = 0;
-    private static boolean previewToggle = false;
 
     /* When a system-level (OS) Swing dialog is open we stop blitting the
      * browser and stop pushing preview frames, so the native window is the
@@ -120,8 +111,8 @@ public class MCEFUI
         browserSuspended = suspended;
     }
 
-    /* Task #19: 工具栏模式。开启时编辑器中央透明、露出背后的实时世界，截图预览
-     * 既冗余又需隐藏，故暂停 capturePreview 的 GPU readback（见 capturePreview）。 */
+    /* Task #19: 工具栏模式。开启时编辑器中央透明、露出背后的实时世界，原生 blit
+     * 预览与透明露世界互斥，故跳过（见 blitPreviewWorld）。 */
     private static volatile boolean toolbarMode = false;
 
     /** 由 EditorBridge 在工具栏模式开关时调用，让预览截图与透明露世界互斥。 */
@@ -731,10 +722,19 @@ public class MCEFUI
 
         try
         {
-            /* Draw the full opaque HTML editor page on top of the native UI.
-             * The live 3D world is delivered to the HTML centre as a PNG image
-             * (see capturePreview) so the editor "player" shows a real picture
-             * rather than a dead decoration - no transparent hole needed. */
+            /* The preview viewport shows the LIVE world. Order matters: the
+             * world must be blitted BEFORE the browser, because the browser
+             * texture is alpha-composited (the toolbar-mode "transparent
+             * centre" already relies on that). The page's viewport area is
+             * transparent so the world shows through it, while the page's
+             * own overlay canvases (mask, leash guides, clip shape) drawn
+             * inside the viewport stay ABOVE the world - exactly the layering
+             * the old <img> preview had. */
+            blitPreviewWorld(context);
+
+            /* Draw the full HTML editor page on top (alpha-composited): the
+             * opaque panels cover the world, the transparent viewport lets
+             * it through, and the in-page overlays layer over it. */
             context.guiRenderState.addGuiElement(new BlitRenderState(
                 RenderPipelines.GUI_TEXTURED,
                 TextureSetup.singleTexture(view, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),
@@ -744,19 +744,8 @@ public class MCEFUI
                 0xFFFFFFFF,
                 context.scissorStack.peek()));
 
-            /* 动作编辑器：在浏览器之上叠加 PiP 独立画布，直接渲染 morph（无世界、无实体）。 */
+            /* 动作编辑器：最上层叠加 PiP 独立画布，直接渲染 morph（无世界、无实体）。 */
             lingfeng.bbsnext.mcef.EditorBridge.aePreviewSubmitPip(context, width, height);
-
-            /* Preview readback is paused while an OS-native dialog is open
-             * (browserSuspended) so camera/scene creation doesn't fight the
-             * PNG writer. The editor page itself keeps rendering - we must
-             * NOT skip the blit, or the screen shows the raw clear colour
-             * (a solid blue/black) behind the native window.
-             * 动作预览进行中跳过世界截图（PiP 已覆盖视口，避免无谓的 GPU readback）。 */
-            if (!browserSuspended && !lingfeng.bbsnext.mcef.EditorBridge.aePreviewActive())
-            {
-                capturePreview();
-            }
         }
         catch (Throwable t)
         {
@@ -768,7 +757,7 @@ public class MCEFUI
      * Composite the browser on top of the vanilla LoadingOverlay while the editor
      * is entering/switching its preview world. Unlike {@link #renderBrowser}
      * this takes no menu (it is called from a LoadingOverlay render hook, not a
-     * UIScreen) and deliberately skips {@code capturePreview()} - there is no
+     * UIScreen) and deliberately skips {@link #blitPreviewWorld} - there is no
      * live level to read back during the load gap, so grabbing the main render
      * target would error. We just blit the last composited browser frame (which
      * already shows the in-page loading spinner driven by
@@ -810,33 +799,23 @@ public class MCEFUI
     }
 
     /**
-     * Pushes the live 3D world (Minecraft's main render target) into the HTML
-     * editor centre as a PNG image, so the preview "player" shows a real
-     * picture. Throttled to keep the GPU readback cheap.
+     * Composite the LIVE 3D world (Minecraft's main render target) directly
+     * into the editor's centre viewport rectangle, on top of the browser
+     * blit. This is a pure GPU-to-GPU sampling of the render target colour
+     * texture - no readback, no PNG encode, no disk round-trip, and the page
+     * receives a real animated world every frame instead of a stale file.
      *
-     * <p>Backend-agnostic: {@code GlTextureBridge.captureMainRenderTarget}
-     * uses the vanilla {@code Screenshot.takeScreenshot(RenderTarget)} path,
-     * so the preview works on both the OpenGL and Vulkan backends. The PNG is
-     * written to a ping-pong pair of files (preview_a/b.png) so the browser
-     * always reloads the latest frame (no file:// cache staleness).
+     * <p>The rectangle comes from the page itself: the HTML reports its
+     * viewport element bounds via the {@code setViewport} bridge action,
+     * which EditorBridge stores and exposes through
+     * {@link EditorBridge#getPreviewRect()}. The same rectangle drives the
+     * action-editor PiP overlay, so both paths stay pixel-aligned.
      */
-    private static void capturePreview()
+    private static void blitPreviewWorld(GuiGraphicsExtractor context)
     {
-        if ((previewTick++ % 4) != 0)
-        {
-            return;
-        }
-
         if (toolbarMode)
         {
-            /* Task #19: 工具栏模式下世界通过透明叠层直接显示，HTML 截图预览既多余
-             * 又要隐藏，故跳过 GPU readback 以省开销，并确保 <img> 处于 'none' 态。 */
-            if (previewFrame != -1)
-            {
-                previewFrame = -1;
-                injectScript("window.__previewMode='none';");
-            }
-
+            /* Task #19: 工具栏模式下世界通过透明叠层直接显示，blit 预览须让位。 */
             return;
         }
 
@@ -845,54 +824,77 @@ public class MCEFUI
             return;
         }
 
+        int[] rect = EditorBridge.getPreviewRect();
+
+        if (rect == null)
+        {
+            /* The page has not reported a viewport yet (or hid it) - nothing
+             * to fill. The page shows its own placeholder in that state. */
+            return;
+        }
+
         Minecraft mc = Minecraft.getInstance();
 
-        if (mc.level == null || mc.gameRenderer == null || mc.gameRenderer.mainRenderTarget() == null)
+        if (mc.level == null || mc.gameRenderer == null
+            || mc.gameRenderer.mainRenderTarget() == null)
         {
             /* No world is loaded (e.g. the editor was opened from the title
-             * screen / dashboard with no level) so there is nothing to
-             * capture. Tell the page to show its placeholder instead of
-             * leaving the <img> on a broken/empty source. */
-            if (previewFrame != -1)
-            {
-                previewFrame = -1;
-                injectScript("window.__previewMode='none';");
-            }
+             * screen / dashboard with no level) - there is nothing to blit. */
+            return;
+        }
 
+        GpuTextureView worldView = mc.gameRenderer.mainRenderTarget().getColorTextureView();
+
+        if (worldView == null)
+        {
             return;
         }
 
         try
         {
-            /* Backend-agnostic capture: Screenshot.takeScreenshot works on both
-             * OpenGL and Vulkan, so the live preview is no longer limited to
-             * the OpenGL backend. */
-            byte[] png = GlTextureBridge.captureMainRenderTarget(mc.gameRenderer.mainRenderTarget(), 640);
+            /* Contain-fit (same visual contract as the old object-fit:contain
+             * <img>): fit the world frame inside the viewport rectangle,
+             * centred, never stretched. The unfilled margins simply show the
+             * editor background the page already paints. */
+            com.mojang.blaze3d.pipeline.RenderTarget target = mc.gameRenderer.mainRenderTarget();
+            int bw = rect[2];
+            int bh = rect[3];
+            int ox = rect[0];
+            int oy = rect[1];
 
-            if (png == null)
+            if (target.width > 0 && target.height > 0)
             {
-                return;
+                float texAspect = (float) target.width / (float) target.height;
+                float rectAspect = (float) rect[2] / (float) rect[3];
+
+                if (texAspect > rectAspect)
+                {
+                    int nh = Math.max(1, Math.round(bw / texAspect));
+
+                    oy += (bh - nh) / 2;
+                    bh = nh;
+                }
+                else
+                {
+                    int nw = Math.max(1, Math.round(bh * texAspect));
+
+                    ox += (bw - nw) / 2;
+                    bw = nw;
+                }
             }
 
-            Path dir = FabricLoader.getInstance().getGameDir().resolve("bbs_editor");
-            Files.createDirectories(dir);
-
-            String name = previewToggle ? "preview_b.png" : "preview_a.png";
-            previewToggle = !previewToggle;
-
-            Files.write(dir.resolve(name), png);
-
-            if (previewFrame < 0)
-            {
-                previewFrame = 0;
-            }
-
-            previewFrame++;
-            injectScript("window.__previewMode='gl';window.__previewFrame=" + previewFrame + ";window.__previewFile='" + name + "';");
+            context.guiRenderState.addGuiElement(new BlitRenderState(
+                RenderPipelines.GUI_TEXTURED,
+                TextureSetup.singleTexture(worldView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),
+                new Matrix3x2f(context.pose()),
+                ox, oy, bw, bh,
+                0.0F, 1.0F, 0.0F, 1.0F,
+                0xFFFFFFFF,
+                context.scissorStack.peek()));
         }
         catch (Throwable t)
         {
-            BBSMod.LOGGER.error("[MCEF] capturePreview failed", t);
+            BBSMod.LOGGER.error("[MCEF] blitPreviewWorld failed", t);
         }
     }
 

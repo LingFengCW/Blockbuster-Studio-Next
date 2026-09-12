@@ -231,6 +231,24 @@ public class EditorBridge implements IHtmlBridge
     /** #mainViewport 在浏览器（全屏）坐标系下的矩形，由 HTML 端布局变化时上报。 */
     private static int vpX = 0, vpY = 0, vpW = 0, vpH = 0;
     private static boolean vpValid = false;
+
+    /**
+     * The editor's preview rectangle in GUI coordinates as {@code {x, y, w, h}},
+     * or null when the page has not reported a usable one yet. Used to composite
+     * the live world straight into the viewport (and to place the action-editor
+     * PiP canvas), so the viewport shows the current frame natively instead of a
+     * PNG written to disk and reloaded by the page.
+     */
+    public static int[] getPreviewRect()
+    {
+        return vpValid && vpW > 0 && vpH > 0 ? new int[]{vpX, vpY, vpW, vpH} : null;
+    }
+
+    /** True when the preview viewport is currently on screen and usable. */
+    public static boolean hasPreviewRect()
+    {
+        return vpValid && vpW > 0 && vpH > 0;
+    }
     /** Stable replay id backing {@code actionEditorReplay} so undo/redo and
      *  deletions keep the action editor pinned to the right replay. */
     private static String actionEditorReplayId = null;
@@ -271,7 +289,7 @@ public class EditorBridge implements IHtmlBridge
      *  world is torn down so the button can never outlive the world. */
     private static boolean owningPreviewWorld = false;
     /** Task #19: 工具栏模式。开启后编辑器隐藏素材箱/时间轴/顶栏等面板，仅保留一条
-     *  悬浮工具栏，中央区域透明、露出背后实时渲染的游玩世界（capturePreview 同步暂停）。 */
+     *  悬浮工具栏，中央区域透明、露出背后实时渲染的游玩世界（blitPreviewWorld 同步暂停）。 */
     private static boolean toolbarMode = false;
     /** Task #19/HUD: HUD 强移游玩区。工具栏模式下把整层 vanilla HUD（hotbar/health/
      *  crosshair/chat/boss/title/vignette 等）通过 GuiGraphicsExtractor.pose() 变换
@@ -2241,7 +2259,7 @@ public class EditorBridge implements IHtmlBridge
             case "setToolbarMode":
             {
                 /* Task #19: 工具栏模式开关。HTML 切换时把标志同步给 Java，
-                 * 让 MCEFUI 暂停/恢复 capturePreview（透明露世界时不需截图预览）。 */
+                 * 让 MCEFUI 暂停/恢复世界 blit 预览（透明露世界时不需二次 blit）。 */
                 boolean on = req.has("on") ? req.get("on").getAsBoolean() : !toolbarMode;
 
                 toolbarMode = on;

@@ -94,7 +94,6 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
 .right{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;}
 .viewport-wrap{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;padding:8px;min-height:0;position:relative;}
 .viewport{flex:1;border:1px solid var(--c-border);border-radius:4px;min-height:0;background:transparent;}
-.vp-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;display:block;pointer-events:none;z-index:0;}
 .vp-mask{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none;z-index:1;}
 .vp-grid{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.6;
   background-image:linear-gradient(var(--c-grid) 1px,transparent 1px),linear-gradient(90deg,var(--c-grid) 1px,transparent 1px),linear-gradient(var(--c-grid-2) 1px,transparent 1px),linear-gradient(90deg,var(--c-grid-2) 1px,transparent 1px);
@@ -431,7 +430,6 @@ body.tb-mode .editor{ background:transparent !important; }
 body.tb-mode .mid{ background:transparent !important; }
 body.tb-mode .right{ flex:1 1 auto; background:transparent !important; }
 body.tb-mode .viewport-wrap{ position:absolute; inset:0; background:transparent !important; padding:0 !important; gap:0 !important; }
-body.tb-mode #vpImg,
 body.tb-mode #vpMask,
 body.tb-mode #vpGrid,
 body.tb-mode #vpPh,
@@ -699,7 +697,6 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
           <button id="btnToolbarMode" title="工具栏模式：仅悬浮工具栏、中央透明露游玩世界 (T)" onclick="if(window.bbsSetToolbarMode)window.bbsSetToolbarMode(!window.__toolbarMode)"><img class="ico" src="svg/gip-expand.svg"> 仅工具栏</button>
         </div>
-        <img id="vpImg" class="vp-img" alt="实时预览">
         <canvas id="vpMask" class="vp-mask"></canvas>
         <div id="vpGrid" class="vp-grid"></div>
         <div id="worldLoad" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:50;background:var(--c-bg);color:var(--c-accent-d);border:1px solid var(--c-border-2);border-radius:4px;padding:6px 14px;font-size:12px;" data-i18n="preview.loading"><span class="bbs-spinner"></span>正在加载预览世界…</div>
@@ -2554,7 +2551,7 @@ window.bbsSetWorldLoading = function(on){
 };
 
 /* Task #19: 工具栏模式开关。立即切换 body 类让中央透明露世界，并把状态回传 Java
-   （EditorBridge 经 MCEFUI 暂停/恢复 capturePreview）。状态也进 bbsState，
+   （EditorBridge 经 MCEFUI 暂停/恢复世界 blit 预览）。状态也进 bbsState，
    renderAll 从状态重放，避免整页重建后丢失。 */
 window.bbsSetToolbarMode = function(on){
   window.__toolbarMode = !!on;
@@ -3912,7 +3909,9 @@ var TUTORIAL_HTML = ''
   + '<div class="tut-item">菜单<b>文件 → 导出</b>：场景 .scenebbs / 序列 .seqbbs / PNG 序列帧；<b>渲染</b>管理渲染队列与预设；<code>F2</code> 截图当前帧。</div>';
 
 /* 将 3D 视口（#mainViewport）在浏览器全屏坐标系下的矩形上报给 Java 端，
- * 供「预览时拖动视口旋转相机」的指针命中判定使用。仅在矩形变化时上报。 */
+ * 供两处使用：①「预览时拖动视口旋转相机」的指针命中判定 + 动作编辑器 PiP 画布；
+ * ②MCEFUI.blitPreviewWorld 把主渲染目标原生 blit 进该矩形（实时世界预览）。
+ * 仅在矩形变化时上报。 */
 var __lastVpKey = '';
 function reportAeViewport(){
   var v = document.getElementById('mainViewport');
@@ -4153,18 +4152,15 @@ btnCollapse.onclick = function(){ applyAssetCollapsed(!assetBox.classList.contai
 document.getElementById('vpPlay').onclick = function(){ send('togglePlay'); };document.getElementById('vpToStart').onclick = function(){ send('setCursor', { tick: 0 }); };
 document.getElementById('vpToEnd').onclick = function(){ var s = window.bbsState || {}; send('setCursor', { tick: s.duration || 0 }); };
 document.getElementById('vpShot').onclick = function(){ send('screenshot'); };
-/* 剪切蒙版：用 CSS clip-path 裁剪预览画面（无/矩形/圆形） */
+/* 剪切蒙版：世界画面由 Java 原生 blit 到视口矩形（不经 <img>），无法用 CSS
+   clip-path 裁剪，故改由 #vpMask 叠加画布把形状外的区域遮住（矩形=四边遮挡带，
+   圆形=圆外遮挡），视觉效果与原 clip-path 一致。 */
 var clipShape = 'none';
 function setClipShape(shape){
   clipShape = shape;
-  var e = document.getElementById('vpImg');
-  if(e){
-    if(shape === 'rect') e.style.clipPath = 'inset(12% 10% 12% 10%)';
-    else if(shape === 'circle') e.style.clipPath = 'circle(34% at 50% 50%)';
-    else e.style.clipPath = '';
-  }
   var map = { none:'clipNone', rect:'clipRect', circle:'clipCircle' };
   Object.keys(map).forEach(function(k){ var b = document.getElementById(map[k]); if(b) b.className = (k === shape) ? 'active' : ''; });
+  if(typeof drawOverlay === 'function') drawOverlay();
 }
 document.getElementById('clipNone').onclick = function(){ setClipShape('none'); };
 document.getElementById('clipRect').onclick = function(){ setClipShape('rect'); };
@@ -4877,24 +4873,14 @@ document.addEventListener('keydown', function(e){
   }
 });
 
-/* 实时预览：Java 把主帧缓冲截成 preview_a/b.png，这里按帧号刷新 <img> */
-var lastPF = -2, lastMode = '';
+/* 预览刷新循环：世界画面由 Java 在 GUI 提取阶段把主渲染目标原生 blit 进
+   #mainViewport 矩形（EditorBridge.getPreviewRect，由 reportAeViewport 上报），
+   不再经 PNG 文件中转。这里只负责无世界时的占位符显隐与蒙版/拴绳/剪切叠加层重绘。 */
 setInterval(function(){
-  var mode = window.__previewMode || 'gl';
-  var f = window.__previewFrame | 0;
-  if (mode !== lastMode) {
-    lastMode = mode;
-    var ph = document.getElementById('vpPh');
-    if (ph) ph.style.display = (mode === 'none' && !window.__toolbarMode) ? 'flex' : 'none';
-  }
-  var e = document.getElementById('vpImg');
-  if (mode === 'gl' && f !== lastPF) {
-    lastPF = f;
-    var name = window.__previewFile || 'preview_a.png';
-    if (e && f > 0) { e.src = name; e.style.display = ''; }
-  } else if (mode === 'none' && e) {
-    e.style.display = 'none';
-  }
+  var s = window.bbsState || {};
+  var hasWorld = !!(s.previewWorldLoaded || s.worldLoading || s.inWorld || window._sceneWorldEntering);
+  var ph = document.getElementById('vpPh');
+  if (ph) ph.style.display = hasWorld ? 'none' : 'flex';
   drawOverlay();
 }, 100);
 
@@ -4910,7 +4896,8 @@ function drawOverlay(){
   var hasLeash = !!(leash && (leash.tool
     || (leash.anchors && ((leash.anchors.a && leash.anchors.a.valid) || (leash.anchors.b && leash.anchors.b.valid)))
     || (leash.links && leash.links.length)));
-  if(!hasMask && !hasLeash){
+  var hasClip = clipShape && clipShape !== 'none';
+  if(!hasMask && !hasLeash && !hasClip){
     cv.style.display = 'none';
     return;
   }
@@ -4997,9 +4984,31 @@ function drawOverlay(){
     }
     return drawn;
   }
+  /* 剪切蒙版遮挡层：把形状外区域填成编辑器背景色（跟随明暗主题），形状内透出
+     Java 原生 blit 的世界画面。矩形对应 inset(12% 10% 12% 10%)，圆形对应
+     circle(34% at 50% 50%)，与旧 clip-path 参数一致。 */
+  function drawClipLayer(){
+    var cs = getComputedStyle(document.documentElement);
+    var bg = (cs.getPropertyValue('--c-bg') || '').trim() || '#fff';
+    g.fillStyle = bg;
+    if(clipShape === 'rect'){
+      var t = H*0.12, b = H*0.88, l = W*0.10, r = W*0.90;
+      g.fillRect(0, 0, W, t);
+      g.fillRect(0, b, W, H - b);
+      g.fillRect(0, t, l, b - t);
+      g.fillRect(r, t, W - r, b - t);
+    } else if(clipShape === 'circle'){
+      g.beginPath();
+      g.rect(0, 0, W, H);
+      g.arc(W/2, H/2, Math.min(W,H)*0.34, 0, Math.PI*2);
+      g.fill('evenodd');
+    }
+    return true;
+  }
   var drawn = false;
   if(hasMask) drawn = drawMaskLayer() || drawn;
   if(hasLeash) drawn = drawLeashLayer() || drawn;
+  if(hasClip) drawn = drawClipLayer() || drawn;
   cv.style.display = drawn ? 'block' : 'none';
 }
 
