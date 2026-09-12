@@ -41,6 +41,10 @@ public class OrbitFilmCameraController implements ICameraController
     private Vector2i last = new Vector2i();
     private Vector3f position = new Vector3f();
 
+    /* Drag inertia (decaying spin after releasing the mouse), matching the
+     * feel of the standalone OrbitCamera / Blender orbit. */
+    private final Vector2f rotationMomentum = new Vector2f();
+
     private float distance;
     private float offsetY;
     private boolean center;
@@ -89,6 +93,7 @@ public class OrbitFilmCameraController implements ICameraController
 
         this.orbiting = false;
         this.center = false;
+        this.rotationMomentum.set(0F);
     }
 
     public boolean keyPressed(UIContext context, Area area)
@@ -140,10 +145,13 @@ public class OrbitFilmCameraController implements ICameraController
             int x = context.mouseX;
             int y = context.mouseY;
 
-            this.rotation.add(
-                -(y - this.last.y) * this.controller.panel.dashboard.orbit.getAngleSpeed(),
-                -(x - this.last.x) * this.controller.panel.dashboard.orbit.getAngleSpeed()
-            );
+            float dx = -(y - this.last.y) * this.controller.panel.dashboard.orbit.getAngleSpeed();
+            float dy = -(x - this.last.x) * this.controller.panel.dashboard.orbit.getAngleSpeed();
+
+            this.rotation.add(dx, dy);
+
+            /* Keep the last frame's drag delta so release can carry inertia. */
+            this.rotationMomentum.set(dx, dy);
 
             this.last.set(x, y);
         }
@@ -168,6 +176,21 @@ public class OrbitFilmCameraController implements ICameraController
         {
             this.position.set(this.rotateVector(0F, 0F, 1F, this.rotation.y, this.rotation.x).mul(this.distance));
             this.position.add(0, this.offsetY, 0);
+        }
+
+        /* Drag inertia: keep spinning a touch after releasing the mouse. */
+        if (!this.orbiting)
+        {
+            if (this.rotationMomentum.lengthSquared() > 1e-8F)
+            {
+                this.rotation.add(this.rotationMomentum);
+                this.rotationMomentum.mul(0.88F);
+                changed = true;
+            }
+            else
+            {
+                this.rotationMomentum.set(0F);
+            }
         }
 
         return changed;
