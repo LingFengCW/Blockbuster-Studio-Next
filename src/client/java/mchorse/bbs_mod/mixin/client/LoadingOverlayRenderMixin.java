@@ -11,31 +11,21 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Task: make the vanilla {@link LoadingOverlay} not paint anything while the
- * editor owns its preview world.
+ * Task (用户明确方案): 编辑器拥有预览世界时——
+ *   1) 把原生 {@link LoadingOverlay} 收集到的绘制（"正在转变资源/正在加载"文字+进度条）丢弃（reset），
+ *      即「渲染加载动画的那段删掉」；
+ *   2) 立刻把 MCEF 浏览器画在最上层，让编辑器一直挂在上面、全程可见；
+ *   3) 不取消 extractRenderState（否则世界卡死），只删「原生渲染那部分」+ 画浏览器；
+ *   4) 不换场景、屏面交换对玩家不可见（浏览器始终覆盖）。
  *
- * <p>The editor's browser is composited from {@code UIScreen.extractRenderState}
- * (the dashboard screen). During {@code openWorld(...)} MC swaps that screen away
- * and shows the native LoadingOverlay. The user does NOT want the vanilla
- * "Converting world / Loading" overlay to appear at all - and explicitly does
- * NOT want the browser painted on top of it to hide it ("不能盖"). So the fix is
- * simply: discard the overlay's collected render output (reset the
- * GuiRenderState) when the editor owns the preview world, and draw nothing.
+ * <p>原生绘制先 reset 掉，再画浏览器——所以不是「用浏览器去盖一个还在闪的原生屏」，
+ * 而是原生屏压根没画出来、浏览器直接接管整个画面。方法本体（驱动世界加载收尾的逻辑）
+ * 照常执行，世界不会卡死。
  *
- * <p>We deliberately do NOT cancel the overlay's own render method: the overlay
- * drives world-load finalisation, and cancelling it freezes the world (project
- * iron rule). The method still runs (its tick/finalisation logic lives in the
- * render body, before this TAIL), we only throw away the pixels it collected.
- * This is exactly "delete the rendering part, keep the method".
+ * <p>Guarded by {@link EditorBridge#isBrowserOverlayActive()}：正常单人进世界（编辑器不拥有）
+ * 完全不动，原生 LoadingOverlay 照常显示。
  *
- * <p>Guarded by {@link EditorBridge#isBrowserOverlayActive()} so a normal
- * single-player world join (which the editor does not own) is completely
- * untouched - its native LoadingOverlay shows as usual.
- *
- * <p>Registered as {@code required: true} in its own config
- * ({@code bbs.loadingoverlay.mixins.json}) so a weaving failure fails loudly
- * (naming this mixin) instead of silently skipping. The native LoadingOverlay is
- * only suppressed while the editor owns a preview world.
+ * <p>独立配置 {@code required: true}：织入失败直接报错指明本 mixin，而非静默跳过。
  */
 @Mixin(LoadingOverlay.class)
 public abstract class LoadingOverlayRenderMixin
@@ -81,12 +71,18 @@ public abstract class LoadingOverlayRenderMixin
         if (!bbs$loggedInjected)
         {
             bbs$loggedInjected = true;
-            BBSMod.LOGGER.info("[EditorBridge] LoadingOverlayRenderMixin woven into LoadingOverlay.extractRenderState (native render discarded, overlay hidden)");
+            BBSMod.LOGGER.info("[EditorBridge] LoadingOverlayRenderMixin woven into LoadingOverlay.extractRenderState (native render discarded + editor browser kept on top)");
         }
 
-        /* 26.2 的 GuiRenderState 清屏方法是 reset()（无 clear()）。丢弃本次收集到的
-         * 原生绘制（"正在转变资源"/"正在加载" 文字与进度条），不画任何东西、也不画浏览器
-         * （绝不用浏览器去盖）。方法本体（驱动世界加载收尾的逻辑）照常执行，仅丢弃其像素。 */
+        /* 1) 26.2 的 GuiRenderState 清屏方法是 reset()（无 clear()）。
+         *    先丢弃本次收集到的原生绘制（"正在转变资源"/"正在加载" 文字与进度条），
+         *    让原生加载动画压根不画出来。方法本体（驱动世界加载收尾的逻辑）照常执行，世界不会卡死。 */
         extractor.guiRenderState.reset();
+
+        /* 2) 立刻把 MCEF 浏览器画在最上层——编辑器全程挂着、可见，屏面交换对玩家不可见。
+         *    因为原生绘制已被 reset，这不是「盖住一个还在闪的原生屏」，而是原生屏没画 + 浏览器直接接管。 */
+        int w = extractor.guiWidth();
+        int h = extractor.guiHeight();
+        MCEFUI.renderBrowserOnTop(extractor, w, h);
     }
 }
