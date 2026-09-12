@@ -215,10 +215,10 @@ public class CameraPathRecorder
                 Position q = new Position();
                 Position r = new Position();
 
-                q.copy(p0);
-                q.interpolate(p1, 0.25F);
-                r.copy(p1);
-                r.interpolate(p0, 0.25F);
+                /* Blend along the shortest angular arc so smoothing a path that
+                 * crosses the 350° → 10° boundary doesn't route it the long way. */
+                blendShortest(q, p0, p1, 0.25F);
+                blendShortest(r, p1, p0, 0.25F);
 
                 next.add(q);
                 next.add(r);
@@ -235,14 +235,33 @@ public class CameraPathRecorder
     {
         Position m = new Position();
 
-        m.point.x = a.point.x + (b.point.x - a.point.x) * f;
-        m.point.y = a.point.y + (b.point.y - a.point.y) * f;
-        m.point.z = a.point.z + (b.point.z - a.point.z) * f;
-        m.angle.yaw = a.angle.yaw + (b.angle.yaw - a.angle.yaw) * f;
-        m.angle.pitch = a.angle.pitch + (b.angle.pitch - a.angle.pitch) * f;
-        m.angle.roll = a.angle.roll + (b.angle.roll - a.angle.roll) * f;
-        m.angle.fov = a.angle.fov + (b.angle.fov - a.angle.fov) * f;
+        blendShortest(m, a, b, f);
 
         return m;
+    }
+
+    /**
+     * Blend two positions along the shortest angular arc for yaw/pitch/roll (FOV
+     * stays linear). Mirrors the shortest-arc rule used by PathClip playback.
+     */
+    private static void blendShortest(Position out, Position a, Position b, float f)
+    {
+        out.point.x = a.point.x + (b.point.x - a.point.x) * f;
+        out.point.y = a.point.y + (b.point.y - a.point.y) * f;
+        out.point.z = a.point.z + (b.point.z - a.point.z) * f;
+        out.angle.yaw = a.angle.yaw + shortestAngleDelta(a.angle.yaw, b.angle.yaw) * f;
+        out.angle.pitch = a.angle.pitch + shortestAngleDelta(a.angle.pitch, b.angle.pitch) * f;
+        out.angle.roll = a.angle.roll + shortestAngleDelta(a.angle.roll, b.angle.roll) * f;
+        out.angle.fov = a.angle.fov + (b.angle.fov - a.angle.fov) * f;
+    }
+
+    private static float shortestAngleDelta(float from, float to)
+    {
+        float d = (to - from) % 360F;
+
+        if (d > 180F) d -= 360F;
+        else if (d < -180F) d += 360F;
+
+        return d;
     }
 }
