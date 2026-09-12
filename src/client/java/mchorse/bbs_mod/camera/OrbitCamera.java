@@ -58,6 +58,10 @@ public class OrbitCamera
     protected float momentumRoll;
     protected float momentumFov;
 
+    /* Flight momentum (inertia) for keyboard WASD navigation, like Blender's
+     * fly mode: releasing the keys lets the camera glide to a stop. */
+    protected final Vector3d momentumPosition = new Vector3d();
+
     public void setFovRoll(boolean fovRoll)
     {
         this.fovRoll = fovRoll;
@@ -71,6 +75,7 @@ public class OrbitCamera
         this.momentumPitch = 0F;
         this.momentumRoll = 0F;
         this.momentumFov = 0F;
+        this.momentumPosition.set(0);
     }
 
     public void setup(Camera camera)
@@ -157,6 +162,7 @@ public class OrbitCamera
         this.momentumPitch = 0F;
         this.momentumRoll = 0F;
         this.momentumFov = 0F;
+        this.momentumPosition.set(0);
     }
 
     public void release()
@@ -355,9 +361,11 @@ public class OrbitCamera
         {
             float lastFrameDuration = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false) * 5F;
 
-            this.position.add(this.rotateVector(this.velocityPosition.x, 0, this.velocityPosition.z)
+            this.momentumPosition.set(this.rotateVector(this.velocityPosition.x, 0, this.velocityPosition.z)
                 .add(0, this.velocityPosition.y, 0)
                 .mul(this.getSpeed() * lastFrameDuration));
+
+            this.position.add(this.momentumPosition);
 
             changed = true;
         }
@@ -419,6 +427,17 @@ public class OrbitCamera
             else
             {
                 this.momentumFov = 0F;
+            }
+
+            if (this.momentumPosition.lengthSquared() > 1e-6)
+            {
+                this.position.add(this.momentumPosition);
+                this.momentumPosition.mul(0.9D);
+                changed = true;
+            }
+            else
+            {
+                this.momentumPosition.set(0);
             }
         }
 
