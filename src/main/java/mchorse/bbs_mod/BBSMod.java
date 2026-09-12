@@ -458,7 +458,22 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("trail"), TrailForm.class, null)
             .register(Link.bbs("framebuffer"), FramebufferForm.class, null);
 
-        films = new FilmManager(() -> new File(worldFolder, "bbs/films"));
+        /* The server side loads films through this manager (ServerNetwork), so it
+         * must look where the editor actually writes them: the active project's
+         * scenes folder (see SceneManager). Binding it to the MC world folder
+         * made every film request from the preview world fail with a
+         * FileNotFoundException, because project data lives outside the save. */
+        films = new FilmManager(() ->
+        {
+            mchorse.bbs_mod.projects.BBSProject project = mchorse.bbs_mod.projects.ProjectManager.get().getCurrent();
+
+            if (project != null)
+            {
+                return project.getDirectory().resolve(mchorse.bbs_mod.projects.SceneManager.SCENES_DIR).toFile();
+            }
+
+            return new File(worldFolder, "bbs/films");
+        });
 
         /* Register camera clips */
         factoryCameraClips = new MapFactory<Clip, ClipFactoryData>()

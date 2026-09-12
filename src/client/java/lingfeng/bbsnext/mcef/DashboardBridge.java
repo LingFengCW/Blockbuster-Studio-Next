@@ -7,11 +7,26 @@ import lingfeng.bbsnext.update.UpdateChecker;
 import lingfeng.bbsnext.update.UpdateConfig;
 import lingfeng.bbsnext.update.LiveUi;
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.l10n.L10n;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.projects.BBSProject;
 import mchorse.bbs_mod.projects.ProjectManager;
+import mchorse.bbs_mod.settings.Settings;
+import mchorse.bbs_mod.settings.ui.UIValueFactory;
+import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.settings.values.core.ValueLink;
+import mchorse.bbs_mod.settings.values.core.ValueString;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
+import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
+import mchorse.bbs_mod.settings.values.numeric.ValueInt;
+import mchorse.bbs_mod.settings.values.ui.ValueLanguage;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.supporters.Supporter;
 import mchorse.bbs_mod.ui.supporters.Supporters;
+import mchorse.bbs_mod.ui.utils.Label;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import lingfeng.bbsnext.ui.dashboard.panels.UIProjectsPanel;
 import net.minecraft.client.Minecraft;
@@ -112,7 +127,182 @@ public class DashboardBridge implements IHtmlBridge
         /* Supporters (ported from the legacy native panel). */
         root.add("supporters", buildSupporters());
 
+        /* The real BBS settings tree plus the shipped languages, so the settings
+         * tab can render the actual options (including the language picker)
+         * instead of only the updater switches. */
+        root.add("settingsModules", this.buildSettingsModules());
+        root.add("languages", this.buildLanguages());
+
         return GSON.toJson(root);
+    }
+
+    /** Every settings module (BBS and any mod that registered one) described as
+     *  module -> category -> value, mirroring what the native settings overlay
+     *  walks. Values that cannot be edited inline (texture links, keybinds,
+     *  sub-panels) are exported too, so nothing silently disappears from the
+     *  page: the HTML renders those rows read only. */
+    private JsonArray buildSettingsModules()
+    {
+        JsonArray modules = new JsonArray();
+
+        for (Settings settings : BBSMod.getSettings().modules.values())
+        {
+            JsonObject module = new JsonObject();
+
+            module.addProperty("id", settings.getId());
+            module.addProperty("title", L10n.lang(UIValueFactory.getTitleKey(settings)).get());
+
+            JsonArray categories = new JsonArray();
+
+            for (ValueGroup category : settings.categories.values())
+            {
+                if (!category.isVisible())
+                {
+                    continue;
+                }
+
+                JsonObject cat = new JsonObject();
+                JsonArray values = new JsonArray();
+
+                cat.addProperty("id", category.getId());
+                cat.addProperty("title", L10n.lang(UIValueFactory.getCategoryTitleKey(category)).get());
+                cat.addProperty("tooltip", L10n.lang(UIValueFactory.getCategoryTooltipKey(category)).get());
+
+                for (BaseValue value : category.getAll())
+                {
+                    if (!value.isVisible())
+                    {
+                        continue;
+                    }
+
+                    values.add(this.serializeSetting(value));
+                }
+
+                cat.add("values", values);
+                categories.add(cat);
+            }
+
+            module.add("categories", categories);
+            modules.add(module);
+        }
+
+        return modules;
+    }
+
+    /** Describe one setting for the HTML controls: kind, localized label and
+     *  tooltip, current value, and the bounds / mode labels the native widget
+     *  would have offered. */
+    private JsonObject serializeSetting(BaseValue value)
+    {
+        JsonObject o = new JsonObject();
+
+        o.addProperty("id", value.getId());
+        o.addProperty("title", L10n.lang(UIValueFactory.getValueLabelKey(value)).get());
+        o.addProperty("tooltip", L10n.lang(UIValueFactory.getValueCommentKey(value)).get());
+
+        /* ValueLanguage extends ValueString, so it has to be tested first. */
+        if (value instanceof ValueLanguage language)
+        {
+            o.addProperty("type", "language");
+            o.addProperty("value", language.get());
+        }
+        else if (value instanceof ValueBoolean bool)
+        {
+            o.addProperty("type", "bool");
+            o.addProperty("value", bool.get());
+        }
+        else if (value instanceof ValueInt integer)
+        {
+            ValueInt.Subtype subtype = integer.getSubtype();
+            int packed = integer.get();
+
+            if (subtype == ValueInt.Subtype.COLOR || subtype == ValueInt.Subtype.COLOR_ALPHA)
+            {
+                o.addProperty("type", "color");
+                o.addProperty("hasAlpha", subtype == ValueInt.Subtype.COLOR_ALPHA);
+                /* Browser hex inputs are #rrggbb, while BBS packs ARGB, so the
+                 * alpha channel travels as its own field. */
+                o.addProperty("value", String.format("#%06X", packed & 0xFFFFFF));
+                /* Named "alpha" and not "a": the request object already uses
+                 * "a" for the action name. */
+                o.addProperty("alpha", (packed >>> 24) & 0xFF);
+            }
+            else if (subtype == ValueInt.Subtype.MODES)
+            {
+                JsonArray labels = new JsonArray();
+
+                for (IKey label : integer.getLabels())
+                {
+                    labels.add(label.get());
+                }
+
+                o.addProperty("type", "modes");
+                o.addProperty("value", integer.get());
+                o.add("labels", labels);
+            }
+            else
+            {
+                o.addProperty("type", "int");
+                o.addProperty("value", integer.get());
+                o.addProperty("min", integer.getMin());
+                o.addProperty("max", integer.getMax());
+            }
+        }
+        else if (value instanceof ValueFloat number)
+        {
+            o.addProperty("type", "number");
+            o.addProperty("value", number.get());
+            o.addProperty("min", number.getMin());
+            o.addProperty("max", number.getMax());
+        }
+        else if (value instanceof ValueDouble number)
+        {
+            o.addProperty("type", "number");
+            o.addProperty("value", number.get());
+            o.addProperty("min", number.getMin());
+            o.addProperty("max", number.getMax());
+        }
+        else if (value instanceof ValueString string)
+        {
+            o.addProperty("type", "string");
+            o.addProperty("value", string.get());
+        }
+        else if (value instanceof ValueLink link)
+        {
+            o.addProperty("type", "readonly");
+            o.addProperty("value", String.valueOf(link.get()));
+        }
+        else
+        {
+            o.addProperty("type", "readonly");
+            o.addProperty("value", String.valueOf(value));
+        }
+
+        return o;
+    }
+
+    /** Languages the mod ships, for the language picker in the settings tab. */
+    private JsonArray buildLanguages()
+    {
+        JsonArray languages = new JsonArray();
+
+        try
+        {
+            for (Label<String> label : BBSModClient.getL10n().getSupportedLanguageLabels())
+            {
+                JsonObject o = new JsonObject();
+
+                o.addProperty("value", label.value);
+                o.addProperty("title", label.title.get());
+                languages.add(o);
+            }
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.warn("[Dashboard] could not list the supported languages", t);
+        }
+
+        return languages;
     }
 
     private JsonObject buildSupporters()
@@ -254,6 +444,15 @@ public class DashboardBridge implements IHtmlBridge
 
                     break;
                 }
+                case "setBbsValue":
+                {
+                    String module = req.has("module") ? req.get("module").getAsString() : "bbs";
+                    String id = req.has("id") ? req.get("id").getAsString() : "";
+
+                    this.setBbsValue(module, id, req);
+
+                    break;
+                }
                 case "checkUpdate":
                 {
                     UpdateChecker.checkAsync();
@@ -299,6 +498,101 @@ public class DashboardBridge implements IHtmlBridge
     public String pageUrl()
     {
         return MCEFUI.pageFileUrl("dashboard_ui.html");
+    }
+
+    /* -------- settings writeback -------- */
+
+    /** Write one setting coming from the HTML settings tab. The value is looked
+     *  up by its global id inside the given module, written through the setter
+     *  that matches its concrete type, and the module is saved straight away
+     *  (the settings thread batches writes otherwise, which would drop the
+     *  change if the game is closed right after). */
+    private void setBbsValue(String moduleId, String id, JsonObject req)
+    {
+        Settings settings = BBSMod.getSettings().modules.get(moduleId);
+
+        if (settings == null || !req.has("value"))
+        {
+            return;
+        }
+
+        for (ValueGroup category : settings.categories.values())
+        {
+            for (BaseValue value : category.getAll())
+            {
+                if (!value.getId().equals(id))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    /* ValueLanguage extends ValueString, so it goes first. */
+                    if (value instanceof ValueLanguage language)
+                    {
+                        language.set(req.get("value").getAsString());
+                    }
+                    else if (value instanceof ValueBoolean bool)
+                    {
+                        bool.set(req.get("value").getAsBoolean());
+                    }
+                    else if (value instanceof ValueInt integer)
+                    {
+                        ValueInt.Subtype subtype = integer.getSubtype();
+
+                        if (subtype == ValueInt.Subtype.COLOR || subtype == ValueInt.Subtype.COLOR_ALPHA)
+                        {
+                            int alpha = req.has("alpha") ? req.get("alpha").getAsInt() : 255;
+
+                            integer.set((alpha << 24) | (parseColor(req.get("value").getAsString()) & 0xFFFFFF));
+                        }
+                        else
+                        {
+                            integer.set(req.get("value").getAsInt());
+                        }
+                    }
+                    else if (value instanceof ValueFloat number)
+                    {
+                        number.set(req.get("value").getAsFloat());
+                    }
+                    else if (value instanceof ValueDouble number)
+                    {
+                        number.set(req.get("value").getAsDouble());
+                    }
+                    else if (value instanceof ValueString string)
+                    {
+                        string.set(req.get("value").getAsString());
+                    }
+                    else
+                    {
+                        BBSMod.LOGGER.warn("[Dashboard] setting {} is not editable from the HTML page", id);
+                    }
+
+                    settings.save();
+                }
+                catch (Exception e)
+                {
+                    BBSMod.LOGGER.error("[Dashboard] could not write setting {}", id, e);
+                }
+
+                return;
+            }
+        }
+    }
+
+    /** Parse a "#rrggbb" hex colour into a packed rgb int. */
+    private static int parseColor(String hex)
+    {
+        String clean = hex.startsWith("#") ? hex.substring(1) : hex;
+
+        try
+        {
+            return (int) Long.parseLong(clean, 16);
+        }
+        catch (NumberFormatException e)
+        {
+            return 0;
+        }
     }
 
     private BBSProject find(String id)

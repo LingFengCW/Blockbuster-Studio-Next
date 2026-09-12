@@ -5,17 +5,20 @@
 <title>BBS 作品库</title>
 <style>
 :root{ --tab:projects; }
+/* Palette deliberately identical to editor_ui.html: the picker and the editor
+   are two pages of one application, so they must not look like two programs.
+   Keep every --c-* / --track-* value in sync with the editor. */
 :root{
-  --c-bg:#1e2127; --c-bg-app:#15171b; --c-bg-sub:#23262d; --c-bg-hover:#2c3038; --c-bg-active:#34405a;
-  --c-text:#e6e9ef; --c-text-2:#aab2c0; --c-text-3:#7b8492;
-  --c-border:#33373f; --c-border-2:#3c414b;
-  --c-accent:#5b9bff; --c-accent-d:#4a86f0; --c-sel:#ffce4d; --c-ico:var(--c-text); --c-sel-stroke:#6ea8ff;
-  --c-scroll-track:#23262d; --c-scroll-thumb:#3c414b;
-  --track-mat:#5b7fd6; --track-act:#3fae93; --track-pot:#a866c4; --track-char:#5b9bff; --track-equip:#d68a3a;
-  --c-clip:#5b7fd6; --c-clip-d:#6f93e0; --c-danger:#e06b66; --c-danger-bg:#3a2326;
-  --c-success:#46b878; --c-amber:#e0b24a; --c-amber-bg:#3a311c;
-  --c-overlay:rgba(0,0,0,.5); --c-shadow:0 10px 30px rgba(0,0,0,.5);
-  --c-grid:rgba(120,150,200,.22); --c-grid-2:rgba(120,150,200,.10);
+  --c-bg:#fff; --c-bg-app:#eef1f5; --c-bg-sub:#f5f7fa; --c-bg-hover:#eaf2fb; --c-bg-active:#d4e4fb;
+  --c-text:#2b2f36; --c-text-2:#6b7280; --c-text-3:#9aa3af;
+  --c-border:#d8dde4; --c-border-2:#c7ccd4;
+  --c-accent:#4c8dff; --c-accent-d:#3f7ae6; --c-sel:#ffce4d; --c-ico:var(--c-text); --c-sel-stroke:#2f6fb0;
+  --c-scroll-track:#e3e6ea; --c-scroll-thumb:#c7ccd4;
+  --track-mat:#4c72c4; --track-act:#37947c; --track-pot:#9153b7; --track-char:#4c8dff; --track-equip:#b9772e;
+  --c-clip:#4c72c4; --c-clip-d:#5a86d6; --c-danger:#d9534f; --c-danger-bg:#fdecec;
+  --c-success:#1d6f42; --c-amber:#c08a1e; --c-amber-bg:#fff4d6;
+  --c-overlay:rgba(30,40,60,.35); --c-shadow:0 10px 30px rgba(20,30,50,.16);
+  --c-grid:rgba(60,90,140,.20); --c-grid-2:rgba(60,90,140,.10);
 }
 
 *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",Consolas,monospace;user-select:none;}
@@ -54,7 +57,7 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
 .proj-card .acts{position:absolute;top:6px;right:8px;display:none;gap:6px;}
 .proj-card:hover .acts{display:flex;}
 .proj-card .acts span{cursor:pointer;color:var(--c-text-2);font-size:13px;padding:0 2px;}
-.proj-card .acts span:hover{color:#fff;}
+.proj-card .acts span:hover{color:var(--c-accent);}
 .proj-card .acts .del:hover{color:var(--c-danger);}
 .proj-new{background:var(--c-bg);border:1px dashed var(--c-success);border-radius:6px;height:96px;display:flex;align-items:center;justify-content:center;color:var(--c-success);cursor:pointer;font-size:13px;gap:6px;}
 .proj-new:hover{background:var(--c-bg-sub);}
@@ -79,6 +82,21 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
 .toggle.on{background:var(--c-success);}
 .toggle .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;}
 .toggle.on .knob{left:22px;}
+/* 设置：模块切换 + 设置项行（与编辑器同款控件观感） */
+.set-mods{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px;}
+.set-mods button{background:var(--c-bg-sub);color:var(--c-text);border:1px solid var(--c-border-2);border-radius:3px;padding:4px 14px;font-size:12px;cursor:pointer;font-family:inherit;}
+.set-mods button:hover{background:var(--c-bg-hover);}
+.set-mods button.active{background:var(--c-accent);color:#fff;border-color:var(--c-accent);}
+.set-group{margin:0 0 18px;}
+.set-group-title{font-size:12px;color:var(--c-accent);letter-spacing:.5px;border-bottom:1px solid var(--c-border);padding-bottom:6px;margin:14px 0 4px;}
+.set-row2{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--c-border);}
+.set-row2 .lbl2{flex:1;font-size:12px;color:var(--c-text);cursor:default;}
+.set-row2 .ctl{flex:0 0 auto;display:flex;align-items:center;gap:6px;}
+.set-row2 input[type=number],.set-row2 input[type=text],.set-row2 select{background:var(--c-bg);border:1px solid var(--c-border-2);color:var(--c-text);border-radius:3px;padding:3px 6px;font-size:12px;font-family:inherit;width:120px;}
+.set-row2 select{cursor:pointer;}
+.set-row2 input[type=color]{width:36px;height:22px;padding:0;border:1px solid var(--c-border-2);background:var(--c-bg);cursor:pointer;}
+.set-row2 .num{width:64px;}
+.set-row2.ro .val2{font-size:11px;color:var(--c-text-3);}
 .ver{font-size:12px;color:var(--c-text-2);padding:10px 0;}
 .btn{background:var(--c-bg-sub);color:var(--c-text);border:1px solid var(--c-border-2);border-radius:3px;padding:6px 14px;font-size:12px;cursor:pointer;}
 .btn:hover{background:var(--c-accent);color:#fff;}
@@ -96,7 +114,7 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
 .update-toast .s{font-size:11px;color:var(--c-text-2);margin:4px 0 10px;}
 .update-toast .row{display:flex;gap:8px;}
 .update-toast .row .x{margin-left:auto;cursor:pointer;color:var(--c-text-2);}
-.update-toast .row .x:hover{color:#fff;}
+.update-toast .row .x:hover{color:var(--c-text);}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--c-success);color:#fff;padding:6px 16px;border-radius:4px;font-size:12px;z-index:99999;opacity:.95;}
 .toast.error{background:var(--c-danger);}
 </style>
@@ -144,6 +162,14 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
   <!-- 设置 -->
   <div class="view" id="view-settings">
     <div class="section-title">设置</div>
+
+    <!-- 模块切换（BBS 及任何注册了设置模块的 mod） -->
+    <div class="set-mods" id="setMods"></div>
+
+    <!-- 完整设置树：由 Java 侧按 模块 → 分类 → 值 导出渲染 -->
+    <div id="setModules"></div>
+
+    <div class="section-title" style="margin-top:26px;">更新器</div>
     <div class="set-row">
       <div class="grow">
         <div class="lbl">自动更新</div>
@@ -199,6 +225,8 @@ function toast(msg, err){ var t = document.createElement('div'); t.className = '
 
 /* 切换 tab */
 function setTab(tab){
+  /* 切回设置页时重建设置树，让语言等改动后的新文案被重新拉取。 */
+  if(tab === 'settings' && curTab !== 'settings'){ setBuilt = ''; }
   curTab = tab;
   document.documentElement.style.setProperty('--tab', tab);
   document.querySelectorAll('.toolbar-slim button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
@@ -280,13 +308,187 @@ function plat(link){
   return '链接';
 }
 
-/* 渲染设置 */
+/* 渲染设置（更新器部分） */
 function renderSettings(s){
   var st = s.settings || { autoUpdate:false, updatePush:true };
   document.getElementById('tgAuto').classList.toggle('on', !!st.autoUpdate);
   document.getElementById('tgPush').classList.toggle('on', !!st.updatePush);
   document.getElementById('tgLive').classList.toggle('on', !!st.liveUi);
   document.getElementById('verLine').textContent = '当前版本：' + (s.localVersion || '?');
+}
+
+/* 渲染 BBS 完整设置树（模块 → 分类 → 值）。DOM 结构只在切换模块时重建：
+   状态每 150ms 推送一次，若每次重建会打断正在输入的数字/文本框。 */
+var setModsKey = '';
+var curSetMod = '';
+var setBuilt = '';
+
+function renderSettingsModules(s){
+  var mods = s.settingsModules || [];
+  var bar = document.getElementById('setMods');
+  var host = document.getElementById('setModules');
+
+  if(!mods.length){
+    bar.innerHTML = '';
+    host.innerHTML = '';
+    setModsKey = '';
+    setBuilt = '';
+    curSetMod = '';
+    return;
+  }
+
+  if(!curSetMod) curSetMod = mods[0].id;
+
+  var mk = mods.map(function(m){ return m.id + ':' + (m.title || ''); }).join('|');
+  if(mk !== setModsKey){
+    setModsKey = mk;
+    bar.innerHTML = '';
+    mods.forEach(function(m){
+      var b = document.createElement('button');
+      b.textContent = m.title || m.id;
+      b.setAttribute('data-mod', m.id);
+      b.onclick = function(){ curSetMod = m.id; setBuilt = ''; renderSettingsModules(window.bbsState); };
+      bar.appendChild(b);
+    });
+  }
+  bar.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-mod') === curSetMod); });
+
+  if(setBuilt === curSetMod) return;
+  setBuilt = curSetMod;
+  host.innerHTML = '';
+
+  var mod = null;
+  mods.forEach(function(m){ if(m.id === curSetMod) mod = m; });
+  if(!mod) return;
+
+  var langs = s.languages || [];
+  var total = 0;
+
+  (mod.categories || []).forEach(function(cat){
+    var vals = cat.values || [];
+    if(!vals.length) return;
+    var g = document.createElement('div'); g.className = 'set-group';
+    var t = document.createElement('div'); t.className = 'set-group-title'; t.textContent = cat.title || cat.id;
+    if(cat.tooltip) t.title = cat.tooltip;
+    g.appendChild(t);
+    vals.forEach(function(v){ g.appendChild(setRow(mod.id, v, langs)); total++; });
+    host.appendChild(g);
+  });
+
+  if(!total){
+    var empty = document.createElement('div'); empty.className = 'ver';
+    empty.textContent = '该模块暂无可显示的设置项。';
+    host.appendChild(empty);
+  }
+}
+
+/* 单个设置项控件。改动后只发回 Java、不回读状态，避免打断正在进行的输入。 */
+function setRow(modId, v, langs){
+  var row = document.createElement('div');
+  row.className = 'set-row2';
+  var lbl = document.createElement('div');
+  lbl.className = 'lbl2';
+  lbl.textContent = v.title || v.id;
+  if(v.tooltip) lbl.title = v.tooltip;
+  row.appendChild(lbl);
+
+  var ctl = document.createElement('div');
+  ctl.className = 'ctl';
+  row.appendChild(ctl);
+
+  function push(val, alpha){
+    var p = { module: modId, id: v.id, value: val };
+    if(alpha !== undefined) p.alpha = alpha;
+    send('setBbsValue', p);
+  }
+
+  if(v.type === 'bool'){
+    var tg = document.createElement('div');
+    tg.className = 'toggle' + (v.value ? ' on' : '');
+    tg.innerHTML = '<div class="knob"></div>';
+    tg.onclick = function(){ var on = !this.classList.contains('on'); this.classList.toggle('on', on); push(on); };
+    ctl.appendChild(tg);
+  }
+  else if(v.type === 'int' || v.type === 'number'){
+    var inp = document.createElement('input');
+    inp.type = 'number';
+    inp.value = v.value;
+    if(typeof v.min === 'number' && isFinite(v.min)) inp.min = v.min;
+    if(typeof v.max === 'number' && isFinite(v.max)) inp.max = v.max;
+    inp.step = (v.type === 'int') ? 1 : 0.01;
+    inp.onchange = function(){
+      var n = (v.type === 'int') ? parseInt(this.value, 10) : parseFloat(this.value);
+      if(isNaN(n)) return;
+      push(v.type === 'int' ? Math.round(n) : n);
+    };
+    ctl.appendChild(inp);
+  }
+  else if(v.type === 'color'){
+    var col = document.createElement('input');
+    col.type = 'color';
+    col.value = v.value;
+    ctl.appendChild(col);
+    var alphaInp = null;
+    if(v.hasAlpha){
+      alphaInp = document.createElement('input');
+      alphaInp.type = 'number'; alphaInp.className = 'num';
+      alphaInp.min = 0; alphaInp.max = 255;
+      alphaInp.value = (typeof v.alpha === 'number') ? v.alpha : 255;
+      alphaInp.title = '不透明度（0-255）';
+      ctl.appendChild(alphaInp);
+    }
+    var pushColor = function(){
+      var a = 255;
+      if(alphaInp){ a = parseInt(alphaInp.value, 10); if(isNaN(a)) a = 255; }
+      push(col.value, a);
+    };
+    col.onchange = pushColor;
+    if(alphaInp) alphaInp.onchange = pushColor;
+  }
+  else if(v.type === 'modes'){
+    var sel = document.createElement('select');
+    (v.labels || []).forEach(function(l, i){
+      var op = document.createElement('option');
+      op.value = i; op.textContent = l;
+      if(i === v.value) op.selected = true;
+      sel.appendChild(op);
+    });
+    sel.onchange = function(){ push(parseInt(this.value, 10)); };
+    ctl.appendChild(sel);
+  }
+  else if(v.type === 'language'){
+    var lsel = document.createElement('select');
+    var found = false;
+    langs.forEach(function(l){
+      var op = document.createElement('option');
+      op.value = l.value; op.textContent = l.title || l.value;
+      if(l.value === v.value){ op.selected = true; found = true; }
+      lsel.appendChild(op);
+    });
+    if(!found && v.value){
+      var cur = document.createElement('option');
+      cur.value = v.value; cur.textContent = v.value; cur.selected = true;
+      lsel.appendChild(cur);
+    }
+    lsel.onchange = function(){ push(this.value); toast('语言已保存，界面文本将在重载后更新'); };
+    ctl.appendChild(lsel);
+  }
+  else if(v.type === 'string'){
+    var si = document.createElement('input');
+    si.type = 'text';
+    si.value = v.value == null ? '' : v.value;
+    si.onchange = function(){ push(this.value); };
+    ctl.appendChild(si);
+  }
+  else {
+    row.classList.add('ro');
+    var ro = document.createElement('span');
+    ro.className = 'val2';
+    ro.textContent = '需在高级设置中编辑';
+    ctl.appendChild(ro);
+  }
+
+  return row;
 }
 
 /* 更新提示 */

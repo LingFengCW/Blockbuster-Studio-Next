@@ -298,6 +298,18 @@ public class EditorBridge implements IHtmlBridge
      *  copy the bound world, rename it to this, delete the old one first. */
     private static final String PREVIEW_WORLD = "bbs_preview";
 
+    /** Why the last preview-world entry failed, or empty when it succeeded (or
+     *  was never attempted). The page shows this instead of a confident
+     *  "预览世界: X" label, so a failed or half-working entry can never be
+     *  presented as a working one. */
+    private static volatile String previewError = "";
+
+    /** Set the preview error state (empty string clears it). */
+    private static void setPreviewError(String message)
+    {
+        previewError = message == null ? "" : message;
+    }
+
     /** Known mods that conflict with BBS-Next (MCEF browser overlay + Sodium/Iris
      *  Vulkan renderer). Surfaced as a one-time startup warning (warnKnownConflicts)
      *  and documented here so the conflict list is reviewable in code rather than
@@ -515,6 +527,12 @@ public class EditorBridge implements IHtmlBridge
         root.addProperty("owningPreviewWorld", owningPreviewWorld);
         root.addProperty("toolbarMode", toolbarMode);
         root.addProperty("worldLoading", isEnteringWorld());
+        /* The world the editor actually opened (empty when none) and the reason
+         * the last attempt failed. The page reports these instead of the
+         * scene's configured background, so a broken entry cannot look like a
+         * working one. */
+        root.addProperty("previewWorldLoaded", loadedPreviewWorldName == null ? "" : loadedPreviewWorldName);
+        root.addProperty("previewError", previewError);
 
         root.addProperty("cursor", panel.getCursor());
         root.addProperty("running", panel.isRunning());
@@ -3101,6 +3119,7 @@ public class EditorBridge implements IHtmlBridge
             }
 
             markEnteringWorld();
+            setPreviewError("");
             owningPreviewWorld = true;
             loadedPreviewWorldName = null;
             previewSourceWorld = null;
@@ -3151,6 +3170,8 @@ public class EditorBridge implements IHtmlBridge
                  * scene's bound save is missing/corrupt), not in our post-load setup. */
                 BBSMod.LOGGER.info("[EditorBridge] enterSceneWorld: openWorld callback fired (world loaded, completing entry)");
 
+                setPreviewError("");
+
                 if (owningPreviewWorld)
                 {
                     try
@@ -3184,6 +3205,8 @@ public class EditorBridge implements IHtmlBridge
                          * LoadingOverlay up forever ("stuck on loading"). Log and
                          * keep the world usable instead. */
                         BBSMod.LOGGER.error("[EditorBridge] enterSceneWorld post-load setup failed (world still loaded)", t);
+
+                        setPreviewError("世界已加载，但回放初始化失败：" + t);
                     }
                 }
             });
@@ -3196,6 +3219,8 @@ public class EditorBridge implements IHtmlBridge
             loadedPreviewWorldName = null;
             previewSourceWorld = null;
             BBSMod.LOGGER.error("[EditorBridge] enterSceneWorld failed to open world '{}'", world, t);
+
+            setPreviewError("进入世界失败：" + t);
         }
     }
 

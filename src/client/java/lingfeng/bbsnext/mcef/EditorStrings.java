@@ -27,6 +27,7 @@ public final class EditorStrings
         put("menu.save", "保存", "Save");
         put("preview.enter", "进入预览世界", "Enter Preview World");
         put("preview.exit", "退出预览世界", "Exit Preview World");
+        put("preview.notEntered", "未进入", "not entered");
         put("menu.close", "关闭", "Close");
 
         /* ----- top menu ----- */

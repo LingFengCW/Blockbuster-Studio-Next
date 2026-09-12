@@ -18,6 +18,7 @@
         "WindowMixin",
         "AvatarRendererMixin",
         "LivingEntityRendererMixin",
+        "GuiLoadingOverlayMixin",
         "HudRelocateMixin",
         "SelectWorldScreenMixin",
         "CreateWorldScreenMixin",

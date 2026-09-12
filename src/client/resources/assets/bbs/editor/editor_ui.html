@@ -1039,6 +1039,7 @@ var BBS_DEFAULT_STRINGS = {
   "app.title": "BBS 编辑器",
   "menu.save": "保存",
   "preview.exit": "退出预览世界",
+  "preview.notEntered": "未进入",
   "menu.close": "关闭",
   "menu.file": "文件",
   "menu.edit": "编辑",
@@ -1376,6 +1377,7 @@ var BBS_DEFAULT_STRINGS_EN = {
   "app.title": "BBS Editor",
   "menu.save": "Save",
   "preview.exit": "Exit Preview World",
+  "preview.notEntered": "not entered",
   "menu.close": "Close",
   "menu.file": "File",
   "menu.edit": "Edit",
@@ -2648,7 +2650,27 @@ function renderAll(){
   projName.textContent = s.project || S('app.title');
   filmName.textContent = s.scene ? (S('film.prefix') + s.scene) : '';
   var sw = document.getElementById('sceneWorld');
-  if(sw) sw.textContent = s.sceneWorld ? (S('preview.world') + '：' + s.sceneWorld) : '';
+  if(sw){
+    /* Report the ACTUAL preview state, never just the configured binding:
+       rendering "预览世界: X" straight from the scene's background field made a
+       failed or half-loaded entry look identical to a working one. */
+    if(s.previewError){
+      sw.textContent = '⚠ ' + s.previewError;
+      sw.style.color = 'var(--c-danger)';
+    } else if(s.worldLoading){
+      sw.textContent = S('preview.loading');
+      sw.style.color = 'var(--c-text-3)';
+    } else if(s.previewWorldLoaded){
+      sw.textContent = S('preview.world') + '：' + s.previewWorldLoaded;
+      sw.style.color = '';
+    } else if(s.sceneWorld){
+      sw.textContent = s.sceneWorld + '（' + S('preview.notEntered') + '）';
+      sw.style.color = 'var(--c-text-3)';
+    } else {
+      sw.textContent = '';
+      sw.style.color = '';
+    }
+  }
   dirtyMark.className = 'title-dirty' + (s.dirty ? ' show' : '');
   renderAssets(s);
   applyAssetFilter();
