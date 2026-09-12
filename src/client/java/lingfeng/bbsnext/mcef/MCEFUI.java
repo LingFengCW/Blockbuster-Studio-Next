@@ -34,8 +34,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 import net.fabricmc.loader.api.FabricLoader;
 import lingfeng.bbsnext.client.GlTextureBridge;
 import mchorse.bbs_mod.ui.supporters.Supporters;
@@ -895,14 +898,48 @@ public class MCEFUI
 
     /* -------- page -------- */
 
-    /** SVG icons bundled with the mod, extracted next to the HTML so the page
-     *  can reference them with plain relative <img src="svg/xxx.svg"> (real
-     *  files, not inlined). Kept in sync with src/.../editor/svg/. */
-    private static final String[] SVG_FILES = {
+    /** Last resort list of SVG icons, used only when the jar directory cannot
+     *  be enumerated (see {@link #listSvgFiles()}). The jar itself is the
+     *  single source of truth, because a hand maintained list silently skipped
+     *  every icon added after it was written: the page then referenced files
+     *  that were never extracted and the browser showed broken images. */
+    private static final String[] FALLBACK_SVG_FILES = {
         "work", "scene", "sequence", "character", "entity", "particle", "item",
         "backpack", "camera", "play", "pause", "tostart", "undo", "redo",
         "save", "close", "plus", "trash", "settings", "target", "rename"
     };
+
+    /** Every SVG icon bundled in the jar under {@code assets/bbs/editor/svg}.
+     *  The icons are extracted next to the HTML so the page can reference them
+     *  with plain relative <img src="svg/xxx.svg"> (real files, not inlined).
+     *  Enumerating the directory keeps the extracted set in lock step with the
+     *  page instead of relying on a list that has to be remembered. */
+    private static List<String> listSvgFiles()
+    {
+        List<String> files = new ArrayList<>();
+
+        try
+        {
+            Optional<Path> dir = FabricLoader.getInstance()
+                .getModContainer("bbs-next")
+                .flatMap((container) -> container.findPath("assets/bbs/editor/svg"));
+
+            if (dir.isPresent())
+            {
+                try (Stream<Path> stream = Files.list(dir.get()))
+                {
+                    stream.filter((p) -> p.getFileName().toString().endsWith(".svg"))
+                        .forEach((p) -> files.add(p.getFileName().toString()));
+                }
+            }
+        }
+        catch (Throwable t)
+        {
+            BBSMod.LOGGER.warn("[MCEF] could not enumerate the bundled SVG icons, falling back to the built-in list", t);
+        }
+
+        return files;
+    }
 
     /** Extract every hosted HTML page (editor + dashboard) and the bundled SVG
      *  icons to a real folder on disk so the pages can reference external SVG
@@ -928,9 +965,16 @@ public class MCEFUI
             copyResource("/assets/bbs/editor/editor_ui.html", dir.resolve(versionedName("editor_ui.html")));
             copyResource("/assets/bbs/editor/dashboard_ui.html", dir.resolve(versionedName("dashboard_ui.html")));
 
-            for (String name : SVG_FILES)
+            List<String> svgFiles = listSvgFiles();
+
+            if (svgFiles.isEmpty())
             {
-                copyResource("/assets/bbs/editor/svg/" + name + ".svg", svgDir.resolve(name + ".svg"));
+                svgFiles = List.of(FALLBACK_SVG_FILES);
+            }
+
+            for (String file : svgFiles)
+            {
+                copyResource("/assets/bbs/editor/svg/" + file, svgDir.resolve(file));
             }
 
             /* Supporter/developer avatar banners, referenced by the dashboard
