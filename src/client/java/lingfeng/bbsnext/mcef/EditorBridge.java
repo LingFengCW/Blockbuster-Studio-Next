@@ -2945,6 +2945,17 @@ public class EditorBridge implements IHtmlBridge
         enterSceneWorldNamed(panel, world);
     }
 
+    /**
+     * 公开入口：编辑器打开（或场景菜单选完场景）后，若当前场景绑定了世界，自动静默进世界预览。
+     * 复用 {@link #enterSceneWorld(UIFilmPanel)}；background 为空则 no-op，不会误进世界、也不会卡死。
+     * 用于修复「编辑器默认选中了场景却不自动进世界」——此前只有 HTML 的 openScene 动作走了这条路，
+     * 而 dashboard 菜单 / 编辑器打开路径（UISceneMenu.openScene）只选中场景、不进世界。
+     */
+    public static void enterCurrentSceneWorld()
+    {
+        enterSceneWorld((UIFilmPanel) null);
+    }
+
     /** 核心：进入指定名称的绑定世界预览。 {@link #enterSceneWorld(UIFilmPanel)} 从"当前场景"
      *  推导 world；序列自动进预览（Task #18）则直接传入解析出的场景世界名，二者共用此实现。 */
     private static void enterSceneWorldNamed(UIFilmPanel panel, String world)
