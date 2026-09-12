@@ -655,16 +655,16 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
 </div>
 
   <div class="ae-dock" id="aeDock">
-    <div class="ae-dock-head"><span data-i18n="ae.dockTitle">动作编辑器（大窗模式）</span><button id="aeDockMax" class="kf-add" type="button" data-i18n="ae.max">最大化</button></div>
+    <div class="ae-dock-head"><span data-i18n="ae.dockTitle">动作编辑器（大窗模式）</span><button id="aeDockMax" class="kf-add" type="button" title="最大化"><img class="ico" src="svg/gip-maximize.svg"></button></div>
     <div class="ae-dock-body">
       <div class="ad-left" id="aeDockLeft"></div>
       <div class="ad-right" id="aeDockRight"></div>
     </div>
     <div class="ae-timeline-wrap">
       <div class="ae-preview-bar">
-        <button id="aePrevPlay" type="button">播放</button>
-        <button id="aePrevStop" type="button">停止</button>
-        <button id="aePrevToStart" type="button">回到起点</button>
+        <button id="aePrevPlay" type="button" title="播放"><img class="ico" src="svg/gip-play.svg"></button>
+        <button id="aePrevStop" type="button" title="停止"><img class="ico" src="svg/gip-stop.svg"></button>
+        <button id="aePrevToStart" type="button" title="回到起点"><img class="ico" src="svg/gip-first-frame.svg"></button>
         <span class="ae-ptime" id="aePrevTime">0 / 0</span>
       </div>
       <div class="tl-ruler" id="aeDockRuler"></div>
@@ -693,9 +693,9 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
           <button id="vpShot" title="截图" data-i18n-title="tb.screenshot"><img class="ico" src="svg/camera.svg"></button>
           <button id="btnMaxView" class="ico-btn" title="最大化视口"><img class="ico" src="svg/gip-maximize.svg"></button>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
-          <button id="clipNone" class="active" title="剪切蒙版：无" data-i18n="clip.none" data-i18n-title="clip.noneTitle">无剪切</button>
-          <button id="clipRect" title="剪切蒙版：矩形" data-i18n="clip.rect" data-i18n-title="clip.rectTitle">矩形</button>
-          <button id="clipCircle" title="剪切蒙版：圆形" data-i18n="clip.circle" data-i18n-title="clip.circleTitle">圆形</button>
+          <button id="clipNone" class="active" title="剪切蒙版：无"><img class="ico" src="svg/gip-clip-none.svg"></button>
+          <button id="clipRect" title="剪切蒙版：矩形"><img class="ico" src="svg/gip-clip-rect.svg"></button>
+          <button id="clipCircle" title="剪切蒙版：圆形"><img class="ico" src="svg/gip-clip-circle.svg"></button>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
           <button id="btnToolbarMode" title="工具栏模式：仅悬浮工具栏、中央透明露游玩世界 (T)" onclick="if(window.bbsSetToolbarMode)window.bbsSetToolbarMode(!window.__toolbarMode)"><img class="ico" src="svg/gip-expand.svg"> 仅工具栏</button>
         </div>
