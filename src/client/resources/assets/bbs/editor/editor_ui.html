@@ -633,7 +633,7 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
 
 <div class="toolbar-slim">
   <button id="btnToStart" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/gip-first-frame.svg"></button>
-  <button id="btnPlay" title="播放/暂停 (空格)" data-i18n="tb.play" data-i18n-title="tb.playTitle"><img class="ico" src="svg/gip-play.svg"> 播放</button>
+  <button id="btnPlay" title="播放/暂停 (空格)" data-i18n-title="tb.playTitle"><img class="ico" src="svg/gip-play.svg"></button>
   <button id="btnToEnd" title="跳到结尾" data-i18n-title="tl.toEnd"><img class="ico" src="svg/gip-last-frame.svg"></button>
   <span class="sep"></span>
   <button id="btnUndo" title="撤销" data-i18n-title="menu.undo"><img class="ico" src="svg/gip-undo.svg"></button>
@@ -651,7 +651,7 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
       <button data-ws="editing" title="剪辑工作区：窄素材箱 / 高时间轴">剪辑</button>
       <button data-ws="preview" title="预览工作区：最小素材箱 / 大预览">预览</button>
     </span>
-    <button id="wsReset" title="重置面板布局为默认">重置布局</button>
+    <button id="wsReset" title="重置面板布局为默认"><img class="ico" src="svg/gip-reset.svg"> 重置布局</button>
 </div>
 
   <div class="ae-dock" id="aeDock">
@@ -687,11 +687,11 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
     <div class="right">
       <div class="viewport-wrap">
         <div class="vp-toolbar">
-          <button id="vpPlay" title="播放/暂停" data-i18n="vp.play" data-i18n-title="vp.playTitle"><img class="ico" src="svg/gip-play.svg"> 播放</button>
+          <button id="vpPlay" title="播放/暂停" data-i18n-title="vp.playTitle"><img class="ico" src="svg/gip-play.svg"></button>
           <button id="vpToStart" title="回到开头" data-i18n-title="tl.toStart"><img class="ico" src="svg/gip-first-frame.svg"></button>
           <button id="vpToEnd" title="跳到结尾" data-i18n-title="tl.toEnd"><img class="ico" src="svg/gip-last-frame.svg"></button>
           <button id="vpShot" title="截图" data-i18n-title="tb.screenshot"><img class="ico" src="svg/camera.svg"></button>
-          <button id="btnMaxView" class="ico-btn" title="最大化视口">▢</button>
+          <button id="btnMaxView" class="ico-btn" title="最大化视口"><img class="ico" src="svg/gip-maximize.svg"></button>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
           <button id="clipNone" class="active" title="剪切蒙版：无" data-i18n="clip.none" data-i18n-title="clip.noneTitle">无剪切</button>
           <button id="clipRect" title="剪切蒙版：矩形" data-i18n="clip.rect" data-i18n-title="clip.rectTitle">矩形</button>
@@ -712,16 +712,16 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
 
       <div class="timeline-wrap">
         <div class="tl-toolbar">
-          <button id="tlNewSeq" title="新建序列" data-i18n="tl.newSeq" data-i18n-title="tl.newSeqTitle"><img class="ico" src="svg/plus.svg"> ＋序列</button>
-          <button id="tlRenameSeq" title="重命名当前序列" data-i18n="tl.rename" data-i18n-title="tl.renameTitle"><img class="ico" src="svg/rename.svg"> 重命名</button>
-          <button id="tlDelSeq" title="删除当前序列" data-i18n="tl.delete" data-i18n-title="tl.deleteTitle"><img class="ico" src="svg/gip-trash.svg"> 删除</button>
+          <button id="tlNewSeq" title="新建序列" data-i18n-title="tl.newSeqTitle"><img class="ico" src="svg/plus.svg"></button>
+          <button id="tlRenameSeq" title="重命名当前序列" data-i18n-title="tl.renameTitle"><img class="ico" src="svg/rename.svg"></button>
+          <button id="tlDelSeq" title="删除当前序列" data-i18n-title="tl.deleteTitle"><img class="ico" src="svg/gip-trash.svg"></button>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
-          <button id="tlZoomIn" title="放大时间轴" data-i18n="tl.zoomIn" data-i18n-title="tl.zoomInTitle"><img class="ico" src="svg/gip-zoom-in.svg">放大</button>
-          <button id="tlZoomOut" title="缩小时间轴" data-i18n="tl.zoomOut" data-i18n-title="tl.zoomOutTitle"><img class="ico" src="svg/gip-zoom-out.svg">缩小</button>
-      <button id="tlSnap" class="active" title="吸附开关 (S)" data-i18n="tl.snap" data-i18n-title="tl.snapTitle">吸附</button>
-          <button id="tlAddMarker" title="在播放头添加标记 (M)">★标记</button>
-          <button id="tlZoomFit" title="适应窗口（重置缩放）">适应</button>
-          <button id="btnMaxTl" title="最大化时间轴">▢</button>
+          <button id="tlZoomIn" title="放大时间轴" data-i18n-title="tl.zoomInTitle"><img class="ico" src="svg/gip-zoom-in.svg"></button>
+          <button id="tlZoomOut" title="缩小时间轴" data-i18n-title="tl.zoomOutTitle"><img class="ico" src="svg/gip-zoom-out.svg"></button>
+      <button id="tlSnap" class="active" title="吸附开关 (S)" data-i18n-title="tl.snapTitle"><img class="ico" src="svg/gip-snap.svg"></button>
+          <button id="tlAddMarker" title="在播放头添加标记 (M)"><img class="ico" src="svg/gip-marker.svg"></button>
+          <button id="tlZoomFit" title="适应窗口（重置缩放）"><img class="ico" src="svg/gip-fit.svg"></button>
+          <button id="btnMaxTl" title="最大化时间轴"><img class="ico" src="svg/gip-maximize.svg"></button>
           <input class="tl-zoom-slider" id="tlZoomSlider" type="range" min="0.25" max="8" step="0.25" value="1" title="缩放时间轴">
           <span id="tlZoomLbl" class="tl-zoom-lbl">100%</span>
           <span style="width:1px;height:18px;background:var(--c-border-2);margin:0 4px;"></span>
