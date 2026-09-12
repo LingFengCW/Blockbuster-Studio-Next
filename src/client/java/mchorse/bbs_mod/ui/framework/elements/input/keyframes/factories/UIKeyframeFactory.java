@@ -5,6 +5,7 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.framework.elements.context.UIInterpolationContextMenu;
@@ -24,11 +25,13 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -55,6 +58,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     private UIElement lyRow;
     private UIElement rxRow;
     private UIElement ryRow;
+    private UIElement bezierSection;
     private boolean bezierHandlesVisible;
 
     protected Keyframe<T> keyframe;
@@ -199,6 +203,26 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         this.rxRow = this.handleField(IKey.raw("RX"), this.rxPad);
         this.ryRow = this.handleField(IKey.raw("RY"), this.ryPad);
 
+        /* Easing preset buttons (one-click horizontal tangents of increasing
+         * strength). See applyEasing() for why only the horizontal family is
+         * offered: a vertical offset in any other direction either makes the
+         * curve overshoot or non monotonic in time. */
+        UIElement presetRow = new UIElement();
+
+        presetRow.column(2);
+        presetRow.add(UI.row(2, this.easingButton("Linear", 0F), this.easingButton("Soft", 0.2F)));
+        presetRow.add(UI.row(2, this.easingButton("Ease", 0.33F), this.easingButton("Hard", 0.5F)));
+
+        /* The whole bezier section (handle editors + presets) is added to the
+         * scroll only when the selected keyframe uses BEZIER interpolation. */
+        this.bezierSection = new UIElement();
+        this.bezierSection.column(5);
+        this.bezierSection.add(this.lxRow);
+        this.bezierSection.add(this.lyRow);
+        this.bezierSection.add(this.rxRow);
+        this.bezierSection.add(this.ryRow);
+        this.bezierSection.add(presetRow);
+
         this.add(this.scroll);
 
         /* Fill data */
@@ -230,9 +254,10 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
     /**
      * Sync the bezier handle trackpads with the keyframe's tangent handle
-     * values, and add or remove the handle rows from the scroll depending on
-     * whether the current keyframe uses BEZIER interpolation (the rows are
-     * physically removed rather than hidden so they don't leave empty gaps).
+     * values, and add or remove the whole bezier section (handle editors plus
+     * easing presets) from the scroll depending on whether the current keyframe
+     * uses BEZIER interpolation (the section is physically removed rather than
+     * hidden so it doesn't leave empty gaps).
      */
     public void syncBezierHandles()
     {
@@ -244,14 +269,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
             if (bezier)
             {
-                this.scroll.add(this.lxRow, this.lyRow, this.rxRow, this.ryRow);
+                this.scroll.add(this.bezierSection);
             }
             else
             {
-                this.scroll.remove(this.lxRow);
-                this.scroll.remove(this.lyRow);
-                this.scroll.remove(this.rxRow);
-                this.scroll.remove(this.ryRow);
+                this.scroll.remove(this.bezierSection);
             }
 
             this.scroll.resize();
@@ -264,6 +286,91 @@ public abstract class UIKeyframeFactory <T> extends UIElement
             this.rxPad.setValue(this.keyframe.rx);
             this.ryPad.setValue(this.keyframe.ry);
         }
+    }
+
+    private UIButton easingButton(String label, float strength)
+    {
+        UIButton button = new UIButton(IKey.raw(label), (b) -> this.applyEasing(strength));
+
+        button.background(true);
+        button.tooltip(IKey.raw("Ease: " + (int) (strength * 100F) + "% horizontal tangents"));
+
+        return button;
+    }
+
+    /**
+     * Apply an easing shape to the selected keyframe by making both of its
+     * bezier tangents horizontal, with a length expressed as a fraction of the
+     * adjacent segment spans.
+     *
+     * A horizontal tangent is the only direction that can be generated without
+     * knowing the neighbouring handles, because of how {@code BezierUtils.get}
+     * normalizes them: the outgoing handle becomes {@code (x1, y1) = (rx / dt,
+     * ry / dv)} and the incoming handle becomes {@code (x2, y2) = (1 - lx / dt,
+     * 1 + ly / dv)}. A zero vertical offset therefore places the control points
+     * exactly on the keyframe's own value level, which is what brings the
+     * motion to a stop (zero speed) as it reaches the keyframe. Any non zero
+     * vertical offset either pushes the control points out of the unit box
+     * ({@code y > 1} overshoots the value range) or inverts their order
+     * ({@code x1 > x2} makes the curve non monotonic in time, so the animation
+     * would visibly step backwards).
+     *
+     * The strength is clamped to 0.5: at that point the two control points of a
+     * segment meet in the middle, and a longer horizontal handle would invert
+     * them.
+     */
+    private void applyEasing(float strength)
+    {
+        KeyframeChannel channel = (KeyframeChannel) this.keyframe.getParent();
+
+        if (channel == null)
+        {
+            return;
+        }
+
+        List<?> list = channel.getKeyframes();
+        int index = -1;
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            if (list.get(i) == this.keyframe)
+            {
+                index = i;
+
+                break;
+            }
+        }
+
+        if (index < 0)
+        {
+            return;
+        }
+
+        strength = Math.max(0F, Math.min(0.5F, strength));
+
+        Keyframe prev = index > 0 ? (Keyframe) list.get(index - 1) : null;
+        Keyframe next = index < list.size() - 1 ? (Keyframe) list.get(index + 1) : null;
+
+        this.editor.cacheKeyframes();
+
+        if (next != null)
+        {
+            float dt = Math.max(1F, next.getTick() - this.keyframe.getTick());
+
+            this.keyframe.rx = strength * dt;
+            this.keyframe.ry = 0F;
+        }
+
+        if (prev != null)
+        {
+            float dt = Math.max(1F, this.keyframe.getTick() - prev.getTick());
+
+            this.keyframe.lx = strength * dt;
+            this.keyframe.ly = 0F;
+        }
+
+        this.editor.submitKeyframes();
+        this.syncBezierHandles();
     }
 
     public Keyframe<T> getKeyframe()
