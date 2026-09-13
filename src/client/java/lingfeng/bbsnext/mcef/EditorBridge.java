@@ -37,6 +37,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.utils.undo.IUndo;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import lingfeng.bbsnext.update.UpdateChecker;
 import lingfeng.bbsnext.update.UpdateConfig;
@@ -141,13 +142,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -553,7 +550,9 @@ public class EditorBridge implements IHtmlBridge
         root.addProperty("previewError", previewError);
 
         root.addProperty("cursor", panel.getCursor());
-        root.addProperty("running", panel.isRunning());
+        /* 主预览 = 本地无世界渲染；播放状态由本地播放循环驱动（非 runner）。 */
+        root.addProperty("localPreview", true);
+        root.addProperty("running", previewPlaying || panel.isRunning());
         root.addProperty("dirty", panel.isDirty());
 
         /* Off-world 3D preview (canvas-rendered in the page; no world needed) */
@@ -1738,8 +1737,9 @@ public class EditorBridge implements IHtmlBridge
                 openScene(panel, req.has("id") ? req.get("id").getAsString() : null);
                 break;
             case "togglePlay":
-                panel.togglePlayback();
-                patchRunning(panel.isRunning());
+                /* 主预览 = 本地无世界渲染：播放只推进面板 cursor，不启动
+                 * 依赖 Level/ActorEntity 的原生 runner（那需要进世界）。 */
+                previewTogglePlay(panel);
                 break;
             case "setCursor":
                 panel.setCursor(req.has("tick") ? req.get("tick").getAsInt() : panel.getCursor());
@@ -2475,18 +2475,7 @@ public class EditorBridge implements IHtmlBridge
                 activeSequenceId = seqId;
                 refreshHtml();
 
-                /* 诉求（已反转）：选中序列且顺着引用链解析出绑定了世界的场景，
-                 * 就默认自动进世界预览。resolveSequenceSceneWorld 找不到绑定世界
-                 * 时返回 null，这里据此跳过，避免 enterSceneWorldNamed 打无谓 warn。 */
-                if (seqId != null)
-                {
-                    String world = resolveSequenceSceneWorld(seqId);
-
-                    if (world != null)
-                    {
-                        enterSceneWorldNamed(panel, world);
-                    }
-                }
+                /* 泠沨定稿：主预览 = 本地无世界 PiP 渲染，选中序列**不再进世界**。 */
                 break;
             }
             case "addToCurrent":
@@ -3349,89 +3338,6 @@ public class EditorBridge implements IHtmlBridge
                 return FileVisitResult.CONTINUE;
             }
         });
-    }
-
-    /** Task #18: 从序列（含嵌套序列，跟随其 SCENE / SEQUENCE 引用，深度受
-     *  {@link SequenceManager#MAX_DEPTH} 约束）里解析出第一个绑定了世界的场景名。
-     *  返回该场景的 background 世界名；序列无场景 / 场景都未绑定世界时返回 null。 */
-    private static String resolveSequenceSceneWorld(String seqId)
-    {
-        SequenceManager sm = SequenceManager.get();
-
-        if (sm == null || seqId == null || seqId.isEmpty())
-        {
-            return null;
-        }
-
-        Set<String> visited = new HashSet<>();
-        Deque<String> queue = new ArrayDeque<>();
-
-        queue.add(seqId);
-
-        int guard = 0;
-        int maxSteps = SequenceManager.MAX_DEPTH * 8 + 16;
-
-        while (!queue.isEmpty() && guard++ < maxSteps)
-        {
-            String id = queue.poll();
-
-            if (!visited.add(id))
-            {
-                continue;
-            }
-
-            Sequence seq = sm.getById(id);
-
-            if (seq == null)
-            {
-                continue;
-            }
-
-            for (Sequence.SequenceRef ref : seq.refs)
-            {
-                if (Sequence.SequenceRef.SCENE.equals(ref.type))
-                {
-                    Scene scene = findSceneById(ref.id);
-
-                    if (scene != null && scene.background != null && !scene.background.isEmpty())
-                    {
-                        return scene.background;
-                    }
-                }
-                else if (ref.isSequence())
-                {
-                    queue.add(ref.id);
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /** 按 id 在项目场景列表里查找场景（SceneManager 无 getSceneById，这里线性查找）。 */
-    private static Scene findSceneById(String id)
-    {
-        if (id == null)
-        {
-            return null;
-        }
-
-        SceneManager sm = SceneManager.get();
-
-        if (sm == null)
-        {
-            return null;
-        }
-
-        for (Scene s : sm.getScenes())
-        {
-            if (s.id.equals(id))
-            {
-                return s;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -5452,13 +5358,32 @@ public class EditorBridge implements IHtmlBridge
         }
     }
 
-    /** 在 3D 视口内按下左键：开始轨道拖拽（旋转），吞掉事件不让 HTML 收到。 */
+    /** 在 3D 视口内按下左键：开始轨道拖拽（旋转），吞掉事件不让 HTML 收到。
+     *  动作编辑器预览激活时归它，否则归主预览本地相机（无世界也能拖）。 */
     public static boolean aePreviewCameraStart(double x, double y)
     {
-        if (!aePreviewPlaying || !aePreviewInViewport(x, y)) return false;
-        aePreviewEnsureOrbit();
-        if (aePreviewOrbit == null) return false;
-        aePreviewOrbit.start((int) x, (int) y);
+        if (!mainPreviewCameraUsable(x, y))
+        {
+            return false;
+        }
+
+        if (aePreviewPlaying)
+        {
+            aePreviewEnsureOrbit();
+
+            if (aePreviewOrbit == null)
+            {
+                return false;
+            }
+
+            aePreviewOrbit.start((int) x, (int) y);
+
+            return true;
+        }
+
+        previewEnsureOrbit();
+        previewOrbit.start((int) x, (int) y);
+
         return true;
     }
 
@@ -5478,15 +5403,37 @@ public class EditorBridge implements IHtmlBridge
         return true;
     }
 
-    /** 在 3D 视口内滚轮：沿视线方向推拉（dolly），吞掉事件。 */
+    /** 在 3D 视口内滚轮：沿视线方向推拉（dolly），吞掉事件。动作编辑器
+     *  预览激活时归它，否则归主预览本地相机。 */
     public static boolean aePreviewCameraScroll(double x, double y, double delta)
     {
-        if (!aePreviewPlaying || !aePreviewInViewport(x, y)) return false;
-        aePreviewEnsureOrbit();
-        if (aePreviewOrbit == null) return false;
-        org.joml.Vector3f look = aePreviewOrbit.getLook();
+        if (!mainPreviewCameraUsable(x, y))
+        {
+            return false;
+        }
+
+        OrbitCamera orbit;
+
+        if (aePreviewPlaying)
+        {
+            aePreviewEnsureOrbit();
+            orbit = aePreviewOrbit;
+        }
+        else
+        {
+            previewEnsureOrbit();
+            orbit = previewOrbit;
+        }
+
+        if (orbit == null)
+        {
+            return false;
+        }
+
+        org.joml.Vector3f look = orbit.getLook();
         float k = (float) (delta * 0.15F);
-        aePreviewOrbit.position.add(look.x * k, look.y * k, look.z * k);
+        orbit.position.add(look.x * k, look.y * k, look.z * k);
+
         return true;
     }
 
@@ -5503,6 +5450,270 @@ public class EditorBridge implements IHtmlBridge
             aePreviewOrbit.release();
             aePreviewOrbit = null;
         }
+    }
+
+    /* ---------- 主预览：无世界本地渲染（PiP，对标原版内嵌预览） ----------
+     *
+     * 泠沨定稿：编辑器预览**不进世界**。主预览区直接把当前 film 的所有角色
+     * （form + keyframes + actions @ cursor）用轨道相机渲染进 #mainViewport
+     * 矩形——与动作编辑器 PiP（aePreviewSubmitPip）同一条渲染管线，只是
+     * 多角色 + 时间源改为面板 cursor。选中场景/序列不再触发 openWorld，
+     * bbs_preview 复制世界/LoadingOverlay/HUD 强移链路仅保留给手动进世界。 */
+
+    /** Per-replay stub entities for the main preview, keyed by replay index.
+     *  Only touched from the PiP render callback (render thread). */
+    private static final java.util.Map<Integer, StubEntity> previewStubs = new java.util.HashMap<>();
+
+    /** Main-preview orbit camera (drag/scroll to look around). Pure data -
+     *  no game camera controller involved, the PiP callback builds its own
+     *  Camera from it. */
+    private static OrbitCamera previewOrbit = null;
+
+    /** Local playback state for the main preview (independent from the
+     *  world-bound UIFilmController runner). */
+    private static volatile boolean previewPlaying = false;
+    private static Thread previewThread = null;
+
+    /** True when the big viewport can be filled with the local (no-world)
+     *  film preview. Exposed to the HTML so placeholders/state rows can
+     *  switch to the "local preview" semantics. */
+    public static boolean isLocalPreviewActive()
+    {
+        return true;
+    }
+
+    /** Local playback is running (drives the play/pause button + camera
+     *  drag availability while no action-editor preview takes precedence). */
+    public static boolean isPreviewPlaybackRunning()
+    {
+        return previewPlaying;
+    }
+
+    /** Timeline length for local playback: the longest replay action track.
+     *  (Camera-clips timing is not part of the local preview yet.) */
+    private static int previewComputeDuration(UIFilmPanel panel)
+    {
+        Film film = panel.getData();
+        int duration = 1;
+
+        if (film != null)
+        {
+            for (Replay r : film.replays.getList())
+            {
+                duration = Math.max(duration, r.actions.calculateDuration());
+            }
+        }
+
+        return duration;
+    }
+
+    /** Toggle local playback of the main preview. Advances the panel cursor
+     *  (runner.ticks) on a background thread so the timeline playhead and
+     *  every scrub-linked view stay in sync with zero extra plumbing. */
+    private static void previewTogglePlay(UIFilmPanel panel)
+    {
+        if (previewPlaying)
+        {
+            previewPlaying = false;
+
+            if (previewThread != null)
+            {
+                try
+                {
+                    previewThread.join(300);
+                }
+                catch (InterruptedException ie)
+                {
+                    Thread.currentThread().interrupt();
+                }
+
+                previewThread = null;
+            }
+        }
+        else
+        {
+            previewPlaying = true;
+            previewThread = new Thread(() -> previewLoop(panel), "bbs-preview");
+            previewThread.setDaemon(true);
+            previewThread.start();
+        }
+
+        patchRunning(previewPlaying);
+    }
+
+    /** Local playback loop: tick the panel cursor at 20 Hz. setCursor only
+     *  assigns runner.ticks + sends a lightweight SEEK, so this is safe off
+     *  the render thread (the aePreview loop injects scripts the same way). */
+    private static void previewLoop(UIFilmPanel panel)
+    {
+        while (previewPlaying)
+        {
+            try
+            {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException ie)
+            {
+                Thread.currentThread().interrupt();
+                break;
+            }
+
+            int duration = previewComputeDuration(panel);
+            int cursor = panel.getCursor() + 1;
+
+            if (cursor > duration)
+            {
+                cursor = 0;
+            }
+
+            panel.setCursor(cursor);
+            MCEFUI.injectScript("window.bbsState.cursor=" + cursor + ";if(window.bbsState&&typeof renderTimeline==='function')renderTimeline(window.bbsState);");
+        }
+    }
+
+    /** Ensure the main-preview orbit camera exists (focus near the origin,
+     *  3/4 view). Data-only: never touches the game camera controller. */
+    private static void previewEnsureOrbit()
+    {
+        if (previewOrbit == null)
+        {
+            previewOrbit = new OrbitCamera();
+            previewOrbit.position.set(0, 1, 0);
+            previewOrbit.rotation.set(0.2F, 0.6F, 0F);
+            previewOrbit.fov = MathUtils.toRad(60F);
+            previewOrbit.speed.setX(6);
+        }
+    }
+
+    /** Submit the main-preview PiP canvas (all film characters rendered at
+     *  the panel cursor). Called from MCEFUI.renderBrowser BEFORE the action
+     *  editor's PiP so the modal preview wins when both are active. The menu
+     *  is the active dashboard panel - the film panel is resolved from it. */
+    public static void mainPreviewSubmitPip(GuiGraphicsExtractor extractor, UIBaseMenu menu)
+    {
+        if (!(menu instanceof UIDashboard) || !vpValid || vpW <= 0 || vpH <= 0)
+        {
+            return;
+        }
+
+        UIFilmPanel panel = ((UIDashboard) menu).getPanel(UIFilmPanel.class);
+        Film film = panel == null ? null : panel.getData();
+
+        if (film == null || film.replays.getList().isEmpty())
+        {
+            return;
+        }
+
+        extractor.guiRenderState.addPicturesInPictureState(new UIModelPipRenderState(
+            (poseStack, collector) -> renderPreviewInPip(poseStack, collector, panel),
+            vpX, vpY, vpX + vpW, vpY + vpH, null
+        ));
+    }
+
+    /** PiP callback: render every enabled replay at the current cursor tick.
+     *  Each stub is positioned by its own keyframes (position channels write
+     *  into the stub via IEntity.setPosition), so the scene is a real multi-
+     *  character composition - not one model pinned to the origin. */
+    private static void renderPreviewInPip(PoseStack stack, SubmitNodeCollector collector, UIFilmPanel panel)
+    {
+        Film film = panel.getData();
+
+        if (film == null)
+        {
+            return;
+        }
+
+        List<Replay> replays = film.replays.getList();
+
+        if (replays.isEmpty())
+        {
+            return;
+        }
+
+        if (previewStubs.size() > replays.size())
+        {
+            previewStubs.clear();
+        }
+
+        int tick = panel.getCursor();
+        previewEnsureOrbit();
+        OrbitCamera orbit = previewOrbit;
+
+        /* Same camera math as aePreviewRenderInPip (proven in-game). */
+        float unitsHeight = vpH / 16F;
+        float dist = Math.max((float) orbit.speed.getValue(), 0.1F);
+        float zoom = unitsHeight / (2F * dist * (float) Math.tan(orbit.fov / 2D));
+        org.joml.Matrix3f m = new org.joml.Matrix3f();
+
+        m.rotateY((float) (Math.PI - orbit.rotation.y));
+        m.rotateX(orbit.rotation.x);
+
+        org.joml.Vector3f back = new org.joml.Vector3f(0, 0, -dist);
+
+        m.transform(back);
+
+        org.joml.Vector3d eye = new org.joml.Vector3d(orbit.position.x + back.x, orbit.position.y + back.y, orbit.position.z + back.z);
+        Camera cam = new Camera();
+
+        cam.position.set(eye.x, eye.y, eye.z);
+        cam.rotation.set(orbit.rotation.x, orbit.rotation.y, orbit.rotation.z);
+        cam.fov = orbit.fov;
+        cam.updateView();
+
+        stack.pushPose();
+        stack.translate(0F, -unitsHeight / 2F, 0F);
+        stack.scale(zoom, -zoom, zoom);
+        PoseStackUtils.multiply(stack, cam.view);
+        stack.translate(-eye.x, -eye.y - 0.5F, -eye.z);
+
+        PipGeometry.setCollector(collector);
+
+        try
+        {
+            for (int i = 0; i < replays.size(); i++)
+            {
+                Replay replay = replays.get(i);
+
+                if (!replay.enabled.get())
+                {
+                    continue;
+                }
+
+                StubEntity stub = previewStubs.computeIfAbsent(i, k -> new StubEntity());
+
+                stub.setForm(replay.form.get());
+                replay.applyClientActions(tick, stub, film);
+                replay.keyframes.apply(tick, stub);
+
+                Form form = stub.getForm();
+
+                if (form == null)
+                {
+                    continue;
+                }
+
+                stack.pushPose();
+                stack.translate((float) stub.getX(), (float) stub.getY(), (float) stub.getZ());
+                FormUtilsClient.render(form, new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, stub, stack, 0xF000F0, 0, 1.0F)
+                    .modelRenderer()
+                    .camera(cam));
+                stack.popPose();
+            }
+        }
+        finally
+        {
+            PipGeometry.setCollector(null);
+            stack.popPose();
+        }
+    }
+
+    /** True when the pointer is inside the big viewport and the editor page
+     *  can accept camera drags (no world required - this is the local
+     *  preview's own orbit camera). */
+    private static boolean mainPreviewCameraUsable(double x, double y)
+    {
+        return vpValid && x >= vpX && x <= vpX + vpW && y >= vpY && y <= vpY + vpH;
     }
 
     /** The replay index whose action-editor state is currently shown, either
@@ -6508,10 +6719,7 @@ public class EditorBridge implements IHtmlBridge
                  * user sees "clicked a scene, nothing switched". */
                 refreshHtml();
 
-                /* 诉求：编辑器里有场景且绑定了世界，就默认自动进世界预览
-                 * （无需手动点"进入世界"）。enterSceneWorld 内部会判断当前场景的
-                 * background 世界是否为空，空则直接 no-op，不会误进世界。 */
-                enterSceneWorld(panel);
+                /* 泠沨定稿：主预览 = 本地无世界 PiP 渲染，选中场景**不再进世界**。 */
 
                 return;
             }

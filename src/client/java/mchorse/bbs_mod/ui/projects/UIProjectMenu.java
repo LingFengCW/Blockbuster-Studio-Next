@@ -379,9 +379,7 @@ public class UIProjectMenu extends UIBaseMenu
             {
                 mchorse.bbs_mod.ui.scenes.UISceneMenu.openScene(dashboard, scenes.getCurrent());
 
-                /* 默认选中的场景若绑定了世界，自动静默进世界预览（不再等用户手动点）。
-                 * background 为空时 enterCurrentSceneWorld 内部 no-op，不会误进世界。 */
-                lingfeng.bbsnext.mcef.EditorBridge.enterCurrentSceneWorld();
+                /* 泠沨定稿：主预览 = 本地无世界 PiP 渲染，打开作品**不再进世界**。 */
             }
 
             /* Always end up in the HTML editor, even when the work has no

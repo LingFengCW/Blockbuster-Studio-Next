@@ -1037,6 +1037,7 @@ var BBS_DEFAULT_STRINGS = {
   "menu.save": "保存",
   "preview.exit": "退出预览世界",
   "preview.notEntered": "未进入",
+  "preview.local": "本地预览",
   "menu.close": "关闭",
   "menu.file": "文件",
   "menu.edit": "编辑",
@@ -1375,6 +1376,7 @@ var BBS_DEFAULT_STRINGS_EN = {
   "menu.save": "Save",
   "preview.exit": "Exit Preview World",
   "preview.notEntered": "not entered",
+  "preview.local": "Local preview",
   "menu.close": "Close",
   "menu.file": "File",
   "menu.edit": "Edit",
@@ -2648,9 +2650,8 @@ function renderAll(){
   filmName.textContent = s.scene ? (S('film.prefix') + s.scene) : '';
   var sw = document.getElementById('sceneWorld');
   if(sw){
-    /* Report the ACTUAL preview state, never just the configured binding:
-       rendering "预览世界: X" straight from the scene's background field made a
-       failed or half-loaded entry look identical to a working one. */
+    /* 主预览 = 本地无世界渲染（泠沨定稿）。有角色时显示本地预览态；
+       手动进世界/加载失败等旧状态仅在那些流程真正发生时出现。 */
     if(s.previewError){
       sw.textContent = '⚠ ' + s.previewError;
       sw.style.color = 'var(--c-danger)';
@@ -2660,12 +2661,10 @@ function renderAll(){
     } else if(s.previewWorldLoaded){
       sw.textContent = S('preview.world') + '：' + s.previewWorldLoaded;
       sw.style.color = '';
-    } else if(s.sceneWorld){
-      sw.textContent = s.sceneWorld + '（' + S('preview.notEntered') + '）';
-      sw.style.color = 'var(--c-text-3)';
     } else {
-      sw.textContent = '';
-      sw.style.color = '';
+      var chCount = (s.characters && s.characters.length) ? s.characters.length : 0;
+      sw.textContent = S('preview.local') + ' · ' + chCount + ' 角色';
+      sw.style.color = 'var(--c-text-3)';
     }
   }
   dirtyMark.className = 'title-dirty' + (s.dirty ? ' show' : '');
@@ -4878,9 +4877,12 @@ document.addEventListener('keydown', function(e){
    不再经 PNG 文件中转。这里只负责无世界时的占位符显隐与蒙版/拴绳/剪切叠加层重绘。 */
 setInterval(function(){
   var s = window.bbsState || {};
-  var hasWorld = !!(s.previewWorldLoaded || s.worldLoading || s.inWorld || window._sceneWorldEntering);
+  /* 本地预览（无世界）：有角色就有画面；无角色时显示占位符。
+     手动进世界流程仍有自己的世界态。 */
+  var hasContent = (s.localPreview && s.characters && s.characters.length)
+    || s.previewWorldLoaded || s.worldLoading || s.inWorld || window._sceneWorldEntering;
   var ph = document.getElementById('vpPh');
-  if (ph) ph.style.display = hasWorld ? 'none' : 'flex';
+  if (ph) ph.style.display = hasContent ? 'none' : 'flex';
   drawOverlay();
 }, 100);
 

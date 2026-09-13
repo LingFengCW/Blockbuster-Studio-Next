@@ -28,6 +28,7 @@ public final class EditorStrings
         put("preview.enter", "进入预览世界", "Enter Preview World");
         put("preview.exit", "退出预览世界", "Exit Preview World");
         put("preview.notEntered", "未进入", "not entered");
+        put("preview.local", "本地预览", "Local preview");
         put("menu.close", "关闭", "Close");
 
         /* ----- top menu ----- */

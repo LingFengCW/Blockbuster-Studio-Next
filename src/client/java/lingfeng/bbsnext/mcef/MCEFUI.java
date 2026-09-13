@@ -744,6 +744,10 @@ public class MCEFUI
                 0xFFFFFFFF,
                 context.scissorStack.peek()));
 
+            /* 主预览：当前 film 的所有角色本地渲染进 #mainViewport 矩形
+             * （无世界、无实体，详见 EditorBridge.mainPreviewSubmitPip）。 */
+            lingfeng.bbsnext.mcef.EditorBridge.mainPreviewSubmitPip(context, menu);
+
             /* 动作编辑器：最上层叠加 PiP 独立画布，直接渲染 morph（无世界、无实体）。 */
             lingfeng.bbsnext.mcef.EditorBridge.aePreviewSubmitPip(context, width, height);
         }
