@@ -1199,6 +1199,10 @@ var BBS_DEFAULT_STRINGS = {
   "ae.f.blendOut": "淡出 (blendOut)",
   "ae.f.mode": "移动模式 (mode)",
   "ae.f.step": "步长 (每步方块)",
+  "ae.f.blockPos": "方块坐标 (XYZ)",
+  "ae.f.blockState": "方块 (ID)",
+  "ae.f.drop": "破坏后掉落",
+  "ae.f.progress": "破坏进度 (0-9)",
   "ae.f.deleteAction": "删除此动作",
   "ae.f.type": "类型",
   "ae.f.deleteMaterial": "删除此材质",
@@ -1537,6 +1541,10 @@ var BBS_DEFAULT_STRINGS_EN = {
   "ae.f.blendOut": "Fade out (blendOut)",
   "ae.f.mode": "Move mode",
   "ae.f.step": "Step (blocks per step)",
+  "ae.f.blockPos": "Block pos (XYZ)",
+  "ae.f.blockState": "Block (ID)",
+  "ae.f.drop": "Drop on break",
+  "ae.f.progress": "Break stage (0-9)",
   "ae.f.deleteAction": "Delete this action",
   "ae.f.type": "Type",
   "ae.f.deleteMaterial": "Delete this material",
@@ -3069,6 +3077,34 @@ function aeRenderAction(right, a, ae){
     var stepIn = numInput(a.step, 0, 0.1);
     stepIn.onchange = function(){ send('aeSetStep', { ai: a.index, value: parseFloat(this.value) || 0 }); };
     right.appendChild(field(S('ae.f.step'), stepIn));
+  }
+
+  /* 方块动作（放置/破坏）：坐标 / 方块 / 破坏进度；本地预览按时间轴渲染虚拟方块层 */
+  if(a.block){
+    var bk = a.block;
+    var coordRow = document.createElement('div'); coordRow.style.display = 'flex'; coordRow.style.gap = '6px';
+    ['x','y','z'].forEach(function(ax){
+      var inp = numInput(bk[ax], null, 1);
+      inp.style.width = '60px';
+      inp.onchange = function(){ send('aeSetActionProp', { ai: a.index, key: ax, value: parseInt(this.value) || 0 }); };
+      var wrap = document.createElement('label'); wrap.style.flex = '1'; wrap.style.fontSize = '11px'; wrap.style.color = 'var(--c-text-3)';
+      wrap.appendChild(document.createTextNode(ax.toUpperCase()));
+      wrap.appendChild(inp);
+      coordRow.appendChild(wrap);
+    });
+    right.appendChild(field(S('ae.f.blockPos'), null));
+    right.lastChild.appendChild(coordRow);
+    if(bk.placeKind === 'place'){
+      var bsIn = document.createElement('input'); bsIn.type = 'text'; bsIn.value = (bk.blockState || 'minecraft:stone');
+      bsIn.placeholder = 'minecraft:stone';
+      bsIn.onchange = function(){ send('aeSetActionProp', { ai: a.index, key: 'blockState', value: this.value }); };
+      right.appendChild(field(S('ae.f.blockState'), bsIn));
+      right.appendChild(toggleInline(S('ae.f.drop'), bk.drop, function(v){ send('aeSetActionProp', { ai: a.index, key: 'drop', value: v }); }));
+    } else {
+      var prIn = numInput(bk.progress, 0, 1);
+      prIn.onchange = function(){ var v = parseInt(this.value) || 0; if(v > 9) v = 9; this.value = v; send('aeSetActionProp', { ai: a.index, key: 'progress', value: v }); };
+      right.appendChild(field(S('ae.f.progress'), prIn));
+    }
   }
 
   var del = document.createElement('button'); del.className = 'btn'; del.textContent = S('ae.f.deleteAction'); del.style.marginTop = '6px';

@@ -63,6 +63,9 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.actions.types.LocomotionActionClip;
 import mchorse.bbs_mod.actions.types.ScriptActionClip;
+import mchorse.bbs_mod.actions.types.blocks.BlockActionClip;
+import mchorse.bbs_mod.actions.types.blocks.BreakBlockActionClip;
+import mchorse.bbs_mod.actions.types.blocks.PlaceBlockActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemActionClip;
 import mchorse.bbs_mod.actions.SuperFakePlayer;
 import mchorse.bbs_mod.forms.entities.MCEntity;
@@ -85,6 +88,10 @@ import lingfeng.bbsnext.film.replays.TrackProp;
 import lingfeng.bbsnext.film.replays.TrackOrderStore;
 import lingfeng.bbsnext.film.replays.CameraTrackStore;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.block.BlockModelRenderState;
+import net.minecraft.client.renderer.block.BlockModelResolver;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.renderer.block.model.BlockDisplayContext;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -142,7 +149,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -1875,6 +1884,9 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "aeSetBlendOut":
                 aeSetClipField(panel, req, c -> c.envelope.fadeOut.set((float) req.get("value").getAsDouble()));
+                break;
+            case "aeSetActionProp":
+                aeSetActionProp(panel, req);
                 break;
             case "screenshot":
                 screenshot(panel);
@@ -4837,6 +4849,29 @@ public class EditorBridge implements IHtmlBridge
                         a.addProperty("mode", loc.mode.get());
                         a.addProperty("step", loc.step.get());
                     }
+                    if (clip instanceof BlockActionClip block)
+                    {
+                        /* 方块动作（放置/破坏）：坐标 + 方块状态，本地预览按时间轴渲染虚拟方块层。 */
+                        JsonObject b = new JsonObject();
+
+                        b.addProperty("x", block.x.get());
+                        b.addProperty("y", block.y.get());
+                        b.addProperty("z", block.z.get());
+
+                        if (clip instanceof PlaceBlockActionClip place)
+                        {
+                            b.addProperty("placeKind", "place");
+                            b.addProperty("blockState", blockStateToString(place.state.get()));
+                            b.addProperty("drop", place.drop.get());
+                        }
+                        else if (clip instanceof BreakBlockActionClip brk)
+                        {
+                            b.addProperty("placeKind", "break");
+                            b.addProperty("progress", brk.progress.get());
+                        }
+
+                        a.add("block", b);
+                    }
                     if (clip instanceof ScriptActionClip sac)
                     {
                         a.addProperty("script", sac.script.get());
@@ -5700,11 +5735,156 @@ public class EditorBridge implements IHtmlBridge
                     .camera(cam));
                 stack.popPose();
             }
+
+            /* 动作方块层：放置/破坏方块动作的虚拟方块（无世界，按时间轴模拟）。 */
+            renderPreviewBlocks(stack, collector, film, tick);
         }
         finally
         {
             PipGeometry.setCollector(null);
             stack.popPose();
+        }
+    }
+
+    /** Lazily created block model resolver (thread-confined to the PiP
+     *  render callback, like {@code previewStubs}). */
+    private static BlockModelResolver previewBlockResolver = null;
+
+    /** A virtual block shown in the local preview: its state plus the break
+     *  progress stage currently visible (-1 = intact). */
+    private record PreviewBlock(net.minecraft.world.level.block.state.BlockState state, int breaking)
+    {
+    }
+
+    /** Simulate the block action clips of the film up to {@code tick}:
+     *  place clips put their state (AIR clears), break clips show the
+     *  configured destruction stage while active and remove the block once
+     *  they end. Same-position clips apply in timeline order. */
+    private static Map<Long, PreviewBlock> previewCollectBlocks(Film film, int tick)
+    {
+        Map<Long, BlockState> placed = new LinkedHashMap<>();
+        Map<Long, Integer> breaking = new LinkedHashMap<>();
+        List<BlockActionClip> clips = new ArrayList<>();
+
+        for (Replay r : film.replays.getList())
+        {
+            for (Clip c : r.actions.get())
+            {
+                if (c instanceof BlockActionClip block)
+                {
+                    clips.add(block);
+                }
+            }
+        }
+
+        clips.sort(Comparator.comparingInt(c -> c.tick.get()));
+
+        for (BlockActionClip clip : clips)
+        {
+            int start = clip.tick.get();
+            int end = start + clip.duration.get();
+            long key = BlockPos.asLong(clip.x.get(), clip.y.get(), clip.z.get());
+
+            if (tick < start)
+            {
+                continue;
+            }
+
+            if (clip instanceof PlaceBlockActionClip place)
+            {
+                if (place.state.get().getBlock() == Blocks.AIR)
+                {
+                    placed.remove(key);
+                    breaking.remove(key);
+                }
+                else
+                {
+                    placed.put(key, place.state.get());
+                    breaking.remove(key);
+                }
+            }
+            else if (clip instanceof BreakBlockActionClip brk)
+            {
+                if (tick < end && placed.containsKey(key))
+                {
+                    breaking.put(key, brk.progress.get());
+                }
+                else if (tick >= end)
+                {
+                    placed.remove(key);
+                    breaking.remove(key);
+                }
+            }
+        }
+
+        Map<Long, PreviewBlock> result = new LinkedHashMap<>();
+
+        for (Map.Entry<Long, BlockState> e : placed.entrySet())
+        {
+            Integer stage = breaking.get(e.getKey());
+
+            result.put(e.getKey(), new PreviewBlock(e.getValue(), stage == null ? -1 : stage));
+        }
+
+        return result;
+    }
+
+    /** Submit the virtual block layer into the PiP canvas. Uses the vanilla
+     *  26.1+ block model pipeline (BlockModelResolver -> BlockModelRenderState),
+     *  so blocks render exactly like block displays - no world required.
+     *  Breaking blocks go through submitBreakingBlockModel (crack overlay). */
+    private static void renderPreviewBlocks(PoseStack stack, SubmitNodeCollector collector, Film film, int tick)
+    {
+        Map<Long, PreviewBlock> blocks = previewCollectBlocks(film, tick);
+
+        if (blocks.isEmpty())
+        {
+            return;
+        }
+
+        if (previewBlockResolver == null)
+        {
+            previewBlockResolver = new BlockModelResolver(Minecraft.getInstance().getModelManager());
+        }
+
+        for (Map.Entry<Long, PreviewBlock> e : blocks.entrySet())
+        {
+            PreviewBlock block = e.getValue();
+            int x = BlockPos.getX(e.getKey());
+            int y = BlockPos.getY(e.getKey());
+            int z = BlockPos.getZ(e.getKey());
+
+            stack.pushPose();
+            stack.translate(x, y, z);
+
+            try
+            {
+                BlockModelRenderState renderState = new BlockModelRenderState();
+
+                previewBlockResolver.update(renderState, block.state(), BlockDisplayContext.create());
+
+                if (block.breaking() < 0)
+                {
+                    renderState.submit(stack, collector, 0xF000F0, 0, 0);
+                }
+                else
+                {
+                    List<BlockStateModelPart> parts = renderState.setupModel(new org.joml.Matrix4f(), false);
+
+                    if (!parts.isEmpty())
+                    {
+                        collector.submitBreakingBlockModel(stack, parts, block.breaking());
+                    }
+                }
+            }
+            catch (Throwable t)
+            {
+                BBSMod.LOGGER.error("[EditorBridge] preview block render failed", t);
+            }
+            finally
+            {
+                stack.popPose();
+            }
         }
     }
 
@@ -6215,6 +6395,108 @@ public class EditorBridge implements IHtmlBridge
         Clip clip = replay.actions.get(ai);
         BaseValue.edit(film, f -> editor.accept(clip));
         refreshHtml();
+    }
+
+    /** Write back one block-action property (x/y/z/progress/drop/blockState)
+     *  from the action editor. Values arrive as JSON primitives; the block
+     *  id string is resolved against BuiltInRegistries (default state). */
+    private static void aeSetActionProp(UIFilmPanel panel, JsonObject req)
+    {
+        Film film = panel.getData();
+        int ri = editorReplayIndex();
+        if (film == null || ri < 0 || ri >= film.replays.getList().size()) return;
+        Replay replay = film.replays.getList().get(ri);
+        int ai = req.has("ai") ? req.get("ai").getAsInt() : -1;
+        String key = req.has("key") ? req.get("key").getAsString() : "";
+        if (ai < 0 || ai >= replay.actions.get().size() || key.isEmpty()) return;
+
+        Clip clip = replay.actions.get(ai);
+
+        if (!(clip instanceof BlockActionClip block))
+        {
+            return;
+        }
+
+        String error = null;
+
+        switch (key)
+        {
+            case "x" -> block.x.set(req.get("value").getAsInt());
+            case "y" -> block.y.set(req.get("value").getAsInt());
+            case "z" -> block.z.set(req.get("value").getAsInt());
+            case "progress" ->
+            {
+                if (clip instanceof BreakBlockActionClip brk)
+                {
+                    brk.progress.set(Math.max(0, Math.min(9, req.get("value").getAsInt())));
+                }
+            }
+            case "drop" ->
+            {
+                if (clip instanceof PlaceBlockActionClip place)
+                {
+                    place.drop.set(req.get("value").getAsBoolean());
+                }
+            }
+            case "blockState" ->
+            {
+                if (clip instanceof PlaceBlockActionClip place)
+                {
+                    net.minecraft.world.level.block.state.BlockState state = parseBlockState(req.get("value").getAsString());
+
+                    if (state == null)
+                    {
+                        error = "未知方块: " + req.get("value").getAsString();
+                    }
+                    else
+                    {
+                        place.state.set(state);
+                    }
+                }
+            }
+        }
+
+        if (error != null)
+        {
+            MCEFUI.injectScript("toast('" + error.replace("'", "\\'") + "', true)");
+        }
+
+        BaseValue.edit(film, f -> {});
+        refreshHtml();
+    }
+
+    /** Render a BlockState as its registry id (e.g. "minecraft:stone") for
+     *  the action editor property panel. Block state properties are not
+     *  round-tripped (the editor edits at block-id granularity). */
+    private static String blockStateToString(net.minecraft.world.level.block.state.BlockState state)
+    {
+        return BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+    }
+
+    /** Parse a block id string ("stone" / "minecraft:stone") into its
+     *  default block state. Returns null when the id is unknown. */
+    private static net.minecraft.world.level.block.state.BlockState parseBlockState(String id)
+    {
+        if (id == null || id.isBlank())
+        {
+            return null;
+        }
+
+        String normalized = id.trim();
+
+        if (!normalized.contains(":"))
+        {
+            normalized = "minecraft:" + normalized;
+        }
+
+        try
+        {
+            return BuiltInRegistries.BLOCK.get(Identifier.parse(normalized)).orElseThrow().value().defaultBlockState();
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
     }
 
     /** Capture the live 3D world (Minecraft's main render target) to a PNG in
