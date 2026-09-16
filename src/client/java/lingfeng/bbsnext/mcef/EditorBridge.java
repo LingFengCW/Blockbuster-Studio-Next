@@ -30,6 +30,12 @@ import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.cubic.ModelInstance;
+import mchorse.bbs_mod.cubic.data.model.Model;
+import mchorse.bbs_mod.cubic.data.model.ModelCube;
+import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.cubic.data.model.ModelQuad;
+import mchorse.bbs_mod.cubic.data.model.ModelVertex;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -1887,6 +1893,12 @@ public class EditorBridge implements IHtmlBridge
                 break;
             case "aeSetActionProp":
                 aeSetActionProp(panel, req);
+                break;
+            case "webglRequestModels":
+                pushWebglModels(panel);
+                break;
+            case "setWebglActive":
+                webglPreviewActive = req.has("on") && req.get("on").getAsBoolean();
                 break;
             case "screenshot":
                 screenshot(panel);
@@ -4491,6 +4503,7 @@ public class EditorBridge implements IHtmlBridge
             panel.showPanel(1);
             panel.fillData();
             refreshHtml();
+            pushWebglModels(panel);
         });
     }
 
@@ -5416,6 +5429,12 @@ public class EditorBridge implements IHtmlBridge
             return true;
         }
 
+        /* 网页 WebGL 渲染器接管时，视口拖拽归页面相机，Java 不吞事件。 */
+        if (webglPreviewActive)
+        {
+            return false;
+        }
+
         previewEnsureOrbit();
         previewOrbit.start((int) x, (int) y);
 
@@ -5453,6 +5472,11 @@ public class EditorBridge implements IHtmlBridge
         {
             aePreviewEnsureOrbit();
             orbit = aePreviewOrbit;
+        }
+        else if (webglPreviewActive)
+        {
+            /* 网页渲染器接管：滚轮归页面相机。 */
+            return false;
         }
         else
         {
@@ -5508,6 +5532,11 @@ public class EditorBridge implements IHtmlBridge
      *  world-bound UIFilmController runner). */
     private static volatile boolean previewPlaying = false;
     private static Thread previewThread = null;
+
+    /** True once the page's WebGL preview renderer has models to show. The
+     *  PiP submission yields to it (no double rendering) and viewport drag
+     *  events are routed to the page camera instead of the Java orbit. */
+    private static volatile boolean webglPreviewActive = false;
 
     /** True when the big viewport can be filled with the local (no-world)
      *  film preview. Exposed to the HTML so placeholders/state rows can
@@ -5626,6 +5655,12 @@ public class EditorBridge implements IHtmlBridge
      *  is the active dashboard panel - the film panel is resolved from it. */
     public static void mainPreviewSubmitPip(GuiGraphicsExtractor extractor, UIBaseMenu menu)
     {
+        /* 网页 WebGL 渲染器已接管主预览时让位，避免同一模型双份渲染。 */
+        if (webglPreviewActive)
+        {
+            return;
+        }
+
         if (!(menu instanceof UIDashboard) || !vpValid || vpW <= 0 || vpH <= 0)
         {
             return;
@@ -5894,6 +5929,104 @@ public class EditorBridge implements IHtmlBridge
     private static boolean mainPreviewCameraUsable(double x, double y)
     {
         return vpValid && x >= vpX && x <= vpX + vpW && y >= vpY && y <= vpY + vpH;
+    }
+
+    /* ---------- 网页 WebGL 预览：模型资产导出（泠沨定稿：预览用网页渲染，
+     *  Java 只当资产服务器——模型 mesh/纹理推给页面，Chromium WebGL 绘制，
+     *  不依赖 MC 渲染 API。过渡期与 PiP 渲染并存。） ---------- */
+
+    /** Export every ModelForm replay as a flat quad mesh (positions + UVs,
+     *  baked in model space by ModelCube.generateQuads) plus the texture as a
+     *  base64 data URL, then push it to the page. The page's WebGL renderer
+     *  owns the camera and the draw loop from there. */
+    private static void pushWebglModels(UIFilmPanel panel)
+    {
+        Film film = panel.getData();
+        JsonArray models = new JsonArray();
+
+        if (film != null)
+        {
+            int ri = 0;
+
+            for (Replay r : film.replays.getList())
+            {
+                if (r.form.get() instanceof ModelForm mf)
+                {
+                    ModelInstance instance = BBSModClient.getModels().getModel(mf.model.get());
+
+                    if (instance != null && instance.model instanceof Model model)
+                    {
+                        JsonObject m = new JsonObject();
+
+                        m.addProperty("replay", ri);
+                        m.addProperty("label", r.getName());
+                        m.addProperty("tw", model.textureWidth);
+                        m.addProperty("th", model.textureHeight);
+                        m.addProperty("texture", textureDataUrl(mf.texture.get() == null ? instance.texture : mf.texture.get()));
+
+                        JsonArray quads = new JsonArray();
+
+                        for (ModelGroup group : model.getOrderedGroups())
+                        {
+                            if (!group.visible)
+                            {
+                                continue;
+                            }
+
+                            for (ModelCube cube : group.cubes)
+                            {
+                                for (ModelQuad quad : cube.quads)
+                                {
+                                    for (ModelVertex vertex : quad.vertices)
+                                    {
+                                        quads.add(vertex.vertex.x);
+                                        quads.add(vertex.vertex.y);
+                                        quads.add(vertex.vertex.z);
+                                        quads.add(vertex.uv.x);
+                                        quads.add(vertex.uv.y);
+                                    }
+                                }
+                            }
+                        }
+
+                        m.add("quads", quads);
+                        models.add(m);
+                    }
+                }
+
+                ri++;
+            }
+        }
+
+        JsonObject root = new JsonObject();
+
+        root.add("models", models);
+        MCEFUI.injectScript("window.bbsGlSetModels && window.bbsGlSetModels(" + root + ");");
+    }
+
+    /** Read the texture behind a Link through the asset provider and encode
+     *  it as a PNG data URL for the page. Empty string on any failure (the
+     *  page falls back to a flat colour). */
+    private static String textureDataUrl(Link tex)
+    {
+        if (tex == null)
+        {
+            return "";
+        }
+
+        try (java.io.InputStream in = BBSMod.getProvider().getAsset(tex))
+        {
+            if (in == null)
+            {
+                return "";
+            }
+
+            return "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(in.readAllBytes());
+        }
+        catch (Exception e)
+        {
+            return "";
+        }
     }
 
     /** The replay index whose action-editor state is currently shown, either
@@ -6647,6 +6780,9 @@ public class EditorBridge implements IHtmlBridge
 
         sequences.addRef(target, refType, id);
 
+        /* 资产进序列可能新增/改变角色形态，网页渲染器需要新 mesh。 */
+        pushWebglModels(bridge.panel);
+
         return "{\"ok\":true}";
     }
 
@@ -7000,6 +7136,7 @@ public class EditorBridge implements IHtmlBridge
                  * Without this the left-sidebar highlight never moves and the
                  * user sees "clicked a scene, nothing switched". */
                 refreshHtml();
+                pushWebglModels(panel);
 
                 /* 泠沨定稿：主预览 = 本地无世界 PiP 渲染，选中场景**不再进世界**。 */
 

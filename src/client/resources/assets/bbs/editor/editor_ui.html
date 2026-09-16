@@ -93,7 +93,8 @@ body{background:var(--c-bg-app);color:var(--c-text);height:100vh;overflow:hidden
 /* 右侧 */
 .right{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;}
 .viewport-wrap{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;padding:8px;min-height:0;position:relative;}
-.viewport{flex:1;border:1px solid var(--c-border);border-radius:4px;min-height:0;background:transparent;}
+.viewport{flex:1;border:1px solid var(--c-border);border-radius:4px;min-height:0;background:transparent;position:relative;}
+.gl-canvas{position:absolute;inset:0;width:100%;height:100%;display:none;touch-action:none;}
 .vp-mask{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none;z-index:1;}
 .vp-grid{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.6;
   background-image:linear-gradient(var(--c-grid) 1px,transparent 1px),linear-gradient(90deg,var(--c-grid) 1px,transparent 1px),linear-gradient(var(--c-grid-2) 1px,transparent 1px),linear-gradient(90deg,var(--c-grid-2) 1px,transparent 1px);
@@ -701,7 +702,7 @@ body.tb-mode #btnToolbarMode{ background:var(--c-accent); color:#fff; border-col
         <div id="vpGrid" class="vp-grid"></div>
         <div id="worldLoad" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:50;background:var(--c-bg);color:var(--c-accent-d);border:1px solid var(--c-border-2);border-radius:4px;padding:6px 14px;font-size:12px;" data-i18n="preview.loading"><span class="bbs-spinner"></span>正在加载预览世界…</div>
         <div id="vpPh" class="vp-ph" data-i18n="preview.empty">预览待机</div>
-        <div class="viewport" id="mainViewport"></div>
+        <div class="viewport" id="mainViewport"><canvas id="glCanvas" class="gl-canvas"></canvas></div>
         <div id="leashPanel" class="leash-panel"></div>
       </div>
 
@@ -5049,6 +5050,170 @@ function drawOverlay(){
   if(hasClip) drawn = drawClipLayer() || drawn;
   cv.style.display = drawn ? 'block' : 'none';
 }
+
+/* ===== 网页 WebGL 预览渲染器（泠沨定稿：预览走 Chromium WebGL，Java 只推
+   模型 mesh/纹理资产；相机与绘制循环在页面内，不依赖 MC 渲染 API） ===== */
+var GLR = { gl:null, canvas:null, models:[], yaw:0.6, pitch:0.25, dist:6, ty:0.8, whiteTex:null };
+(function(){
+  var cv = document.getElementById('glCanvas');
+  if(!cv) return;
+  GLR.canvas = cv;
+  var gl = cv.getContext('webgl', { alpha:true, antialias:true });
+  if(!gl) return;
+  GLR.gl = gl;
+  var vs = 'attribute vec3 aPos;attribute vec2 aUV;attribute vec3 aNormal;uniform mat4 uProj,uView;varying vec2 vUV;varying vec3 vN;'
+    + 'void main(){gl_Position=uProj*uView*vec4(aPos,1.0);vUV=aUV;vN=aNormal;}';
+  var fs = 'precision mediump float;varying vec2 vUV;varying vec3 vN;uniform sampler2D uTex;uniform float uHasTex;'
+    + 'void main(){vec4 c=uHasTex>0.5?texture2D(uTex,vUV):vec4(0.62,0.66,0.72,1.0);if(c.a<0.05)discard;'
+    + 'vec3 n=normalize(vN);float l=0.62+0.30*max(dot(n,normalize(vec3(0.35,0.85,0.45))),0.0)+0.12*max(dot(n,vec3(0.0,1.0,0.0)),0.0);'
+    + 'gl_FragColor=vec4(c.rgb*l,c.a);}';
+  function sh(t,s){var o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.error('[glCanvas]',gl.getShaderInfoLog(o));return o;}
+  var p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)) console.error('[glCanvas] link failed');
+  gl.useProgram(p);
+  GLR.loc = { pos:gl.getAttribLocation(p,'aPos'), uv:gl.getAttribLocation(p,'aUV'), nrm:gl.getAttribLocation(p,'aNormal'),
+    proj:gl.getUniformLocation(p,'uProj'), view:gl.getUniformLocation(p,'uView'),
+    tex:gl.getUniformLocation(p,'uTex'), hasTex:gl.getUniformLocation(p,'uHasTex') };
+  gl.enable(gl.DEPTH_TEST);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  /* 纯白占位纹理 */
+  GLR.whiteTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, GLR.whiteTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255,255,255,255]));
+
+  /* 相机交互：左键拖拽旋转、滚轮推拉 */
+  var dragging=false, lx=0, ly=0;
+  cv.addEventListener('pointerdown', function(e){ dragging=true; lx=e.clientX; ly=e.clientY; try{cv.setPointerCapture(e.pointerId);}catch(_){} });
+  cv.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    GLR.yaw += (e.clientX-lx)*0.01;
+    GLR.pitch = Math.max(-1.35, Math.min(1.35, GLR.pitch+(e.clientY-ly)*0.01));
+    lx=e.clientX; ly=e.clientY;
+  });
+  cv.addEventListener('pointerup', function(){ dragging=false; });
+  cv.addEventListener('wheel', function(e){ GLR.dist=Math.max(1.2, Math.min(60, GLR.dist*(e.deltaY>0?1.12:0.9))); e.preventDefault(); }, {passive:false});
+
+  /* 迷你 mat4：透视 + lookAt（列主序，与 WebGL 一致） */
+  function persp(fovy, aspect, near, far){
+    var f = 1/Math.tan(fovy/2), o = new Float32Array(16);
+    o[0]=f/aspect; o[5]=f; o[10]=(far+near)/(near-far); o[11]=-1; o[14]=2*far*near/(near-far);
+    return o;
+  }
+  function lookAt(eye, ctr, up){
+    var zx=eye[0]-ctr[0], zy=eye[1]-ctr[1], zz=eye[2]-ctr[2];
+    var zl=Math.hypot(zx,zy,zz)||1; zx/=zl; zy/=zl; zz/=zl;
+    var xx=up[1]*zz-up[2]*zy, xy=up[2]*zx-up[0]*zz, xz=up[0]*zy-up[1]*zx;
+    var xl=Math.hypot(xx,xy,xz)||1; xx/=xl; xy/=xl; xz/=xl;
+    var yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+    var o = new Float32Array(16);
+    o[0]=xx; o[4]=xy; o[8]=xz;  o[12]=-(xx*eye[0]+xy*eye[1]+xz*eye[2]);
+    o[1]=yx; o[5]=yy; o[9]=yz;  o[13]=-(yx*eye[0]+yy*eye[1]+yz*eye[2]);
+    o[2]=zx; o[6]=zy; o[10]=zz; o[14]=-(zx*eye[0]+zy*eye[1]+zz*eye[2]);
+    o[15]=1;
+    return o;
+  }
+  function resize(){
+    var w = cv.clientWidth|0, h = cv.clientHeight|0;
+    if(w>0 && h>0 && (cv.width!==w || cv.height!==h)){ cv.width=w; cv.height=h; }
+  }
+  function draw(){
+    var gl=GLR.gl; if(!gl) return;
+    var w=cv.width, h=cv.height;
+    if(!w || !h) return;
+    gl.viewport(0,0,w,h);
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    var proj = persp(60*Math.PI/180, w/h, 0.05, 300);
+    var eye = [ GLR.dist*Math.cos(GLR.pitch)*Math.sin(GLR.yaw),
+                GLR.ty + GLR.dist*Math.sin(GLR.pitch),
+                GLR.dist*Math.cos(GLR.pitch)*Math.cos(GLR.yaw) ];
+    var view = lookAt(eye, [0, GLR.ty, 0], [0,1,0]);
+    gl.uniformMatrix4fv(GLR.loc.proj, false, proj);
+    gl.uniformMatrix4fv(GLR.loc.view, false, view);
+    gl.uniform1i(GLR.loc.tex, 0);
+    GLR.models.forEach(function(m){
+      if(!m.buf || !m.count) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, m.buf);
+      gl.vertexAttribPointer(GLR.loc.pos, 3, gl.FLOAT, false, 32, 0);
+      gl.vertexAttribPointer(GLR.loc.uv, 2, gl.FLOAT, false, 32, 12);
+      gl.vertexAttribPointer(GLR.loc.nrm, 3, gl.FLOAT, false, 32, 20);
+      gl.enableVertexAttribArray(GLR.loc.pos);
+      gl.enableVertexAttribArray(GLR.loc.uv);
+      gl.enableVertexAttribArray(GLR.loc.nrm);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, m.tex || GLR.whiteTex);
+      gl.uniform1f(GLR.loc.hasTex, m.tex ? 1 : 0);
+      gl.drawArrays(gl.TRIANGLES, 0, m.count);
+    });
+  }
+  function loop(){
+    if(GLR.models.length){ resize(); draw(); }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* Java 推送模型资产：quads 扁平数组（每 quad 4 顶点 × [x,y,z,u,v]），
+     页面拆成双三角 + 按面几何算法线；纹理 base64 PNG 异步解码上传。 */
+  window.bbsGlSetModels = function(data){
+    if(!gl) return;
+    GLR.models = [];
+    ((data && data.models) || []).forEach(function(m){
+      var entry = { buf:null, count:0, tex:null };
+      var q = m.quads || [], tris = [];
+      for(var i = 0; i + 19 < q.length; i += 20){
+        var v = [];
+        for(var k = 0; k < 20; k++) v.push(q[i+k]);
+        tris.push(v[0],v[1],v[2],v[3],v[4], v[5],v[6],v[7],v[8],v[9], v[10],v[11],v[12],v[13],v[14]);
+        tris.push(v[0],v[1],v[2],v[3],v[4], v[10],v[11],v[12],v[13],v[14], v[15],v[16],v[17],v[18],v[19]);
+      }
+      if(tris.length){
+        entry.count = tris.length/5;
+        entry.buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, entry.buf);
+        /* interleaved: pos(3) uv(2) normal(3) = 8 floats/vertex；法线按面叉积 */
+        var intl = new Float32Array(tris.length/5*8);
+        for(var t = 0; t < tris.length/15; t++){
+          var b = t*15;
+          var ax=tris[b+5]-tris[b], ay=tris[b+6]-tris[b+1], az=tris[b+7]-tris[b+2];
+          var bx=tris[b+10]-tris[b], by=tris[b+11]-tris[b+1], bz=tris[b+12]-tris[b+2];
+          var nx=ay*bz-az*by, ny=az*bx-ax*bz, nz=ax*by-ay*bx;
+          var nl=Math.hypot(nx,ny,nz)||1; nx/=nl; ny/=nl; nz/=nl;
+          for(var vi = 0; vi < 3; vi++){
+            var s8=(t*3+vi)*8, s5=b+vi*5;
+            intl[s8]=tris[s5]; intl[s8+1]=tris[s5+1]; intl[s8+2]=tris[s5+2];
+            intl[s8+3]=tris[s5+3]; intl[s8+4]=tris[s5+4];
+            intl[s8+5]=nx; intl[s8+6]=ny; intl[s8+7]=nz;
+          }
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, intl, gl.STATIC_DRAW);
+      }
+      if(m.texture){
+        var img = new Image();
+        img.onload = function(){
+          var t = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, t);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          entry.tex = t;
+        };
+        img.src = m.texture;
+      }
+      GLR.models.push(entry);
+    });
+    cv.style.display = GLR.models.length ? 'block' : 'none';
+    var ph = document.getElementById('vpPh');
+    if(ph && GLR.models.length) ph.style.display = 'none';
+    send('setWebglActive', { on: GLR.models.length > 0 });
+  };
+
+  send('webglRequestModels', {});
+})();
 
 renderAll();
 pushMetrics();
